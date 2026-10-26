@@ -6,26 +6,24 @@ rationale are captured as ADRs in [adr/](adr/).
 
 ## 1. System context
 
-```
-                        ┌──────────────────────────────────────────────┐
-                        │                FMS (this project)            │
-  ┌──────────────┐  ┌───┴─────────────┐      ┌──────────────────────┐  │
-  │  Browser     │  │  Management API │      │      Dashboard (SPA) │  │
-  │  (dashboard) │◄─┤  REST + static  │◄─────│  static assets       │  │
-  └──────────────┘  └───┬─────────────┘      └──────────────────────┘  │
-                        │ 1) sync (HTTP pull, ETag)      2) auth/CRUD  │
-                        │ 3) evaluate (gRPC, OpenFeature)               │
-                        ▼                                               │
-  ┌──────────────┐  ┌─────────────┐                                    │
-  │    flagd     │  │   SQLite    │  system of record                   │
-  │ (eval engine)│  │  (WAL)      │                                    │
-  └──────┬───────┘  └─────────────┘                                    │
-         │ gRPC 8013 (eval), gRPC 8015 (sync svc)                      │
-         ▼                                                              │
-  ┌──────────────────────────────────────────────┐                      │
-  │  Client applications (OpenFeature SDKs +     │                      │
-  │  flagd provider, one instance per env)       │                      │
-  └──────────────────────────────────────────────┘                      │
+```mermaid
+flowchart TB
+    subgraph FMS["FMS (this project)"]
+        api["Management API (TypeScript, Fastify)<br/>REST + static hosting + sync endpoint"]
+        spa["Dashboard SPA (static assets,<br/>served by the API)"]
+        db[("SQLite (WAL)<br/>system of record")]
+    end
+
+    browser["Browser (dashboard user)"]
+    flagd["flagd evaluation engine<br/>ghcr.io/open-feature/flagd (Docker)"]
+    clients["Client applications<br/>official OpenFeature SDKs + flagd provider<br/>one provider instance per environment"]
+
+    browser <-->|"REST (cookie / Bearer auth)"| api
+    spa -.->|"served from"| api
+    api <-->|"auth, CRUD, audit"| db
+    flagd <-->|"sync: flagd polls GET /api/v1/sync/:env (ETag / 304, authHeader)"| api
+    api -->|"evaluate: gRPC 8013 via OpenFeature server SDK"| flagd
+    clients -->|"evaluate: gRPC 8013, selector flagSetId=env"| flagd
 ```
 
 Key properties:
@@ -168,24 +166,42 @@ const beta = client.getBooleanValue('new-checkout', false, {
 
 ### 3.1 Definition change → flagd
 
-```
-Dashboard ──PUT /api/v1/flags/:key/definitions/:env──▶ API
-  1. validate body (all-at-once; FR-14)
-  2. SQL transaction: upsert definition, bump flag.version, insert audit row
-     (FR-39: audit write failure rolls back the transaction)
-  3. respond 200 with updated flag + new version
-flagd ──GET /api/v1/sync/:env (If-None-Match)──▶ API
-  → 200 + new document + new ETag   (or 304 when unchanged)
-flagd applies model; PROVIDER_CONFIGURATION_CHANGED propagates to SDK consumers
+```mermaid
+sequenceDiagram
+    autonumber
+    participant D as Dashboard
+    participant API as Management API
+    participant DB as SQLite
+    participant F as flagd
+
+    D->>API: PUT /api/v1/flags/:key/definitions/:env
+    API->>API: validate body (all-at-once, FR-14)
+    API->>DB: tx: upsert definition + bump version + audit row
+    Note over API,DB: FR-39 — audit write failure rolls back the transaction
+    API-->>D: 200 updated flag + new version
+    F->>API: GET /api/v1/sync/:env (If-None-Match)
+    alt model changed
+        API-->>F: 200 model document + new ETag
+    else unchanged
+        API-->>F: 304 Not Modified
+    end
+    Note over F: applies model, emits PROVIDER_CONFIGURATION_CHANGED to SDK consumers
 ```
 
 End-to-end propagation latency ≈ one sync interval (≤ 5 s default; FR-29).
 
 ### 3.2 Evaluation (client app)
 
-```
-Client app ── OpenFeature SDK call ──▶ flagd provider (gRPC 8013, flagd-selector: flagSetId=<env>)
-flagd resolves against synced model → { value, variant, reason, metadata{version, ...} }
+```mermaid
+sequenceDiagram
+    participant C as Client app
+    participant P as flagd provider (OpenFeature SDK)
+    participant F as flagd
+
+    C->>P: typed call, e.g. getBooleanValue(key, default, context)
+    P->>F: gRPC 8013 (flagd-selector: flagSetId=env)
+    F-->>P: { value, variant, reason, metadata{version, ...} }
+    P-->>C: resolved value
 ```
 
 No FMS process is in this path at runtime (NFR-1 latency budget applies to flagd, which is
@@ -193,14 +209,26 @@ co-located).
 
 ### 3.3 Evaluation (FMS proxy / dashboard playground)
 
-```
-Dashboard ──POST /api/v1/evaluate {flagKey, environment, targetingKey?, context?}──▶ API
-  1. auth (evaluate scope or session)
-  2. look up definition (404 if unknown; 400 if env bad)
-  3. variant type known from our store → call matching typed SDK method
-     (getBooleanValue / getStringValue / getNumberValue … +Details)
-  4. flagd provider state ERROR/STALE-past-grace → 503 problem+json (FR-24)
-  5. else → { value, variant, reason, errorCode?, flagVersion }
+```mermaid
+sequenceDiagram
+    autonumber
+    participant D as Dashboard
+    participant API as Management API
+    participant P as OpenFeature (per-env provider)
+    participant F as flagd
+
+    D->>API: POST /api/v1/evaluate {flagKey, environment, targetingKey?, context?}
+    API->>API: auth (evaluate scope or session)
+    API->>API: look up definition (404 unknown flag / 400 bad env)
+    API->>P: typed call per stored variant type (Boolean/String/Number +Details)
+    P->>F: gRPC 8013
+    alt provider READY
+        F-->>P: { value, variant, reason, metadata }
+        P-->>API: resolution details
+        API-->>D: 200 { value, variant, reason, flagVersion }
+    else provider not READY (down / sync stalled past grace)
+        API-->>D: 503 problem+json (FR-24)
+    end
 ```
 
 ## 4. Environments as flag sets (ADR-0004)

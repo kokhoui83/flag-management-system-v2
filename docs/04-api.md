@@ -19,7 +19,7 @@ Endpoint scopes:
 | Scope | Grants |
 | --- | --- |
 | `manage` | flags/definitions CRUD, keys CRUD, audit read, evaluate |
-| `evaluate` | `POST /api/v1/evaluate` only |
+| `evaluate` | `POST /api/v1/evaluate`, `GET /api/v1/events` |
 | `sync` | `GET /api/v1/sync/:env` only (consumed by flagd) |
 | `all` | everything |
 
@@ -335,4 +335,45 @@ see architecture §7).
 
 A hand-maintained `openapi.yaml` (or generated via Fastify's `fastify-openapi-glue`, decided
 in M1) is published at `/api/v1/openapi.json` from M1 onward and kept in sync with this
-document; on conflict, this document + tests win.
+document; on conflict, this document + tests win. (SSE is specified here in §12; OpenAPI
+represents it as a `text/event-stream` response.)
+
+## 12. Events (SSE)
+
+### `GET /api/v1/events`
+
+Requires `evaluate` scope or a session. Optional filter `?envs=dev,prod` (comma-separated;
+unknown env name → `400`).
+
+```
+GET /api/v1/events?envs=staging
+Authorization: Bearer fms_…
+
+200 OK
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+
+: keepalive (comment line, every 15 s)
+
+event: flag-changed
+data: {"env":"staging","flagKey":"new-checkout","version":8,"at":"2026-10-28T12:00:03.250Z"}
+
+event: provider-ready
+data: {"env":"staging","at":"2026-10-28T12:00:05.000Z"}
+
+event: provider-error
+data: {"env":"staging","at":"2026-10-28T12:00:07.000Z"}
+```
+
+Semantics (ADR-0008):
+
+- `flag-changed` is emitted **only after** FMS's own per-env provider observes the new model
+  in flagd — it means *flagd in `env` is now serving `flagKey` at version ≥ `version`*.
+  There is no early window.
+- No replay: events are not retained. After a disconnect, reconnect and re-fetch state to
+  reconcile (FR-51).
+- `provider-ready` / `provider-error` fire on per-env provider state transitions — the same
+  states `readyz` reports (architecture §7).
+- The stream carries only flag keys + versions: nothing beyond what the management API
+  already exposes to the same credential.

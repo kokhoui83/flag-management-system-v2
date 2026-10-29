@@ -5,20 +5,25 @@ written first; the smallest production change makes it pass; then refactor with 
 green. The tests below are the *specification* — they are written before the feature they
 describe exists.
 
-Runner: **vitest**. Node ≥ 22. No test that requires Docker runs in the default `npm test`;
-Docker-dependent tests live behind `npm run test:e2e`.
+Runner: **vitest**. Node ≥ 22. No test that requires Docker runs in the default `npm test`
+(unit tier); Docker-dependent tests live behind `npm run test:integration` (testcontainers)
+and `npm run test:e2e` (compose: flagd + mariadb).
 
 ## 1. Test pyramid
 
 | Layer | What | How | Docker? |
 | --- | --- | --- | --- |
-| **Unit** | Domain: validation, rule→flagd compiler, ETag/serialization, config parsing, key hashing, ULID/version logic | pure functions, in-memory or temp-file SQLite (`:memory:`), no network | No |
-| **Integration (API)** | Routes + middleware + SQLite + model compilation, with the `FlagEvaluator` seam injected | supertest-style calls against the Fastify app; temp DB file; evaluator mocked at the `FlagEvaluator` interface | No |
+| **Unit** | Domain: validation, rule→flagd compiler, ETag/serialization, config parsing, key hashing, ULID/version logic, event-broadcaster queue | pure functions, no DB, no network | No |
+| **Integration (API)** | Routes + middleware + MariaDB + model compilation, with the `FlagEvaluator` seam injected | supertest-style calls against the Fastify app; **testcontainers** MariaDB; evaluator mocked at the `FlagEvaluator` interface | Yes (testcontainers) |
 | **Contract** | Published sync documents conform to the official flagd JSON schema; golden-file outputs of the compiler | JSON Schema (draft-07) validation + golden files committed to `test/fixtures` | No |
 | **E2E** | Real flagd in Docker: sync poll, real evaluation incl. `fractional` stickiness, ETag/304 | vitest + `docker compose` (flagd profile), retry-until-ready helper, deterministic assertions | Yes |
 
 The `FlagEvaluator` seam (architecture §2.1) is what keeps the evaluation path testable without
 flagd: unit/integration tests inject a stub; only E2E uses the real OpenFeature provider.
+
+The `web/` dashboard workspace has its own Vitest + `@vue/test-utils` component tests (rule
+editor, diff view) run by `npm test -w web`; they mock the API client and contain no network
+calls. The shared validators are tested once, in the unit tier, and imported by both sides.
 
 ## 2. Core behavior specs (Given/When/Then)
 
@@ -126,6 +131,27 @@ Each scenario maps to at least one test. `…` abbreviates context.
   **W** ≤ 2× sync interval
   **T** `readyz` returns READY and evaluation works again.
 
+- **G** a subscriber is connected to `GET /api/v1/events` (evaluate-scoped key); a definition
+  is changed
+  **W** ≤ 2× sync interval passes
+  **T** a `flag-changed` event arrives with the new version — and **not before** flagd serves
+  the new value (ordering asserted by evaluating first) (FR-51, FR-29).
+
+- **G** a subscriber disconnects, a change is committed, the subscriber reconnects
+  **W** it reads the stream
+  **T** no missed event is replayed; re-fetching the flag shows the new state (FR-51,
+  no-replay).
+
+- **G** flagd is stopped, then restarted, while a subscriber watches the stream
+  **W** the transitions happen
+  **T** a `provider-error` event is emitted on the way down; `provider-ready` on recovery
+  (FR-51).
+
+- **G** a client app with a real flagd provider registers a
+  `PROVIDER_CONFIGURATION_CHANGED` handler
+  **W** a definition is changed
+  **T** the handler fires within ≤ 2× sync interval (FR-50, ADR-0008).
+
 ### 2.4 Auth & audit
 
 - **G** no/invalid/expired credential on a managed route
@@ -135,6 +161,11 @@ Each scenario maps to at least one test. `…` abbreviates context.
 - **G** a sync request with an `evaluate`-scoped key
   **W** issued
   **T** `403`; with the `sync` key → `200` (FR-27).
+
+- **G** an `evaluate`-scoped key on `GET /api/v1/events`
+  **W** requested
+  **T** the stream opens (`200`, `text/event-stream`); the same key on
+  `GET /api/v1/sync/:env` → `403` (scope split, §1).
 
 - **G** an API key is created
   **W** its plaintext is shown
@@ -146,7 +177,8 @@ Each scenario maps to at least one test. `…` abbreviates context.
   **T** exactly one new entry: action `definition.update`, env set, before/after payloads
   match the previous/new state (FR-36).
 
-- **G** the audit write is made to fail (test seam: DB locked / trigger)
+- **G** the audit write is made to fail (test seam: a `BEFORE INSERT` trigger on
+  `audit_logs` that raises an error, installed in the test DB)
   **W** a definition update is attempted
   **T** the update is rolled back — no state change, error returned (FR-39).
 
@@ -180,7 +212,8 @@ Each scenario maps to at least one test. `…` abbreviates context.
 
 ## 3. Determinism & hygiene
 
-- No test hits the network except E2E (which talks to localhost Docker only).
+- No test hits the network except the Docker tiers (testcontainers on localhost, E2E against
+  localhost Docker only).
 - The flagd JSON schema is vendored locally; contract tests never fetch.
 - Statistical E2E assertions use fixed synthetic key sequences (deterministic population),
   so bounds are stable across runs.

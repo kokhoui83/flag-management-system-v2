@@ -19,7 +19,10 @@ system provides the management plane (API, dashboard, storage, auth, audit).
 
 ## 2. Non-goals (v1)
 
-- Multi-tenancy (projects, workspaces, per-team flag sets).
+- Cross-project multi-tenancy for *consumer* applications (per-team flag sets consumed by external
+  services). Per-project grouping and per-user roles inside one self-hosted FMS are now specified
+  via the multi-user dashboard requirements (FR-53–FR-59); client-side isolation per project
+  remains a v1 non-goal.
 - Client-side/browser evaluation (web SDKs). Browser apps are expected to evaluate flags via
   their own backend in v1 (see ADR-0004 and open questions).
 - Scheduled/time-based rollouts through the API (flagd can express them via
@@ -35,7 +38,10 @@ system provides the management plane (API, dashboard, storage, auth, audit).
 
 | Persona | Needs |
 | --- | --- |
-| **Application developer** | Evaluate a flag from their code with the standard OpenFeature API; know which environments a flag is live in; test a flag with "test as user" before rolling out. |
+| **Admin** | Full access to the self-hosted FMS; bootstraps from the env-configured identity (`ADMIN_USERNAME`/`ADMIN_PASSWORD`); invites users and assigns a role + project (FR-30, FR-53, FR-57). |
+| **Developer** | Creates environments and flags for the projects they are assigned to; toggles flag state for those projects (FR-55, FR-56, FR-58). |
+| **Product owner** | Views and toggles the state of the flags of the projects they are assigned to (FR-57, FR-59). |
+| **Client application developer** | Evaluate a flag from their code with the standard OpenFeature API; know which environments a flag is live in; test a flag with "test as user" before rolling out. |
 | **Release engineer / on-call** | Flip a flag in a specific environment quickly (kill switch); know who changed what and when; verify the change actually reached flagd (sync health). |
 | **Platform operator** | Run the whole system with one compose file + one process; back up one database (single-transaction `mariadb-dump`); reason about failure modes (flagd down, sync stalled). |
 
@@ -59,7 +65,8 @@ directly into tests (see [05-testing.md](05-testing.md)).
 ### 4.2 Environments
 
 - **FR-6** — v1 has a fixed set of environments: `dev`, `staging`, `prod`. The list is a
-  compile-time constant (configurable in code for tests) — not user-managed.
+  compile-time constant (configurable in code for tests) — not user-managed; each new project
+  seeds this default set (FR-55).
 - **FR-7** — Each flag has at most one *definition* per environment.
 - **FR-8** — A definition may be updated independently in each environment; environments are
   isolated (changing `staging` never affects `prod`).
@@ -140,8 +147,9 @@ applies. v1 rule types:
 
 ### 4.7 Authentication & API keys
 
-- **FR-30** — Dashboard and management API authenticate a single admin identity configured via
-  environment variables (`ADMIN_USERNAME`, `ADMIN_PASSWORD`).
+- **FR-30** — Dashboard and management API authenticate a bootstrap admin identity configured via
+  environment variables (`ADMIN_USERNAME`, `ADMIN_PASSWORD`); additional users are created via
+  admin invites and hold sessions scoped by role / project assignment (FR-53, FR-57).
 - **FR-31** — `POST /api/v1/auth/login` issues a signed session token (JWT, HS256, 12 h expiry)
   returned in the body and set as an `HttpOnly`, `SameSite=Lax` cookie.
 - **FR-32** — API keys are created via the dashboard/API with a `name` and `scope`
@@ -156,9 +164,9 @@ applies. v1 rule types:
 ### 4.8 Audit log
 
 - **FR-36** — Every mutating operation (flag create/update/delete, definition update/copy, API
-  key create/revoke, login success) is recorded with: timestamp, actor (session user or API
-  key name), action, entity + id, environment (when applicable), and the before/after state
-  (JSON, for definition changes).
+  key create/revoke, login success, project create / member invite) is recorded with: timestamp,
+  actor (session user or API key name), action, entity + id, environment (when applicable), and
+  the before/after state (JSON, for definition changes).
 - **FR-37** — The audit log is append-only: no API can update or delete entries.
 - **FR-38** — `GET /api/v1/audit` lists entries newest-first with pagination
   (`limit` default 50, max 200; `cursor` = last-seen id) and optional filters
@@ -182,6 +190,33 @@ applies. v1 rule types:
   before/after diff.
 - **FR-47** — Dashboard shows sync health: for each environment, the flagd-observed model
   version vs. the stored version (stale indicator when they differ).
+
+### 4.9.1 Multi-user access, projects & environments (dashboard)
+
+The dashboard requirements below extend the v1 operator surface (FR-40–FR-47) with the
+multi-user, multi-project scope:
+
+- **FR-53** — The dashboard authenticates individual users: `POST /api/v1/auth/login` issues a
+  session token per user (FR-31); the bootstrap admin identity is configured via environment
+  variables (`ADMIN_USERNAME`/`ADMIN_PASSWORD`) (FR-30); admin-invited users hold sessions scoped
+  to the projects they are assigned to (requirement 1).
+- **FR-54** — User types carry capability levels with different access: `admin`, `developer`,
+  `product-owner`. Effective permissions are the union of the user's global type and per-user /
+  per-project grants (requirement 2).
+- **FR-55** — Each project (application) can have one or more environments; a newly created
+  project starts with the default environment set (`dev`, `staging`, `prod`) and may gain
+  additional per-project environments (requirement 3). A project name (and key) is unique — two
+  projects cannot share a name (user requirement); collisions are rejected with `409`.
+- **FR-56** — A flag can be created for a project and is available in all environments of that
+  project, while the state of each flag is unique per environment (FR-7/FR-8 isolation semantics
+  applied per project). The flag is linked to its owning project (`flags.project_id`) and its
+  environment (`flag_definitions.env`); the flag key is unique per project (requirement 4).
+- **FR-57** — Admin has full access and can invite another user, assigning a role and one or more
+  projects (requirement 5).
+- **FR-58** — Developer can create environments and flags for the projects they are assigned to,
+  and toggle the state of the flags within those projects (requirement 6).
+- **FR-59** — Product owner can view and toggle the state of the flags of the projects they are
+  assigned to (requirement 7).
 
 ### 4.10 Change events
 
@@ -216,7 +251,8 @@ applies. v1 rule types:
 
 ## 6. Assumptions
 
-1. A single admin user is sufficient for v1 (small team / internal tool).
+1. A bootstrap admin plus invited users with assigned roles/projects (FR-53–FR-59); a small team
+   / internal tool remains the assumed scale for v1.
 2. flagd and MariaDB run in Docker on the same host/network as the API (compose file provided).
 3. Environments map 1:1 to flagd flag sets; one flagd instance serves all environments
    (ADR-0004).
@@ -231,4 +267,5 @@ applies. v1 rule types:
 | OQ-2 | Do client *browsers* evaluate flags directly (web SDK + flagd web provider) or through their backend? | v1: backend-only. Document the proxy pattern; revisit later. |
 | OQ-3 | Should scheduled rollouts (`$flagd.timestamp`-based `fractional` weights) get an API/UI in v1.1? | Postpone; the compiled model already *can* express them via advanced rule JSON escape hatch (see OQ-4). |
 | OQ-4 | Do we need an "advanced JSONLogic" escape-hatch field for power users beyond the structured rule editor? | Postpone to v1.1; the compiler must not make this unnecessary later. |
-| OQ-5 | Port to Postgres for multi-instance FMS? | Post-v1 — MariaDB is the v1 store (ADR-0007); schema and queries stay Postgres-mappable under the ADR-0002/0007 portability rule. |
+| OQ-5 | Port to Postgres for multi-instance FMS? | Post-v1 — MariaDB is the v1 store (ADR-0007); schema and queries stay Postgres-mappable under the ADR-0002/ADR-0007 portability rule. |
+| OQ-6 | When projects can have per-project environments, how are flagd flag sets named when environment names repeat across projects (e.g. two projects both with a `staging`)? | Inclination: flag set IDs become project-namespaced (e.g. `<projectKey>:<env>`) — needs a small ADR-0004 update before M2 lands. |

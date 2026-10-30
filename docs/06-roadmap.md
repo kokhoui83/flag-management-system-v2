@@ -19,7 +19,7 @@ are written (failing) before its implementation. Acceptance criteria reference
   `test:integration`, `test:e2e`, `lint`, `build:web`, `dev:web`.
 - `docker-compose.yml` with flagd (pinned image tag) + mariadb (pinned `mariadb:11.8`, named
   volume, `mariadb-admin ping` healthcheck, localhost-only 3306), `flagd/config.yaml` (3 HTTP
-  sources pointing at `http://localhost:3000/api/v1/sync/<env>`, `authHeader` placeholder,
+  sources pointing at `http://host.docker.internal:3000/api/v1/sync/<env>`, `authHeader` placeholder,
   `interval: 5`).
 - Fastify app with `/healthz`; `/readyz` returning `503 {"status":"not_ready"}` until
   provider wiring exists (M3) — declared not-ready by default in M0.
@@ -120,10 +120,11 @@ provider state.
 
 ## M4 — Dashboard
 
-**Goal:** the full operator surface in the browser (FR-40–FR-47).
+**Goal:** the full operator surface in the browser (FR-40–FR-47, FR-53–FR-59).
 
 - Vue 3 dashboard in `web/` (Naive UI, Pinia, hash router; built assets served by the API);
-  cookie auth; login view.
+  cookie auth; login view; multi-user scope — admin invites + role/project assignment,
+  per-project environments and flags, role-gated access (FR-40–FR-47, FR-53–FR-59).
 - Flag list (per-env status, version); flag editor: env tabs, enable toggle, variant table
   (name/value/type), default variant, ordered rule editor (attribute conditions + percentage
   splits; add/remove/reorder), all-at-once error display (FR-14 UX), pre-submit validation
@@ -139,7 +140,7 @@ provider state.
   + sync-health badge refresh on `flag-changed` / `provider-ready` (FR-52).
 
 **Acceptance**
-- [ ] Every FR-40–FR-47 exercisable in the UI; manual checklist committed to the M4 note.
+- [ ] Every FR-40–FR-59 exercisable in the UI; manual checklist committed to the M4 note.
 - [ ] No validation/compilation logic reimplemented in dashboard code (`shared/` imports
       only); component tests (Vitest + @vue/test-utils) for the rule editor and diff view.
 - [ ] Bundle budget (Vue + Naive UI, gzip) recorded in the M4 note.

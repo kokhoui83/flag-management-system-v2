@@ -15,17 +15,19 @@ this section is the reference for the initial migration.
 ```sql
 CREATE TABLE flags (
   id          CHAR(26) PRIMARY KEY,             -- ULID
-  key         VARCHAR(128) NOT NULL UNIQUE,     -- FR-1
+  project_id CHAR(26) NOT NULL,                 -- owning project (FR-56)
+  key         VARCHAR(128) NOT NULL,            -- unique within the project (FR-56)
   description VARCHAR(1024) NOT NULL DEFAULT '',-- FR-2
   version     INT NOT NULL DEFAULT 1,           -- FR-5, bumped per definition change
   created_at  DATETIME(6) NOT NULL,
-  updated_at  DATETIME(6) NOT NULL
+  updated_at  DATETIME(6) NOT NULL,
+  UNIQUE (project_id, key)                     -- FR-56: a flag key belongs to one project only
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE flag_definitions (
   id              CHAR(26) PRIMARY KEY,         -- ULID
   flag_id         CHAR(26) NOT NULL REFERENCES flags(id) ON DELETE CASCADE,
-  env             VARCHAR(64) NOT NULL,         -- validated against ENVS in app code (FR-6)
+  env             VARCHAR(64) NOT NULL,         -- validated against the project's env set (FR-6 / FR-55)
   enabled         TINYINT(1) NOT NULL,          -- FR-10
   variants        JSON NOT NULL,                -- object: name -> value (FR-11)
   default_variant VARCHAR(64) NOT NULL,         -- must exist in variants (FR-12)
@@ -65,8 +67,48 @@ CREATE INDEX idx_audit_created ON audit_logs (created_at, id);
 CREATE INDEX idx_audit_entity  ON audit_logs (entity, entity_id);
 ```
 
+Multi-user / project scope tables (requirements FR-53–FR-59):
+
+```sql
+CREATE TABLE projects (
+  id          CHAR(26) PRIMARY KEY,             -- ULID
+  key         VARCHAR(128) NOT NULL UNIQUE,     -- application key; globally unique (2 projects cannot share a name)
+  name        VARCHAR(255) NOT NULL UNIQUE,     -- project name; unique per FMS (user requirement)
+  created_at DATETIME(6) NOT NULL,
+  updated_at DATETIME(6) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE project_environments (
+  project_id  CHAR(26) NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  env         VARCHAR(64) NOT NULL,             -- per-project environment name (FR-55)
+  created_at DATETIME(6) NOT NULL,
+  updated_at DATETIME(6) NOT NULL,
+  PRIMARY KEY (project_id, env)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE project_memberships (
+  user_name   VARCHAR(128) NOT NULL,            -- invited username (FR-57)
+  project_id  CHAR(26) NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  role        VARCHAR(32) NOT NULL CHECK (role IN ('admin','developer','product-owner')),
+  created_at DATETIME(6) NOT NULL,
+  PRIMARY KEY (user_name, project_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
 Invariants (enforced in application code, transactionally):
 
+- A flag belongs to exactly one project and its key is unique within that project (FR-56); the
+  flag is available in all environments of the project while enabled state / definitions stay
+  unique per environment (FR-7/FR-8 semantics applied per project).
+- A project name (`projects.name`) and key (`projects.key`) are unique — two projects cannot
+  share a name (user requirement); project creation collides on name/key are rejected with `409`.
+- Each flag definition is scoped to its owning project (`flags.project_id`) and its environment
+  (`flag_definitions.env`) — the flag ↔ project ↔ env linkage the user requirements ask for;
+  the (flag, env) pair stays unique within the project (FR-7).
+- Effective permissions of a user = union of the user's global type (`admin` | `developer` |
+  `product-owner`) and per-project grants (FR-54); `admin` holds full access on assigned projects
+  (FR-57). Developers and product owners only operate on projects they are assigned to (FR-58/FR-59);
+  other assignments fail with `403`.
 - `flags.version` increments by exactly 1 per definition upsert (create or update) on that
   flag, in any environment (FR-5).
 - `flag_definitions.rules` is always a valid canonical rule array per §2 (validated before
@@ -303,5 +345,7 @@ in tests (property-based golden tests, §[05-testing](05-testing.md)).
 | `flag.delete` | `flag` | before = full flag incl. definitions |
 | `definition.create` / `definition.update` | `definition` | env set; before/after = definition payload |
 | `definition.copy` | `definition` | env = target; after includes `copiedFrom` env |
+| `project.create` | `project` | after = project (FR-55) |
+| `project.member.invite` | `project` | after = { user, role, projects } (FR-57) |
 | `api_key.create` / `api_key.revoke` | `api_key` | never includes key material |
 | `auth.login` | `auth` | success only |

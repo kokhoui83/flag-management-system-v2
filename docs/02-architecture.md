@@ -66,7 +66,8 @@ Responsibilities:
    instance per environment; each created with `selector: "flagSetId=<env>"`).
 4. **Static hosting** for the built dashboard (`web/dist`).
 5. **Audit** on every mutation (append-only table; write-failure aborts the mutation).
-6. **Auth**: single admin identity (env-configured) for login; API keys for programmatic access.
+6. **Auth**: bootstrap admin identity (env-configured) for login; invited users carry per-user
+   roles and project assignments (FR-53–FR-59); API keys for programmatic access.
 7. **Change events**: `GET /api/v1/events` SSE stream (ADR-0008, contract in
    [04-api.md §12](04-api.md)).
 
@@ -111,19 +112,21 @@ Run as a Docker container (`ghcr.io/open-feature/flagd:<pinned tag>`), started v
 
 ```yaml
 sources:
-  - uri: http://localhost:3000/api/v1/sync/dev
+  - uri: http://host.docker.internal:3000/api/v1/sync/dev
     provider: http
     interval: 5
     authHeader: "Bearer fms_<SYNC_KEY>"
-  - uri: http://localhost:3000/api/v1/sync/staging
+  - uri: http://host.docker.internal:3000/api/v1/sync/staging
     provider: http
     interval: 5
     authHeader: "Bearer fms_<SYNC_KEY>"
-  - uri: http://localhost:3000/api/v1/sync/prod
+  - uri: http://host.docker.internal:3000/api/v1/sync/prod
     provider: http
     interval: 5
     authHeader: "Bearer fms_<SYNC_KEY>"
 ```
+
+**Compose topology note:** In the v1 local deployment the management API runs as a host Node process and flagd runs in a Docker container (the API container image is a v1.1 candidate; see [06-roadmap.md](06-roadmap.md) M0). Inside a container, `localhost` refers to the container itself, so the flagd sync source URIs must point at the host: `http://host.docker.internal:3000/api/v1/sync/<env>` (Docker Desktop) or the compose service name (e.g. `http://api:3000/api/v1/sync/<env>`) once the API runs in a container.
 
 Notes (verified against current flagd docs):
 
@@ -134,8 +137,8 @@ Notes (verified against current flagd docs):
   API key with `sync` scope (FR-27).
 - Port map (current flagd): **8013** gRPC evaluation (also serves HTTP JSON at
   `/flagd.evaluation.v2.Service/Resolve*`), **8014** OFREP service, **8015** gRPC sync
-  service, **8017** metrics. Exact ports vary by version — pin the image tag in compose and
-  verify against that release's docs.
+  service, **8017** metrics. The compose file pins the flagd image tag; verify the port map
+  against that release's docs before upgrading.
 - The flagd image tag is **pinned** in `docker-compose.yml` (upgrades are coordinated: the
   `fractional` hashing scheme changed in flagd v0.18.0, so flagd and providers must be upgraded
   together).
@@ -307,7 +310,9 @@ sequenceDiagram
 ## 4. Environments as flag sets (ADR-0004)
 
 - Environments (`dev`/`staging`/`prod`) map 1:1 to flagd **flag sets**: the sync document for
-  environment `e` carries set-level `"metadata": { "flagSetId": "e" }`.
+  environment `e` carries set-level `"metadata": { "flagSetId": "e" }`. With per-project
+  environments (FR-55), set IDs may become project-namespaced (`<projectKey>:<env>`) — open
+  question OQ-6 in [01-requirements.md](01-requirements.md).
 - flagd's selector mechanism (`flagSetId=<env>`) isolates environments: a provider configured
   with a selector only sees and evaluates that set's flags.
 - One flagd instance serves all environments (simpler ops than N containers; isolation is

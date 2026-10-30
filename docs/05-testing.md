@@ -210,6 +210,44 @@ Each scenario maps to at least one test. `…` abbreviates context.
   **W** requested
   **T** `404` (no implicit flag creation).
 
+### 2.6 Multi-user, projects & environments (dashboard)
+
+Covers the multi-user dashboard requirements FR-53–FR-59 (see [01-requirements.md](01-requirements.md)).
+
+- **G** an unauthenticated visitor opens the dashboard
+  **W** they navigate to a flag view
+  **T** the login view is shown; successful login issues a session cookie (FR-40, FR-53).
+
+- **G** an admin invites a user with role `developer` and assigns them to project `checkout`
+  **W** the invite is accepted (user created + membership persisted)
+  **T** the user can log in and only sees the assigned project (FR-53, FR-57).
+
+- **G** a developer assigned to project `checkout` creates an environment (`qa`) and a flag
+  `new-thing` in that project
+  **W** they submit the creation
+  **T** both are scoped to the assigned project; the default env set is seeded on project create
+  (FR-55, FR-56, FR-58).
+
+- **G** a developer without an assignment attempts to create a flag in a project they are not
+  assigned to
+  **W** the create request is submitted
+  **T** it fails with `403` (FR-58).
+
+- **G** a product owner assigned to project `checkout` toggles a flag state in the `staging`
+  environment
+  **W** they toggle the flag
+  **T** the state changes in `staging` only; the flag is available in all environments of the
+  project but its state stays unique per environment (FR-56, FR-59).
+
+- **G** an admin toggles a flag in the `dev` environment of a project
+  **W** the toggle is saved
+  **T** sibling environments of the same flag keep their prior state and versions bump only for
+  the changed environment's definition (FR-5, FR-56).
+
+- **G** an admin creates a project whose name is already taken by another project
+  **W** the create request is submitted
+  **T** it fails with `409` — project names (and flag keys) are unique per FMS (FR-55, FR-56).
+
 ## 3. Determinism & hygiene
 
 - No test hits the network except the Docker tiers (testcontainers on localhost, E2E against

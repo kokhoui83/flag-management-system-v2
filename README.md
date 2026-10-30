@@ -14,6 +14,12 @@ client is required.
 **Planning phase.** No application code exists yet. This repository currently contains the design
 and requirements documentation only.
 
+The multi-user dashboard requirements are captured: login (FR-40/FR-53), per-user roles with
+different access levels (FR-54), per-project environments (FR-55), per-project flags with
+per-environment state (FR-56), admin invites (FR-57), developer and product-owner capabilities
+(FR-58/FR-59) — see [docs/01-requirements.md §4.9.1](docs/01-requirements.md). Implementation lands in
+M4 per [docs/06-roadmap.md](docs/06-roadmap.md).
+
 ## Documentation
 
 | Document | Contents |

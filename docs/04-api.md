@@ -23,7 +23,8 @@ Endpoint scopes:
 | `sync` | `GET /api/v1/sync/:env` only (consumed by flagd) |
 | `all` | everything |
 
-Session tokens are treated as `all`-scoped (admin identity, FR-30).
+Session tokens are treated as `all`-scoped for the bootstrap admin (FR-30); invited users'
+sessions resolve to the capability level of their role / project assignments (FR-53, FR-54).
 
 Errors: missing/invalid credential → `401` (`WWW-Authenticate: Bearer`); valid credential
 without scope → `403`; revoked key → `401`.
@@ -135,6 +136,24 @@ deleted and the token simply ignored by the client. Documented v1 behavior.)
 }
 // 404 if unknown flag
 ```
+
+### `GET /api/v1/flags/:key/observed`
+
+Internal helper backing the dashboard sync-health badge (FR-47; architecture §7). Runs a probe
+evaluation per environment via the per-environment flagd provider and returns the flagd-observed
+version and enablement for each environment:
+
+```json
+{
+  "key": "new-checkout",
+  "observed": {
+    "dev":     { "version": 7, "enabled": true,  "variantType": "boolean" },
+    "staging": { "version": 7, "enabled": true,  "variantType": "boolean" }
+  }
+}
+```
+
+Environments with no definition are omitted (FR-7). Requires `evaluate` scope or a session.
 
 ### `PUT /api/v1/flags/:key`
 
@@ -319,17 +338,19 @@ Unauthenticated. `200 { "status": "ok" }` when the process is alive.
 
 ### `GET /readyz`
 
-Unauthenticated. `200` when all environment providers are READY, else `503`:
+Unauthenticated. `200` when the process is alive, the database is reachable, and all environment providers are READY; otherwise `503`:
 
 ```json
 {
   "status": "not_ready",
+  "db": "OK",
   "flagd": { "dev": "READY", "staging": "STALE", "prod": "ERROR" }
 }
 ```
 
 Provider states from OpenFeature events per environment (`READY` / `STALE` / `ERROR`,
-see architecture §7).
+see architecture §7). Readiness is not ready while the database reports `"DOWN"` or any
+environment's provider is not `READY`.
 
 ## 11. OpenAPI
 
@@ -377,3 +398,78 @@ Semantics (ADR-0008):
   states `readyz` reports (architecture §7).
 - The stream carries only flag keys + versions: nothing beyond what the management API
   already exposes to the same credential.
+
+## 13. Projects, users & multi-user access
+
+Covers the dashboard requirements FR-53–FR-59 (multi-user access, per-project environments and
+flags, role-based access). See [01-requirements.md §4.9.1](01-requirements.md).
+
+### `GET /api/v1/projects`
+
+Lists the projects visible to the caller: all projects for an `admin` session / `manage` API key;
+only assigned projects for `developer` and `product-owner` sessions and keys (FR-53, FR-54, FR-57).
+
+```json
+{
+  "projects": [
+    {
+      "id": "01J…",
+      "key": "checkout",
+      "name": "Checkout",
+      "environments": ["dev", "staging", "prod"],
+      "members": [
+        { "user": "admin", "role": "admin" },
+        { "user": "brian", "role": "developer" }
+      ]
+    }
+  ]
+}
+```
+
+### `POST /api/v1/projects`
+
+Admin (`manage` scope) creates a project and seeds the default environment set
+(`dev`, `staging`, `prod`) (FR-55); additional per-project environments can be added by the
+developer assigned to that project (FR-58).
+
+```json
+// request
+{ "key": "checkout", "name": "Checkout" }
+// 201 response → project as in GET /api/v1/projects; 403 without `manage`
+// 409 if the name (or key) is already taken — projects are unique (FR-55, FR-56)
+```
+
+### `POST /api/v1/projects/:id/members` — invite
+
+Admin (`manage` scope) invites a user with a role and assigns one or more projects
+(`FR-57`):
+
+```json
+// request
+{ "username": "brian", "role": "developer", "projectIds": ["01J…"] }
+// 201 → { "user": "brian", "role": "developer", "projects": ["01J…"] }
+// 403 without `manage`
+```
+
+Membership assignment and (bootstrap) user creation are part of the same audited operation.
+
+### `GET /api/v1/projects/:id/members`
+
+Admin (`manage` scope) lists the members of a project with their assigned roles (FR-57).
+
+## 14. Flag scoping per project (FR-56)
+
+Flag routes are scoped by project. A flag belongs to exactly one project, is available in all
+environments of that project, and carries state unique per environment (FR-56):
+
+- Flag create: `POST /api/v1/projects/:projectId/flags` — developer with an assignment to
+  `:projectId` may create; admin may create for any project (FR-58).
+- Flag list per project: `GET /api/v1/projects/:projectId/flags`.
+- Definition update / copy / delete: the per-environment routes move under the project path, e.g.
+  `PUT /api/v1/projects/:projectId/flags/:key/definitions/:env`. The
+  `…/flags/:key/definitions/:env` shape is retained only for the bootstrap admin (full access,
+  FR-57).
+
+Environment-scoped operations remain environment-isolated: changing one environment's
+definition never affects another environment of the same flag (FR-8), and versions bump per
+changed definition only (FR-5).

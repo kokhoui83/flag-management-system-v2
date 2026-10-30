@@ -1,74 +1,121 @@
 # 03 — Data Model & flagd Model Compilation
 
-This document defines (a) the SQLite schema, (b) FMS's canonical rule format, and
+This document defines (a) the MariaDB schema, (b) FMS's canonical rule format, and
 (c) the compilation from FMS state to flagd model documents. All requirements referenced as
 `FR-n` are in [01-requirements.md](01-requirements.md).
 
-## 1. SQLite schema
+## 1. MariaDB schema
 
-SQLite (WAL mode). Timestamps are ISO-8601 UTC strings (`TEXT`) — no type portability cost,
-JSON-friendly. JSON columns are `TEXT` holding canonical JSON (object keys sorted).
+MariaDB (InnoDB, `utf8mb4`), single database (`fms`). Timestamps are `DATETIME(6)` UTC —
+formatted ISO-8601 at the API boundary. JSON columns hold canonical JSON; they are validated
+in app code and never touched by JSON operators in domain queries (ADR-0007). Migrations:
+numbered SQL files in `server/src/db/migrations/`, applied at boot (Kysely migrate plugin);
+this section is the reference for the initial migration.
 
 ```sql
 CREATE TABLE flags (
-  id          TEXT PRIMARY KEY,            -- ULID
-  key         TEXT NOT NULL UNIQUE,        -- FR-1
-  description TEXT NOT NULL DEFAULT '',    -- FR-2
-  version     INTEGER NOT NULL DEFAULT 1,  -- FR-5, bumped per definition change
-  created_at  TEXT NOT NULL,
-  updated_at  TEXT NOT NULL
-);
+  id          CHAR(26) PRIMARY KEY,             -- ULID
+  project_id CHAR(26) NOT NULL,                 -- owning project (FR-56)
+  key         VARCHAR(128) NOT NULL,            -- unique within the project (FR-56)
+  description VARCHAR(1024) NOT NULL DEFAULT '',-- FR-2
+  version     INT NOT NULL DEFAULT 1,           -- FR-5, bumped per definition change
+  created_at  DATETIME(6) NOT NULL,
+  updated_at  DATETIME(6) NOT NULL,
+  UNIQUE (project_id, key)                     -- FR-56: a flag key belongs to one project only
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE flag_definitions (
-  id              TEXT PRIMARY KEY,        -- ULID
-  flag_id         TEXT NOT NULL REFERENCES flags(id) ON DELETE CASCADE,
-  env             TEXT NOT NULL CHECK (env IN ('dev', 'staging', 'prod')),  -- FR-6
-  enabled         INTEGER NOT NULL,        -- 0/1 (FR-10)
-  variants        TEXT NOT NULL,           -- JSON object: name -> value (FR-11)
-  default_variant TEXT NOT NULL,           -- must exist in variants (FR-12)
-  rules           TEXT NOT NULL DEFAULT '[]',  -- JSON array (FR-13)
-  created_at      TEXT NOT NULL,
-  updated_at      TEXT NOT NULL,
-  UNIQUE (flag_id, env)                    -- FR-7
-);
+  id              CHAR(26) PRIMARY KEY,         -- ULID
+  flag_id         CHAR(26) NOT NULL REFERENCES flags(id) ON DELETE CASCADE,
+  env             VARCHAR(64) NOT NULL,         -- validated against the project's env set (FR-6 / FR-55)
+  enabled         TINYINT(1) NOT NULL,          -- FR-10
+  variants        JSON NOT NULL,                -- object: name -> value (FR-11)
+  default_variant VARCHAR(64) NOT NULL,         -- must exist in variants (FR-12)
+  rules           JSON NOT NULL,                -- rule array, §2 (FR-13)
+  created_at      DATETIME(6) NOT NULL,
+  updated_at      DATETIME(6) NOT NULL,
+  UNIQUE (flag_id, env)                         -- FR-7
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE api_keys (
-  id           TEXT PRIMARY KEY,           -- ULID
-  name         TEXT NOT NULL,
-  key_hash     TEXT NOT NULL UNIQUE,       -- SHA-256 hex of plaintext (FR-32)
-  key_prefix   TEXT NOT NULL,              -- first 8 chars of plaintext, for display
-  scope        TEXT NOT NULL CHECK (scope IN ('manage', 'evaluate', 'sync', 'all')),
-  created_at   TEXT NOT NULL,
-  last_used_at TEXT,
-  revoked_at   TEXT,
-  created_by   TEXT NOT NULL               -- actor name
-);
+  id           CHAR(26) PRIMARY KEY,            -- ULID
+  name         VARCHAR(128) NOT NULL,
+  key_hash     CHAR(64) NOT NULL UNIQUE,        -- SHA-256 hex of plaintext (FR-32)
+  key_prefix   VARCHAR(8) NOT NULL,             -- first 8 chars of plaintext, for display
+  scope        VARCHAR(16) NOT NULL CHECK (scope IN ('manage','evaluate','sync','all')),
+  created_at   DATETIME(6) NOT NULL,
+  last_used_at DATETIME(6),
+  revoked_at   DATETIME(6),
+  created_by   VARCHAR(128) NOT NULL            -- actor name
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE audit_logs (
-  id         TEXT PRIMARY KEY,             -- ULID, also pagination cursor (FR-38)
-  created_at TEXT NOT NULL,
-  actor_type TEXT NOT NULL CHECK (actor_type IN ('session', 'api_key')),
-  actor_name TEXT NOT NULL,                -- username or key name
-  action     TEXT NOT NULL,                -- dot-namespaced, see §5
-  entity     TEXT NOT NULL,                -- 'flag' | 'definition' | 'api_key' | 'auth'
-  entity_id  TEXT NOT NULL,                -- flag key / def id / key id / '-'
-  env        TEXT,                         -- NULL when not environment-specific
-  before     TEXT,                         -- JSON or NULL
-  after      TEXT                          -- JSON or NULL
-);
+  id         CHAR(26) PRIMARY KEY,              -- ULID, also pagination cursor (FR-38)
+  created_at DATETIME(6) NOT NULL,
+  actor_type VARCHAR(16) NOT NULL CHECK (actor_type IN ('session','api_key')),
+  actor_name VARCHAR(128) NOT NULL,             -- username or key name
+  action     VARCHAR(64) NOT NULL,              -- dot-namespaced, see §5
+  entity     VARCHAR(32) NOT NULL,              -- 'flag' | 'definition' | 'api_key' | 'auth'
+  entity_id  VARCHAR(256) NOT NULL,             -- flag key / def id / key id / '-'
+  env        VARCHAR(64),                       -- NULL when not environment-specific
+  before     JSON,                              -- or NULL
+  after      JSON                               -- or NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE INDEX idx_defs_flag     ON flag_definitions (flag_id);
-CREATE INDEX idx_audit_created ON audit_logs (created_at DESC, id DESC);
+CREATE INDEX idx_audit_created ON audit_logs (created_at, id);
 CREATE INDEX idx_audit_entity  ON audit_logs (entity, entity_id);
+```
+
+Multi-user / project scope tables (requirements FR-53–FR-59):
+
+```sql
+CREATE TABLE projects (
+  id          CHAR(26) PRIMARY KEY,             -- ULID
+  key         VARCHAR(128) NOT NULL UNIQUE,     -- application key; globally unique (2 projects cannot share a name)
+  name        VARCHAR(255) NOT NULL UNIQUE,     -- project name; unique per FMS (user requirement)
+  created_at DATETIME(6) NOT NULL,
+  updated_at DATETIME(6) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE project_environments (
+  project_id  CHAR(26) NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  env         VARCHAR(64) NOT NULL,             -- per-project environment name (FR-55)
+  created_at DATETIME(6) NOT NULL,
+  updated_at DATETIME(6) NOT NULL,
+  PRIMARY KEY (project_id, env)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE project_memberships (
+  user_name   VARCHAR(128) NOT NULL,            -- invited username (FR-57)
+  project_id  CHAR(26) NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  role        VARCHAR(32) NOT NULL CHECK (role IN ('admin','developer','product-owner')),
+  created_at DATETIME(6) NOT NULL,
+  PRIMARY KEY (user_name, project_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
 Invariants (enforced in application code, transactionally):
 
+- A flag belongs to exactly one project and its key is unique within that project (FR-56); the
+  flag is available in all environments of the project while enabled state / definitions stay
+  unique per environment (FR-7/FR-8 semantics applied per project).
+- A project name (`projects.name`) and key (`projects.key`) are unique — two projects cannot
+  share a name (user requirement); project creation collides on name/key are rejected with `409`.
+- Each flag definition is scoped to its owning project (`flags.project_id`) and its environment
+  (`flag_definitions.env`) — the flag ↔ project ↔ env linkage the user requirements ask for;
+  the (flag, env) pair stays unique within the project (FR-7).
+- Effective permissions of a user = union of the user's global type (`admin` | `developer` |
+  `product-owner`) and per-project grants (FR-54); `admin` holds full access on assigned projects
+  (FR-57). Developers and product owners only operate on projects they are assigned to (FR-58/FR-59);
+  other assignments fail with `403`.
 - `flags.version` increments by exactly 1 per definition upsert (create or update) on that
   flag, in any environment (FR-5).
 - `flag_definitions.rules` is always a valid canonical rule array per §2 (validated before
   insert; FR-14).
 - `audit_logs` has no UPDATE/DELETE path anywhere in the codebase (FR-37).
+- Boot-time migration assumes a single API instance (ADR-0007); concurrent first boots are a
+  v1.1 concern.
 
 ## 2. Canonical rule format
 
@@ -298,5 +345,7 @@ in tests (property-based golden tests, §[05-testing](05-testing.md)).
 | `flag.delete` | `flag` | before = full flag incl. definitions |
 | `definition.create` / `definition.update` | `definition` | env set; before/after = definition payload |
 | `definition.copy` | `definition` | env = target; after includes `copiedFrom` env |
+| `project.create` | `project` | after = project (FR-55) |
+| `project.member.invite` | `project` | after = { user, role, projects } (FR-57) |
 | `api_key.create` / `api_key.revoke` | `api_key` | never includes key material |
 | `auth.login` | `auth` | success only |

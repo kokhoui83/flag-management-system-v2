@@ -1,6 +1,6 @@
 # ADR-0002 — SQLite as the system of record
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0007
 
 ## Context
 

@@ -6,26 +6,25 @@ rationale are captured as ADRs in [adr/](adr/).
 
 ## 1. System context
 
-```
-                        ┌──────────────────────────────────────────────┐
-                        │                FMS (this project)            │
-  ┌──────────────┐  ┌───┴─────────────┐      ┌──────────────────────┐  │
-  │  Browser     │  │  Management API │      │      Dashboard (SPA) │  │
-  │  (dashboard) │◄─┤  REST + static  │◄─────│  static assets       │  │
-  └──────────────┘  └───┬─────────────┘      └──────────────────────┘  │
-                        │ 1) sync (HTTP pull, ETag)      2) auth/CRUD  │
-                        │ 3) evaluate (gRPC, OpenFeature)               │
-                        ▼                                               │
-  ┌──────────────┐  ┌─────────────┐                                    │
-  │    flagd     │  │   SQLite    │  system of record                   │
-  │ (eval engine)│  │  (WAL)      │                                    │
-  └──────┬───────┘  └─────────────┘                                    │
-         │ gRPC 8013 (eval), gRPC 8015 (sync svc)                      │
-         ▼                                                              │
-  ┌──────────────────────────────────────────────┐                      │
-  │  Client applications (OpenFeature SDKs +     │                      │
-  │  flagd provider, one instance per env)       │                      │
-  └──────────────────────────────────────────────┘                      │
+```mermaid
+flowchart TB
+    subgraph FMS["FMS (this project)"]
+        api["Management API (TypeScript, Fastify)<br/>REST + static hosting + sync endpoint + SSE events"]
+        spa["Dashboard (Vue 3 SPA,<br/>built assets served by the API)"]
+        db[("MariaDB<br/>system of record")]
+    end
+
+    browser["Browser (dashboard user)"]
+    flagd["flagd evaluation engine<br/>ghcr.io/open-feature/flagd (Docker)"]
+    clients["Client applications<br/>official OpenFeature SDKs + flagd provider<br/>one provider instance per environment"]
+
+    browser <-->|"REST (cookie / Bearer auth) + SSE events"| api
+    spa -.->|"served from"| api
+    api <-->|"auth, CRUD, audit (Kysely pool, async)"| db
+    flagd <-->|"sync: flagd polls GET /api/v1/sync/:env (ETag / 304, authHeader)"| api
+    api -->|"evaluate: gRPC 8013 via OpenFeature server SDK"| flagd
+    api -->|"SSE: GET /api/v1/events (relayed provider events)"| browser
+    clients -->|"evaluate: gRPC 8013, selector flagSetId=env"| flagd
 ```
 
 Key properties:
@@ -33,10 +32,13 @@ Key properties:
 - **flagd is the only evaluator.** FMS stores definitions and publishes them; it never computes
   flag values (FR-21). This keeps FMS simple and makes every client language a first-class
   citizen via the official OpenFeature providers.
-- **SQLite is the only system of record.** Everything flagd serves is derivable from it
-  (FR-28). flagd is stateless from FMS's perspective.
-- **The dashboard is a static SPA** served by the management API — one process to run, no
-  build step, no separate deployment unit.
+- **MariaDB is the only system of record.** Everything flagd serves is derivable from it
+  (FR-28). flagd is stateless from FMS's perspective (ADR-0007).
+- **The dashboard is a Vue 3 SPA**; its built assets are served by the management API — one
+  process to run at runtime, the Vite build is a dev/release step only (ADR-0006).
+- **Changes are observable in two ways**: the standard OpenFeature provider event
+  (`PROVIDER_CONFIGURATION_CHANGED`) and an FMS SSE stream whose events are sent only after
+  flagd serves the new version (ADR-0008).
 
 ## 2. Components
 
@@ -46,11 +48,13 @@ Key properties:
 | --- | --- |
 | Language / runtime | TypeScript on Node.js ≥ 22 (ESM) |
 | HTTP framework | Fastify (structured logging, schema validation, static serving) |
-| Storage | SQLite via `better-sqlite3` (WAL mode; synchronous API keeps transaction code simple) |
+| Storage | MariaDB via Kysely (`@kysely/mysql` over `mysql2`), small connection pool; numbered SQL migrations applied at boot (ADR-0007) |
+| Sync model memo | In-process per-env `{ version, body, etag, variantTypes }`, compiled once per state change and invalidated on commit — steady-state sync polls and the evaluate proxy's variant-type lookup hit memory, not the DB |
+| Change events | In-process broadcaster: per-env queue of committed changes, drained onto the SSE stream when the env's provider observes the change in flagd (ADR-0008) |
 | Sessions | JWT (HS256), 12 h expiry, `HttpOnly`/`SameSite=Lax` cookie + bearer use |
 | Flag evaluation client | `@openfeature/server-sdk` + `@openfeature/flagd-provider` (gRPC, `rpc` resolver) |
-| Validation | `zod` at the HTTP boundary; domain-level validation in pure functions |
-| Testing | `vitest` (unit + integration), Docker-based e2e against a real flagd |
+| Validation | `zod` at the HTTP boundary; domain-level validation in pure functions (shared with the dashboard via the `shared/` workspace, ADR-0006) |
+| Testing | `vitest` (unit + integration), testcontainers for store tests, Docker-based e2e against a real flagd |
 
 Responsibilities:
 
@@ -60,9 +64,12 @@ Responsibilities:
    [03-data-model.md](03-data-model.md)).
 3. **Evaluate proxy**: `/api/v1/evaluate` delegating to OpenFeature (one `FlagdProvider`
    instance per environment; each created with `selector: "flagSetId=<env>"`).
-4. **Static hosting** for the dashboard SPA.
+4. **Static hosting** for the built dashboard (`web/dist`).
 5. **Audit** on every mutation (append-only table; write-failure aborts the mutation).
-6. **Auth**: single admin identity (env-configured) for login; API keys for programmatic access.
+6. **Auth**: bootstrap admin identity (env-configured) for login; invited users carry per-user
+   roles and project assignments (FR-53–FR-59); API keys for programmatic access.
+7. **Change events**: `GET /api/v1/events` SSE stream (ADR-0008, contract in
+   [04-api.md §12](04-api.md)).
 
 Module layout (planned; see NFR-8 — domain logic stays free of framework concerns):
 
@@ -72,21 +79,31 @@ server/src/
 ├── app.ts                 # Fastify app factory (routes, plugins, static)
 ├── config.ts              # env parsing/defaults (pure, testable)
 ├── db/
-│   ├── index.ts           # connection (WAL), migrations
-│   └── schema.ts          # DDL
+│   ├── index.ts           # Kysely pool, migrations applied at boot
+│   ├── schema.ts          # TS schema object
+│   └── migrations/        # numbered SQL migrations (ADR-0007)
 ├── domain/
-│   ├── flags.ts           # flag/definition validation (pure)
-│   ├── rules.ts           # rule model + validation (pure)
-│   └── flagd-model.ts     # rule → flagd JSONLogic compiler (pure)
+│   ├── flags.ts           # flag/definition validation (pure; uses @fms/shared)
+│   ├── rules.ts           # rule model + validation (pure; uses @fms/shared)
+│   └── flagd-model.ts     # rule → flagd JSONLogic compiler (pure, server-only)
+├── sync/
+│   └── model-memo.ts      # per-env { version, body, etag, variantTypes } memo
+├── events/
+│   ├── broadcaster.ts     # per-env queue + fanout (pure logic, DI seam)
+│   └── stream.ts          # SSE route adapter (keepalive, no replay)
 ├── evaluate/
 │   ├── evaluator.ts       # FlagEvaluator interface + OpenFeature impl (DI seam)
-│   └── providers.ts       # per-environment FlagdProvider registry
+│   └── providers.ts       # per-environment FlagdProvider registry (+ event hooks)
 ├── http/
 │   ├── auth.ts            # session/api-key middleware, scopes
 │   ├── problem.ts         # RFC 9457 helpers
-│   └── routes/            # flags, definitions, sync, evaluate, keys, audit, auth
-└── static/                # dashboard assets (see 2.3)
+│   └── routes/            # flags, definitions, sync, evaluate, events, keys, audit, auth
+└── (serves web/dist)      # built dashboard assets (see 2.3)
 ```
+
+The `shared/` workspace (`@fms/shared`) holds the canonical rule types and all-at-once
+validation (FR-14), imported by `domain/` above and by the dashboard — one implementation
+(ADR-0006).
 
 ### 2.2 flagd
 
@@ -95,19 +112,21 @@ Run as a Docker container (`ghcr.io/open-feature/flagd:<pinned tag>`), started v
 
 ```yaml
 sources:
-  - uri: http://localhost:3000/api/v1/sync/dev
+  - uri: http://host.docker.internal:3000/api/v1/sync/dev
     provider: http
     interval: 5
     authHeader: "Bearer fms_<SYNC_KEY>"
-  - uri: http://localhost:3000/api/v1/sync/staging
+  - uri: http://host.docker.internal:3000/api/v1/sync/staging
     provider: http
     interval: 5
     authHeader: "Bearer fms_<SYNC_KEY>"
-  - uri: http://localhost:3000/api/v1/sync/prod
+  - uri: http://host.docker.internal:3000/api/v1/sync/prod
     provider: http
     interval: 5
     authHeader: "Bearer fms_<SYNC_KEY>"
 ```
+
+**Compose topology note:** In the v1 local deployment the management API runs as a host Node process and flagd runs in a Docker container (the API container image is a v1.1 candidate; see [06-roadmap.md](06-roadmap.md) M0). Inside a container, `localhost` refers to the container itself, so the flagd sync source URIs must point at the host: `http://host.docker.internal:3000/api/v1/sync/<env>` (Docker Desktop) or the compose service name (e.g. `http://api:3000/api/v1/sync/<env>`) once the API runs in a container.
 
 Notes (verified against current flagd docs):
 
@@ -118,26 +137,35 @@ Notes (verified against current flagd docs):
   API key with `sync` scope (FR-27).
 - Port map (current flagd): **8013** gRPC evaluation (also serves HTTP JSON at
   `/flagd.evaluation.v2.Service/Resolve*`), **8014** OFREP service, **8015** gRPC sync
-  service, **8017** metrics. Exact ports vary by version — pin the image tag in compose and
-  verify against that release's docs.
+  service, **8017** metrics. The compose file pins the flagd image tag; verify the port map
+  against that release's docs before upgrading.
 - The flagd image tag is **pinned** in `docker-compose.yml` (upgrades are coordinated: the
   `fractional` hashing scheme changed in flagd v0.18.0, so flagd and providers must be upgraded
   together).
 
 ### 2.3 Dashboard
 
-Vanilla TypeScript/JS single-page app in `server/src/static/` (served at `/`), no build step,
-no framework:
+Vue 3 + Vite + TypeScript single-page app in the `web/` workspace (ADR-0006): **Naive UI**
+component library, **Pinia** stores (session, flags), **vue-router** in hash mode.
 
-- `index.html` — shell with hash-routed views: `#/flags`, `#/flags/:key`, `#/evaluate`,
-  `#/keys`, `#/audit`; login form when unauthenticated.
-- `app.ts` — fetch-based API client (relative `/api/v1/...`, cookie auth), view renderers,
-  rule editor (ordered list; drag or up/down controls), playground.
-- `styles.css` — hand-rolled, no CSS framework.
+- Views: `#/flags`, `#/flags/:key`, `#/evaluate`, `#/keys`, `#/audit`; login view when
+  unauthenticated.
+- Rule editor: ordered list with add/remove/reorder; attribute-condition and percentage-split
+  forms; **pre-submit validation imports the same validators the server runs** from
+  `shared/` — no reimplementation.
+- Live updates: subscribes to `GET /api/v1/events` via `EventSource` (session cookie);
+  `flag-changed` / `provider-ready` refresh the affected flag row and the sync-health badge
+  (FR-52, FR-47).
+- API client: fetch-based (relative `/api/v1/...`, cookie auth).
 
-Constraints: dashboard JS stays plain and small; any nontrivial pure logic (e.g. local rule
-validation before submit) is duplicated from the domain module in a shared, testable place
-rather than hidden in DOM code.
+Build & serving:
+
+- **Dev**: `vite dev` (port 5173) proxying `/api` → `:3000`.
+- **Prod**: `vite build` → `web/dist`, served by the API at `/` (path from `WEB_DIST`).
+  The runtime stays one process; the build is a dev/release step only.
+
+Constraint: nothing rule-shaped (validation, compilation) is reimplemented in dashboard code —
+validation lives in `shared/`, the flagd compiler stays server-only in `domain/`.
 
 ### 2.4 Client applications (out of scope, documented pattern)
 
@@ -164,28 +192,66 @@ const beta = client.getBooleanValue('new-checkout', false, {
   provider; no per-request selector is documented — OQ-1).
 - Browsers do **not** evaluate directly in v1 (non-goal); they call their backend.
 
+### 2.5 Change events (client pattern)
+
+- **Standard (recommended default):** OpenFeature provider events. The flagd provider emits
+  `PROVIDER_CONFIGURATION_CHANGED` when flagd applies a new model; client apps register a
+  handler (FR-50):
+
+  ```ts
+  OpenFeature.addHandler(OpenFeature.Events.PROVIDER_CONFIGURATION_CHANGED, (details) => {
+    // flagd's model changed — invalidate local caches, log, re-evaluate
+  });
+  ```
+
+  Latency is bounded by one sync interval (FR-29).
+- **FMS SSE (optional, exact semantics):** `GET /api/v1/events` (FR-51; contract in
+  [04-api.md §12](04-api.md)). A `flag-changed` event means *flagd in that env is now serving
+  the flagKey at version ≥ N* — emitted only after FMS's own per-env provider observes the
+  change (ADR-0008). No replay; reconcile on reconnect by re-fetching state.
+
 ## 3. Data flows
 
 ### 3.1 Definition change → flagd
 
-```
-Dashboard ──PUT /api/v1/flags/:key/definitions/:env──▶ API
-  1. validate body (all-at-once; FR-14)
-  2. SQL transaction: upsert definition, bump flag.version, insert audit row
-     (FR-39: audit write failure rolls back the transaction)
-  3. respond 200 with updated flag + new version
-flagd ──GET /api/v1/sync/:env (If-None-Match)──▶ API
-  → 200 + new document + new ETag   (or 304 when unchanged)
-flagd applies model; PROVIDER_CONFIGURATION_CHANGED propagates to SDK consumers
+```mermaid
+sequenceDiagram
+    autonumber
+    participant D as Dashboard
+    participant API as Management API
+    participant DB as MariaDB
+    participant F as flagd
+
+    D->>API: PUT /api/v1/flags/:key/definitions/:env
+    API->>API: validate body (all-at-once, FR-14)
+    API->>DB: tx: upsert definition + bump version + audit row
+    Note over API,DB: FR-39 — audit write failure rolls back the transaction
+    Note over API: queue {flagKey, version, at, auditId} for events (ADR-0008)
+    API-->>D: 200 updated flag + new version
+    F->>API: GET /api/v1/sync/:env (If-None-Match)
+    alt model changed
+        API-->>F: 200 model document + new ETag
+    else unchanged
+        API-->>F: 304 Not Modified
+    end
+    Note over F: applies model, emits PROVIDER_CONFIGURATION_CHANGED to SDK consumers
+    Note over API: own per-env provider fires → queue drained → SSE flag-changed (ADR-0008)
 ```
 
 End-to-end propagation latency ≈ one sync interval (≤ 5 s default; FR-29).
 
 ### 3.2 Evaluation (client app)
 
-```
-Client app ── OpenFeature SDK call ──▶ flagd provider (gRPC 8013, flagd-selector: flagSetId=<env>)
-flagd resolves against synced model → { value, variant, reason, metadata{version, ...} }
+```mermaid
+sequenceDiagram
+    participant C as Client app
+    participant P as flagd provider (OpenFeature SDK)
+    participant F as flagd
+
+    C->>P: typed call, e.g. getBooleanValue(key, default, context)
+    P->>F: gRPC 8013 (flagd-selector: flagSetId=env)
+    F-->>P: { value, variant, reason, metadata{version, ...} }
+    P-->>C: resolved value
 ```
 
 No FMS process is in this path at runtime (NFR-1 latency budget applies to flagd, which is
@@ -193,20 +259,60 @@ co-located).
 
 ### 3.3 Evaluation (FMS proxy / dashboard playground)
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant D as Dashboard
+    participant API as Management API
+    participant P as OpenFeature (per-env provider)
+    participant F as flagd
+
+    D->>API: POST /api/v1/evaluate {flagKey, environment, targetingKey?, context?}
+    API->>API: auth (evaluate scope or session)
+    API->>API: look up definition (404 unknown flag / 400 bad env)
+    API->>P: typed call per stored variant type (Boolean/String/Number +Details)
+    P->>F: gRPC 8013
+    alt provider READY
+        F-->>P: { value, variant, reason, metadata }
+        P-->>API: resolution details
+        API-->>D: 200 { value, variant, reason, flagVersion }
+    else provider not READY (down / sync stalled past grace)
+        API-->>D: 503 problem+json (FR-24)
+    end
 ```
-Dashboard ──POST /api/v1/evaluate {flagKey, environment, targetingKey?, context?}──▶ API
-  1. auth (evaluate scope or session)
-  2. look up definition (404 if unknown; 400 if env bad)
-  3. variant type known from our store → call matching typed SDK method
-     (getBooleanValue / getStringValue / getNumberValue … +Details)
-  4. flagd provider state ERROR/STALE-past-grace → 503 problem+json (FR-24)
-  5. else → { value, variant, reason, errorCode?, flagVersion }
+
+### 3.4 Flag-change events (SSE)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Dashboard / tool
+    participant API as Management API
+    participant P as FMS per-env provider
+    participant F as flagd
+
+    C->>API: GET /api/v1/events (Bearer / session, ?envs=…)
+    API-->>C: 200 text/event-stream (keepalive comment every 15 s)
+    Note over API: committed change queued per env {flagKey, version, at, auditId}
+    F->>F: syncs the new model (≤ one interval)
+    F-->>P: new model
+    P-->>API: PROVIDER_CONFIGURATION_CHANGED
+    API-->>C: event: flag-changed {"env","flagKey","version","at"}
+    Note over C,API: event is true when sent — flagd serves the new version now
 ```
+
+- Events are emitted on **observed** provider changes, never on commit alone (ADR-0008).
+- `provider-ready` / `provider-error` fire on per-env provider state transitions (the same
+  states `readyz` reports) — the dashboard's sync-health badge uses them (FR-52).
+- No replay: a disconnect loses in-flight events; reconnect + re-fetch state reconciles.
+- Auth: `evaluate` scope or session ([04-api.md §1](04-api.md)).
 
 ## 4. Environments as flag sets (ADR-0004)
 
 - Environments (`dev`/`staging`/`prod`) map 1:1 to flagd **flag sets**: the sync document for
-  environment `e` carries set-level `"metadata": { "flagSetId": "e" }`.
+  environment `e` carries set-level `"metadata": { "flagSetId": "e" }`. With per-project
+  environments (FR-55), set IDs may become project-namespaced (`<projectKey>:<env>`) — open
+  question OQ-6 in [01-requirements.md](01-requirements.md).
 - flagd's selector mechanism (`flagSetId=<env>`) isolates environments: a provider configured
   with a selector only sees and evaluates that set's flags.
 - One flagd instance serves all environments (simpler ops than N containers; isolation is
@@ -241,6 +347,7 @@ The compiled document must validate against the official JSON schema
 | JWT | HS256, secret from `JWT_SECRET` (random at boot with warning when unset, in dev only). Claims: `sub` (username), `type: "session"`, `exp` (12 h). |
 | API keys | `fms_` + 32 random bytes (base62). Only SHA-256 stored. Scopes: `manage`, `evaluate`, `sync`, `all`. Resolution order: bearer is a JWT (session) or a key (hash compare, constant-time). |
 | Sync endpoint | `sync` scope required (FR-27). flagd is the only expected consumer; key is provisioned in `flagd/config.yaml`. |
+| Events stream | `GET /api/v1/events` requires `evaluate` scope or a session (ADR-0008); the payload carries only flag keys + versions — nothing beyond what the management API exposes to the same credential. |
 | Audit | Append-only table, no update/delete API (FR-37); audit write participates in the mutation transaction (FR-39). |
 | HTTP hardening | `HttpOnly` + `SameSite=Lax` session cookie; `application/problem+json` errors leak no internals; no CORS (same-origin dashboard); JSON body size limit (1 MB). |
 | Secrets in repo | None. `docker-compose.yml` reads the sync key from the environment. |
@@ -252,14 +359,17 @@ terminating proxy), rate limiting, PII redaction in audit.
 
 - **Logging**: pino (via Fastify), JSON. Every request: id, route, actor (when authenticated),
   status, duration. Domain events (flag created, definition published, key revoked) as
-  structured log lines with the audit id.
-- **Health**: `GET /healthz` → process alive. `GET /readyz` → `{ status, flagd: { <env>:
-  "READY"|"STALE"|"ERROR" } }` derived from OpenFeature provider state events per
-  environment. `readyz` is 503 when any environment's provider is not READY.
+  structured log lines with the audit id. SSE subscriber connect/disconnect (actor, envs
+  filter) and every `flag-changed` emission (with the queued change's audit id) are logged
+  the same way.
+- **Health**: `GET /healthz` → process alive. `GET /readyz` → `{ status, db: "OK"|"DOWN",
+  flagd: { <env>: "READY"|"STALE"|"ERROR" } }` — `db` from a pool ping, `flagd` derived from
+  OpenFeature provider state events per environment. `readyz` is 503 when the DB is down or
+  any environment's provider is not READY.
 - **Sync health in the UI** (FR-47): the dashboard compares stored flag `version` with the
   `version` in flagd flag metadata (exposed by the provider on evaluated flags; a
   `/api/v1/flags/:key/observed` helper reads it via a probe evaluation per env) and shows a
-  stale badge when they differ.
+  stale badge when they differ; the badge refreshes on SSE events (FR-52) rather than polling.
 - **flagd metrics** (8017, Prometheus) are available but not wired into FMS in v1 (non-goal).
 
 ## 8. Failure modes & behavior
@@ -271,7 +381,10 @@ terminating proxy), rate limiting, PII redaction in audit.
 | FMS API down | flagd keeps serving last synced model (NFR-3). Dashboard/CRUD unavailable. |
 | Sync endpoint error (5xx) | flagd keeps last good model, retries on interval. FMS logs the request; a prolonged outage is visible via `readyz` STALE and the UI badge. |
 | Concurrent definition edits | Last-writer-wins per (flag, env); the audit log preserves both before/after states. Optimistic locking (version precondition) is a documented v1.1 candidate. |
-| SQLite corruption / loss | Backup = copy of the SQLite file (WAL checkpoint first). Documented in runbook. |
+| MariaDB down | CRUD/audit and `/evaluate` → 503 (`…/errors/unavailable`); `GET /sync/:env` still serves from the sync memo (no commit can happen while the DB is down, so the memo is current) or 503 if never compiled; flagd keeps serving its last model; `readyz` reports `db: "DOWN"`. |
+| DB pool exhaustion | Connection-wait timeout → 503, logged with pool stats. |
+| SSE client disconnect | Stream closes; no replay on reconnect (ADR-0008) — clients reconcile by re-fetching state. |
+| MariaDB data loss | Backup = single-transaction `mariadb-dump` + named volume; restore documented in runbook. |
 | JWT secret rotated | Sessions invalid (re-login). Keys unaffected. |
 
 ## 9. Configuration (environment variables)
@@ -280,29 +393,54 @@ terminating proxy), rate limiting, PII redaction in audit.
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP port (API + dashboard + sync) |
 | `NODE_ENV` | `development` | `production` enforces no insecure defaults |
-| `DATABASE_PATH` | `./data/fms.db` | SQLite file location |
+| `DATABASE_URL` | dev default matching compose (`mysql://fms:***@127.0.0.1:3306/fms`; refused in production) | MariaDB connection |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | dev defaults (refused in production) | Login credentials |
 | `JWT_SECRET` | random per boot (dev warning) | Session signing |
 | `FLAGD_HOST` / `FLAGD_PORT` | `localhost` / `8013` | flagd gRPC endpoint for the evaluate proxy |
 | `ENVS` | `dev,staging,prod` | Environment list (order = display order) |
 | `SYNC_KEY` | — | Pre-seeded `sync`-scoped API key (logged once at first boot, also settable for compose/flagd) |
+| `WEB_DIST` | `web/dist` (repo root) | Built dashboard served at `/` |
 
 ## 10. Deployment
 
 **Local / single-host (v1 target):**
 
 ```
-docker compose up -d            # flagd only (image pinned; config from flagd/config.yaml)
-npm run dev                     # API + dashboard on :3000, DB in ./data
+docker compose up -d            # flagd + mariadb (images pinned; flagd config from flagd/config.yaml)
+npm run build:web               # vite build → web/dist
+npm start                       # API + dashboard on :3000
 ```
 
-`docker-compose.yml` ships with the repo and contains **flagd only** in v1; the API runs as a
-Node process (keeps dev loop simple; a container image for the API is a v1.1 candidate).
+Dev loop: `npm run dev` (API, watch) + `npm run dev:web` (Vite dev server on :5173, proxying
+`/api` → :3000). `docker-compose.yml` ships with the repo and contains **flagd and mariadb**;
+the API runs as a Node process (keeps the dev loop simple; a container image for the API is
+a v1.1 candidate).
 
-**Later (out of scope for v1):** API container image, TLS termination, Postgres, multiple
-flagd instances.
+**Later (out of scope for v1):** API container image, TLS termination, Postgres, multi-instance
+FMS (incl. boot-time migration locking), multiple flagd instances (see §11).
 
-## 11. References
+## 11. Scaling (flagd)
+
+v1 runs a **single flagd**: NFR-2 (100 eval/s) is a small fraction of one instance's
+capacity — evaluation is in-memory and the server holds no client state. The design keeps
+the scale-up path open with no v1 work:
+
+1. **Do nothing** — one flagd handles a large multiple of v1 load.
+2. **Client-side lever first** — the official **flagd HTTP provider** evaluates in-process
+   (the client pulls the model over plain HTTP; embedded flagd core evaluates locally).
+   High-volume clients opt out of central gRPC load with zero infra change.
+3. **Replicate flagd** — flagd is stateless (model = pure function of FMS state, FR-28).
+   N replicas pointed at the same sync sources converge within one interval; put an LB in
+   front (or clients round-robin across endpoints). No FMS or SDK contract changes;
+   selectors/flag sets work per replica. Point `FLAGD_HOST`/`FLAGD_PORT` (evaluate proxy +
+   `readyz`) at the LB — a config-only change. Per-replica sync polling stays cheap on the
+   FMS side because of the sync model memo (§2.1).
+4. **Per-environment flagd instances** — ADR-0004's option 1, only if one environment
+   outgrows the rest.
+
+Multi-flagd HA is a v1 non-goal ([01-requirements.md §2](01-requirements.md)).
+
+## 12. References
 
 - flagd — flag definitions & targeting (JSONLogic, custom operations):
   <https://flagd.dev/reference/flag-definitions/>
@@ -311,5 +449,5 @@ flagd instances.
   <https://flagd.dev/reference/sync-configuration/>
 - flagd — flag sets & selectors: <https://flagd.dev/guides/migrating-to-flag-sets/>
 - flagd — JSON schemas (flags, targeting, config): <https://flagd.dev/reference/schema/>
-- flagd — Node.js provider: <https://flagd.dev/providers/nodejs/>
-- OpenFeature specification: <https://openfeature.dev/specification/>
+- flagd — Node.js providers (gRPC + HTTP in-process): <https://flagd.dev/providers/nodejs/>
+- OpenFeature specification (incl. provider events): <https://openfeature.dev/specification/>

@@ -14,6 +14,12 @@ client is required.
 **Planning phase.** No application code exists yet. This repository currently contains the design
 and requirements documentation only.
 
+The multi-user dashboard requirements are captured: login (FR-40/FR-53), per-user roles with
+different access levels (FR-54), per-project environments (FR-55), per-project flags with
+per-environment state (FR-56), admin invites (FR-57), developer and product-owner capabilities
+(FR-58/FR-59) — see [docs/01-requirements.md §4.9.1](docs/01-requirements.md). Implementation lands in
+M4 per [docs/06-roadmap.md](docs/06-roadmap.md).
+
 ## Documentation
 
 | Document | Contents |
@@ -28,25 +34,29 @@ and requirements documentation only.
 
 ## Architecture in one paragraph
 
-A TypeScript management API (Fastify + SQLite) is the system of record for flags, per-environment
-definitions, targeting rules, API keys, and an audit log. It exposes a REST API for the web
-dashboard and a pull-based sync endpoint (with ETag/304 caching) that [flagd](https://flagd.dev)
-polls — one sync source per environment, each carried in its own flagd *flag set*
-(`flagSetId=<env>`). Runtime evaluation happens inside flagd: server-side clients use the
-OpenFeature server SDK with the official `@openfeature/flagd-provider` (gRPC, one provider
-instance per environment, selected via flagd selectors), and the management API itself offers a
-convenience `/evaluate` endpoint backed by the same OpenFeature integration. Targeting rules
-authored in the dashboard are compiled to flagd's JSONLogic-based targeting, including the
-`fractional` operation for sticky percentage rollouts.
+A TypeScript management API (Fastify + MariaDB) is the system of record for flags,
+per-environment definitions, targeting rules, API keys, and an audit log. It exposes a REST
+API for the Vue 3 web dashboard, a pull-based sync endpoint (with ETag/304 caching) that
+[flagd](https://flagd.dev) polls — one sync source per environment, each carried in its own
+flagd *flag set* (`flagSetId=<env>`) — and an SSE stream (`GET /api/v1/events`) that relays
+flag-change notifications once flagd serves them. Runtime evaluation happens inside flagd:
+server-side clients use the OpenFeature server SDK with the official
+`@openfeature/flagd-provider` (gRPC, one provider instance per environment, selected via
+flagd selectors), and the management API itself offers a convenience `/evaluate` endpoint
+backed by the same OpenFeature integration; clients can subscribe to model changes via
+standard OpenFeature provider events. Targeting rules authored in the dashboard are compiled
+to flagd's JSONLogic-based targeting, including the `fractional` operation for sticky
+percentage rollouts.
 
 ## Planned runtime components
 
 | Component | Technology | Role |
 | --- | --- | --- |
-| Management API | Node.js (TypeScript), Fastify, SQLite (better-sqlite3) | System of record, REST API, sync source, evaluate proxy, hosts dashboard |
+| Management API | Node.js (TypeScript), Fastify, MariaDB (Kysely) | System of record, REST API, sync source, evaluate proxy, SSE change events, hosts dashboard |
+| MariaDB | `mariadb:11.8` (Docker) | Persistent storage (system of record) |
 | flagd | `ghcr.io/open-feature/flagd` (Docker) | Flag evaluation engine; syncs from the management API |
-| Dashboard | Vanilla TS/JS static SPA (no build step) | Flag CRUD, per-environment editor, evaluate playground, API keys, audit log |
-| Client applications | Any language with an official OpenFeature SDK + flagd provider | Evaluate flags at runtime |
+| Dashboard | Vue 3 + Vite + TypeScript, Naive UI (built assets served by the API) | Flag CRUD, per-environment editor, evaluate playground, API keys, audit log, live change events |
+| Client applications | Any language with an official OpenFeature SDK + flagd provider | Evaluate flags at runtime; subscribe to change events |
 
 ## Getting started
 

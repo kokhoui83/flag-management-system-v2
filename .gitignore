@@ -7,3 +7,6 @@ graphify-out/manifest.json
 graphify-out/memory/
 graphify-out/reflections/
 graphify-out/graph.html
+
+# opencode local state
+.opencode/

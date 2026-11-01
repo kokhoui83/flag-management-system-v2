@@ -1,0 +1,37 @@
+# M0 compose topology (architecture §10, compose topology note): the management API
+# runs as a host Node process; flagd (evaluation engine) and mariadb (system of record)
+# run as containers. The API container image is a v1.1 candidate (deferred).
+services:
+  mariadb:
+    image: mariadb:11.8
+    environment:
+      # Dev defaults; override via .env (see .env.example) — credentials are never hardcoded.
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-root}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-fms}
+      MARIADB_USER: ${MARIADB_USER:-fms}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-fms}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    ports:
+      # localhost-only (ADR-0007): bind to loopback, not 0.0.0.0.
+      - "127.0.0.1:3306:3306"
+
+  flagd:
+    image: ghcr.io/open-feature/flagd:v0.18.2
+    volumes:
+      - ./flagd/config.yaml:/flagd/config.yaml:ro
+    command: ["start", "--config", "/flagd/config.yaml"]
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "8013:8013"
+
+volumes:
+  mariadb_data:

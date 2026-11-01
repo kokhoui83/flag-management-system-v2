@@ -33,11 +33,13 @@ are written (failing) before its implementation. Acceptance criteria reference
   runs the dev server with an `/api` proxy.
 
 **Acceptance**
-- [ ] `npm test` green (config parsing + health route tests, TDD).
+- [x] `npm test` green (config parsing + health route tests, TDD).
 - [ ] `docker compose up -d` starts flagd + mariadb (both healthchecks green);
-      `docker compose down` clean.
-- [ ] App boots, `/healthz` 200, shuts down cleanly on SIGTERM.
-- [ ] Docs: this roadmap updated; README "Getting started" reflects M0 reality.
+      `docker compose down` clean. (mariadb healthcheck green verified; flagd starts via
+      `start --config` but exits while the management API is not serving the sync source — the
+      API lands fully in M2, at which point this re-verifies.)
+- [x] App boots, `/healthz` 200, shuts down cleanly on SIGTERM.
+- [x] Docs: this roadmap updated; README "Getting started" reflects M0 reality.
 
 ---
 
@@ -124,14 +126,16 @@ provider state.
   `PROVIDER_CONFIGURATION_CHANGED`); `GET /api/v1/events` SSE — `flag-changed` /
   `provider-ready` / `provider-error`, 15 s keepalive, no replay, `evaluate`-scope/session
   auth (FR-51).
-- E2E harness: vitest + compose (flagd + mariadb), ready-wait helper, deterministic scenarios
-  per [05-testing.md §2.3](05-testing.md) (stickiness, propagation, 304, flagd-down 503,
-  flagd-restart recovery, SSE ordering + no-replay, OpenFeature provider event (FR-50)).
+- E2E harness: Playwright (Gherkin feature files + step definitions) + compose (flagd + mariadb),
+  ready-wait helper, deterministic scenarios per [05-testing.md §2.3](05-testing.md) (stickiness,
+  propagation, 304, flagd-down 503, flagd-restart recovery, SSE ordering + no-replay, OpenFeature
+  provider event (FR-50)); scenario wording stays Gherkin-based per the §2 behavior specs.
 - Seed: on first boot with an empty DB, log the `SYNC_KEY` once (architecture §9) so the
   operator can wire `flagd/config.yaml` (source URIs per the OQ-6 resolution).
 
 **Acceptance**
-- [ ] All [05-testing.md §2.3](05-testing.md) E2E scenarios green via `npm run test:e2e`.
+- [ ] All [05-testing.md §2.3](05-testing.md) E2E scenarios green via `npm run test:e2e` (Playwright
+      + Gherkin harness).
 - [ ] NFR-1 latency: local `/evaluate` p99 < 25 ms measured in E2E (1,000 calls, logged).
 - [ ] `readyz` transitions observed: READY → (flagd stopped) ERROR → (flagd restarted) READY.
 - [ ] SSE: change → `flag-changed` arrives after flagd serves the new value and within ~2×

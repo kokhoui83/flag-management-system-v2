@@ -1,0 +1,15 @@
+# Provisional M0 flagd sync sources (roadmap M0; source layout settles with OQ-6 before M2).
+# One source per environment of the single default project (architecture §2.2).
+sources:
+  - uri: http://host.docker.internal:3000/api/v1/sync/dev
+    provider: http
+    interval: 5
+    authHeader: "Bearer fms_dev_insecure_password"
+  - uri: http://host.docker.internal:3000/api/v1/sync/staging
+    provider: http
+    interval: 5
+    authHeader: "Bearer fms_dev_insecure_password"
+  - uri: http://host.docker.internal:3000/api/v1/sync/prod
+    provider: http
+    interval: 5
+    authHeader: "Bearer fms_dev_insecure_password"

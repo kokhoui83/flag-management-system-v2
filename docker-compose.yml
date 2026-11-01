@@ -5,10 +5,11 @@ services:
   mariadb:
     image: mariadb:11.8
     environment:
-      MARIADB_ROOT_PASSWORD: root
-      MARIADB_DATABASE: fms
-      MARIADB_USER: fms
-      MARIADB_PASSWORD: fms
+      # Dev defaults; override via .env (see .env.example) — credentials are never hardcoded.
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-root}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-fms}
+      MARIADB_USER: ${MARIADB_USER:-fms}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-fms}
     volumes:
       - mariadb_data:/var/lib/mysql
     healthcheck:

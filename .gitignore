@@ -17,3 +17,6 @@ node_modules/
 web/dist/
 server/dist/
 shared/dist/
+
+# local env (secrets)
+.env

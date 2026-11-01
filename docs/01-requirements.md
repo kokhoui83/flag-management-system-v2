@@ -121,11 +121,13 @@ applies. v1 rule types:
 
 - **FR-21** — All evaluation is performed by **flagd**; FMS never evaluates flags itself.
 - **FR-22** — FMS exposes `POST /api/v1/evaluate` as a convenience for tooling and the
-  dashboard: input `{ flagKey, environment, targetingKey?, context? }`, output the OpenFeature
+  dashboard: input `{ projectKey, flagKey, environment, targetingKey?, context? }` (the flag's
+  owning project, its key, and one of that project's environments), output the OpenFeature
   resolution details (`value`, `variant`, `reason`, error info). The response variant value is
   typed per the flag's definition.
-- **FR-23** — The same endpoint rejects with `404` for unknown flags and `400` for invalid
-  bodies (malformed context, missing environment, unknown environment).
+- **FR-23** — The same endpoint rejects with `404` for unknown projects and flag keys not in
+  the named project, and `400` for invalid bodies (malformed context, missing
+  `projectKey`/`flagKey`, missing environment, environment not in the project).
 - **FR-24** — When flagd is unreachable or its configuration is not ready, evaluation returns
   `503` with a structured error — never a silently defaulted value (no "success-shaped
   fallback").
@@ -164,7 +166,8 @@ applies. v1 rule types:
 ### 4.8 Audit log
 
 - **FR-36** — Every mutating operation (flag create/update/delete, definition update/copy, API
-  key create/revoke, login success, project create / member invite) is recorded with: timestamp,
+  key create/revoke, login success, project create, environment create, member invite) is
+  recorded with: timestamp,
   actor (session user or API key name), action, entity + id, environment (when applicable), and
   the before/after state (JSON, for definition changes).
 - **FR-37** — The audit log is append-only: no API can update or delete entries.
@@ -207,12 +210,17 @@ multi-user, multi-project scope:
   project starts with the default environment set (`dev`, `staging`, `prod`) and may gain
   additional per-project environments (requirement 3). A project name (and key) is unique — two
   projects cannot share a name (user requirement); collisions are rejected with `409`.
+  Additional environment names match `^[a-z][a-z0-9-]{0,63}$` (lowercase, digits, `-`) and are
+  unique within the project (collision → `409`).
 - **FR-56** — A flag can be created for a project and is available in all environments of that
   project, while the state of each flag is unique per environment (FR-7/FR-8 isolation semantics
   applied per project). The flag is linked to its owning project (`flags.project_id`) and its
   environment (`flag_definitions.env`); the flag key is unique per project (requirement 4).
 - **FR-57** — Admin has full access and can invite another user, assigning a role and one or more
-  projects (requirement 5).
+  projects (requirement 5). The invite creates the user if absent and issues a temporary
+  password shown **once** (only its hash is stored); the user signs in with it through the
+  normal session flow (FR-31). Re-inviting an existing user updates the assignment and
+  reissues a temporary password.
 - **FR-58** — Developer can create environments and flags for the projects they are assigned to,
   and toggle the state of the flags within those projects (requirement 6).
 - **FR-59** — Product owner can view and toggle the state of the flags of the projects they are
@@ -227,9 +235,9 @@ multi-user, multi-project scope:
 - **FR-51** — FMS exposes `GET /api/v1/events` (SSE, `text/event-stream`), authenticated with
   an `evaluate`-scoped key or a session, with an optional `?envs=` filter. Events:
   - `flag-changed` — `{"env", "flagKey", "version", "at"}`, emitted **only after** FMS's own
-    per-env provider observes the change in flagd (semantics: "flagd in env is now serving
-    flagKey at version ≥ N") (ADR-0008);
-  - `provider-ready` / `provider-error` — per-env provider state transitions.
+    per-(project, env) provider observes the change in flagd (semantics: "flagd in env is
+    now serving flagKey at version ≥ N") (ADR-0008);
+  - `provider-ready` / `provider-error` — per-(project, env) provider state transitions.
   Keepalive comment every 15 s; no replay — reconnecting clients reconcile by re-fetching
   state.
 - **FR-52** — The dashboard subscribes to `GET /api/v1/events` and live-updates the flag list
@@ -243,9 +251,9 @@ multi-user, multi-project scope:
 | NFR-2 | **Scale (v1)**: 1,000 flags × 3 environments; 100 evaluations/s sustained. Beyond that is out of scope. |
 | NFR-3 | **Availability**: if flagd is down, management operations (CRUD, audit, keys) keep working; evaluations fail with 503 (FR-24). If FMS is down, flagd keeps serving its last synced model (stale, but functional). |
 | NFR-4 | **Durability**: flag state survives restart (MariaDB, named volume — ADR-0007). No in-memory-only state for definitions. |
-| NFR-5 | **Security**: no secrets in the repo; JWT secret and admin credentials from environment; API keys hashed at rest; sync endpoint never open; no PII in audit log by design (state snapshots may contain what users configured — accepted in v1). |
+| NFR-5 | **Security**: no secrets in the repo; JWT secret and admin credentials from environment; API keys and user passwords (argon2id) hashed at rest; sync endpoint never open; no PII in audit log by design (state snapshots may contain what users configured — accepted in v1). |
 | NFR-6 | **Portability**: runs on macOS/Linux with Docker for flagd and MariaDB, Node ≥ 22 for the API, and a Vite build for the dashboard; no system dependencies beyond that. |
-| NFR-7 | **Observability**: structured JSON logs (request id, actor, route, duration, outcome); `GET /healthz` (liveness) and `GET /readyz` (readiness incl. per-environment flagd provider state). |
+| NFR-7 | **Observability**: structured JSON logs (request id, actor, route, duration, outcome); `GET /healthz` (liveness) and `GET /readyz` (readiness incl. per-(project, environment) flagd provider state). |
 | NFR-8 | **Testability**: all domain logic (validation, rule→flagd-model compilation, ETag, audit) is pure or dependency-injected and unit-testable without Docker. The store layer is async (MariaDB pool) but stays behind the same seams (ADR-0007). |
 | NFR-9 | **Standards**: published flagd models conform to the official JSON schema (`flagd.dev/schema/v0/flags.json`); API errors follow RFC 9457 (`application/problem+json`). |
 
@@ -263,7 +271,7 @@ multi-user, multi-project scope:
 
 | # | Question | Current inclination |
 | --- | --- | --- |
-| OQ-1 | Can a per-request `Flagd-Selector` be passed through the Node flagd provider without one provider instance per environment? | No documented support → use one provider instance per environment (ADR-0004). |
+| OQ-1 | Can a per-request `Flagd-Selector` be passed through the Node flagd provider without one provider instance per (project, environment)? | No documented support → use one provider instance per (project, environment) (ADR-0004). |
 | OQ-2 | Do client *browsers* evaluate flags directly (web SDK + flagd web provider) or through their backend? | v1: backend-only. Document the proxy pattern; revisit later. |
 | OQ-3 | Should scheduled rollouts (`$flagd.timestamp`-based `fractional` weights) get an API/UI in v1.1? | Postpone; the compiled model already *can* express them via advanced rule JSON escape hatch (see OQ-4). |
 | OQ-4 | Do we need an "advanced JSONLogic" escape-hatch field for power users beyond the structured rule editor? | Postpone to v1.1; the compiler must not make this unnecessary later. |

@@ -37,12 +37,13 @@ M4 per [docs/06-roadmap.md](docs/06-roadmap.md).
 A TypeScript management API (Fastify + MariaDB) is the system of record for flags,
 per-environment definitions, targeting rules, API keys, and an audit log. It exposes a REST
 API for the Vue 3 web dashboard, a pull-based sync endpoint (with ETag/304 caching) that
-[flagd](https://flagd.dev) polls — one sync source per environment, each carried in its own
-flagd *flag set* (`flagSetId=<env>`) — and an SSE stream (`GET /api/v1/events`) that relays
+[flagd](https://flagd.dev) polls — one sync source per (project, environment), each carried
+in its own flagd *flag set* — and an SSE stream (`GET /api/v1/events`) that relays
 flag-change notifications once flagd serves them. Runtime evaluation happens inside flagd:
 server-side clients use the OpenFeature server SDK with the official
-`@openfeature/flagd-provider` (gRPC, one provider instance per environment, selected via
-flagd selectors), and the management API itself offers a convenience `/evaluate` endpoint
+`@openfeature/flagd-provider` (gRPC, one provider instance per (project, environment),
+selected via flagd selectors), and the management API itself offers a convenience
+`/evaluate` endpoint
 backed by the same OpenFeature integration; clients can subscribe to model changes via
 standard OpenFeature provider events. Targeting rules authored in the dashboard are compiled
 to flagd's JSONLogic-based targeting, including the `fractional` operation for sticky

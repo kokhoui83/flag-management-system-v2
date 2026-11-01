@@ -18,7 +18,7 @@ Endpoint scopes:
 
 | Scope | Grants |
 | --- | --- |
-| `manage` | flags/definitions CRUD, keys CRUD, audit read, evaluate |
+| `manage` | projects (create, environments, invites), flags/definitions CRUD, keys CRUD, audit read, evaluate |
 | `evaluate` | `POST /api/v1/evaluate`, `GET /api/v1/events` |
 | `sync` | `GET /api/v1/sync/:env` only (consumed by flagd) |
 | `all` | everything |
@@ -60,6 +60,9 @@ Common `type` URIs: `…/errors/validation` (400), `…/errors/not-found` (404),
 
 ### `POST /api/v1/auth/login`
 
+Credentials are either the env-configured bootstrap admin (FR-30) or an invited user
+(username + temporary password from an invite, FR-57; §13).
+
 ```json
 // request
 { "username": "admin", "password": "…" }
@@ -74,9 +77,12 @@ Common `type` URIs: `…/errors/validation` (400), `…/errors/not-found` (404),
 `204`. Clears the cookie. (Stateless JWT: server-side expiry is not enforced; the cookie is
 deleted and the token simply ignored by the client. Documented v1 behavior.)
 
-## 4. Flags
+## 4. Flags (project-scoped)
 
-### `GET /api/v1/flags`
+Flag routes live under the owning project (`flags.project_id` is NOT NULL — 03 §1);
+`:projectId` is the project's ULID, and flag keys are unique within the project (FR-56).
+
+### `GET /api/v1/projects/:projectId/flags`
 
 ```json
 {
@@ -101,16 +107,17 @@ deleted and the token simply ignored by the client. Documented v1 behavior.)
 `environments` omits environments with no definition (`FR-7`). `variantType` is
 `boolean` | `number` | `string` derived from the (any) definition's variants.
 
-### `POST /api/v1/flags`
+### `POST /api/v1/projects/:projectId/flags`
 
 ```json
 // request
 { "key": "new-checkout", "description": "Checkout v2 rollout" }
 // 201 response — flag as in GET (environments: {})
-// 409 if key exists; 400 if key invalid (FR-1)
+// 409 if the key already exists in the project; 400 if key invalid (FR-1)
+// 403 without `manage` or an assignment to the project (FR-58)
 ```
 
-### `GET /api/v1/flags/:key`
+### `GET /api/v1/projects/:projectId/flags/:key`
 
 ```json
 {
@@ -137,11 +144,11 @@ deleted and the token simply ignored by the client. Documented v1 behavior.)
 // 404 if unknown flag
 ```
 
-### `GET /api/v1/flags/:key/observed`
+### `GET /api/v1/projects/:projectId/flags/:key/observed`
 
 Internal helper backing the dashboard sync-health badge (FR-47; architecture §7). Runs a probe
-evaluation per environment via the per-environment flagd provider and returns the flagd-observed
-version and enablement for each environment:
+evaluation for each environment of the project via the per-(project, env) flagd provider and
+returns the flagd-observed version and enablement for each environment:
 
 ```json
 {
@@ -155,20 +162,20 @@ version and enablement for each environment:
 
 Environments with no definition are omitted (FR-7). Requires `evaluate` scope or a session.
 
-### `PUT /api/v1/flags/:key`
+### `PUT /api/v1/projects/:projectId/flags/:key`
 
 ```json
 // request: { "description": "…" }   // description update only (key is immutable)
 // 200 → updated flag; 404 unknown
 ```
 
-### `DELETE /api/v1/flags/:key`
+### `DELETE /api/v1/projects/:projectId/flags/:key`
 
 `204`. Deletes flag + all definitions + audit row recording full before-state (FR-4).
 
 ## 5. Definitions
 
-### `PUT /api/v1/flags/:key/definitions/:env`
+### `PUT /api/v1/projects/:projectId/flags/:key/definitions/:env`
 
 Full replace of one environment's definition (create or update).
 
@@ -193,7 +200,7 @@ Constraints (rejected with `400`): variant name rules and type homogeneity (FR-1
 `defaultVariant` ∈ variants (FR-12); rule shape per [03-data-model.md §2](03-data-model.md);
 percentage rule terminal + at most one (FR-17/FR-18); variant references exist (FR-16).
 
-### `POST /api/v1/flags/:key/definitions/:env/copy`
+### `POST /api/v1/projects/:projectId/flags/:key/definitions/:env/copy`
 
 ```json
 // request
@@ -235,11 +242,14 @@ metadata field; 304 responses carry the current `ETag` header.
 ### `POST /api/v1/evaluate`
 
 Requires `evaluate` scope or a session. The server picks the typed OpenFeature call from the
-flag's stored variant type — the client never specifies a type.
+flag's stored variant type — the client never specifies a type. `projectKey` + `flagKey`
+identify the flag (keys are unique per project, FR-56); `environment` must be one of that
+project's environments (FR-55).
 
 ```json
 // request
 {
+  "projectKey": "checkout",
   "flagKey": "new-checkout",
   "environment": "staging",
   "targetingKey": "user-42",
@@ -256,8 +266,8 @@ flag's stored variant type — the client never specifies a type.
 
 | Case | Response |
 | --- | --- |
-| Unknown flag key | `404` not-found |
-| Unknown/missing `environment` | `400` |
+| Unknown `projectKey`, or flag key not in that project | `404` not-found |
+| Unknown/missing `environment` (or not an environment of the project) | `400` |
 | Malformed `context` (not an object) / `targetingKey` not a string | `400` |
 | Flag disabled in that environment | `200` with `{ "value": null, "variant": null, "reason": "DISABLED", "flagVersion": n }` |
 | flagd provider not READY (down / sync stalled past grace) | `503` unavailable — *no* defaulted value (FR-24) |
@@ -348,9 +358,10 @@ Unauthenticated. `200` when the process is alive, the database is reachable, and
 }
 ```
 
-Provider states from OpenFeature events per environment (`READY` / `STALE` / `ERROR`,
-see architecture §7). Readiness is not ready while the database reports `"DOWN"` or any
-environment's provider is not `READY`.
+Provider states from OpenFeature events per (project, environment), keyed by flag-set ID
+(`READY` / `STALE` / `ERROR`; naming per OQ-6; see architecture §7) — the example above
+shows the default environment set of a single project. Readiness is not ready while the
+database reports `"DOWN"` or any provider is not `READY`.
 
 ## 11. OpenAPI
 
@@ -363,8 +374,8 @@ represents it as a `text/event-stream` response.)
 
 ### `GET /api/v1/events`
 
-Requires `evaluate` scope or a session. Optional filter `?envs=dev,prod` (comma-separated;
-unknown env name → `400`).
+Requires `evaluate` scope or a session. Optional filter `?envs=` (comma-separated
+flag-set IDs, naming per OQ-6; unknown value → `400`).
 
 ```
 GET /api/v1/events?envs=staging
@@ -389,13 +400,14 @@ data: {"env":"staging","at":"2026-10-28T12:00:07.000Z"}
 
 Semantics (ADR-0008):
 
-- `flag-changed` is emitted **only after** FMS's own per-env provider observes the new model
+- `flag-changed` is emitted **only after** FMS's own per-(project, env) provider observes the
+  new model
   in flagd — it means *flagd in `env` is now serving `flagKey` at version ≥ `version`*.
   There is no early window.
 - No replay: events are not retained. After a disconnect, reconnect and re-fetch state to
   reconcile (FR-51).
-- `provider-ready` / `provider-error` fire on per-env provider state transitions — the same
-  states `readyz` reports (architecture §7).
+- `provider-ready` / `provider-error` fire on per-(project, env) provider state transitions
+  — the same states `readyz` reports (architecture §7).
 - The stream carries only flag keys + versions: nothing beyond what the management API
   already exposes to the same credential.
 
@@ -429,8 +441,9 @@ only assigned projects for `developer` and `product-owner` sessions and keys (FR
 ### `POST /api/v1/projects`
 
 Admin (`manage` scope) creates a project and seeds the default environment set
-(`dev`, `staging`, `prod`) (FR-55); additional per-project environments can be added by the
-developer assigned to that project (FR-58).
+(`dev`, `staging`, `prod`) (FR-55); additional per-project environments are added via
+`POST /api/v1/projects/:projectId/environments` (admin or an assigned developer —
+FR-55/FR-58).
 
 ```json
 // request
@@ -439,7 +452,21 @@ developer assigned to that project (FR-58).
 // 409 if the name (or key) is already taken — projects are unique (FR-55, FR-56)
 ```
 
-### `POST /api/v1/projects/:id/members` — invite
+### `POST /api/v1/projects/:projectId/environments`
+
+Admin (`manage` scope) or a developer assigned to the project (FR-58) adds a custom
+environment to the project's environment set (FR-55):
+
+```json
+// request
+{ "env": "qa" }
+// 201 → project as in GET /api/v1/projects (environments now includes "qa")
+// 400 if the env name is invalid (`^[a-z][a-z0-9-]{0,63}$`, FR-55)
+// 409 if the environment already exists in the project
+// 403 without `manage` or an assignment to the project (FR-58)
+```
+
+### `POST /api/v1/projects/:projectId/members` — invite
 
 Admin (`manage` scope) invites a user with a role and assigns one or more projects
 (`FR-57`):
@@ -447,28 +474,33 @@ Admin (`manage` scope) invites a user with a role and assigns one or more projec
 ```json
 // request
 { "username": "brian", "role": "developer", "projectIds": ["01J…"] }
-// 201 → { "user": "brian", "role": "developer", "projects": ["01J…"] }
+// 201 → { "user": "brian", "role": "developer", "projects": ["01J…"],
+//          "password": "temp-…(generated, shown once — FR-57)" }
 // 403 without `manage`
 ```
 
-Membership assignment and (bootstrap) user creation are part of the same audited operation.
+The invite creates the user if absent (temporary password, FR-57), sets the global role,
+and upserts the memberships — one audited operation (`project.member.invite`; the
+after-state never includes the password). Re-inviting an existing user updates the
+assignment and reissues a temporary password.
 
-### `GET /api/v1/projects/:id/members`
+### `GET /api/v1/projects/:projectId/members`
 
 Admin (`manage` scope) lists the members of a project with their assigned roles (FR-57).
 
 ## 14. Flag scoping per project (FR-56)
 
-Flag routes are scoped by project. A flag belongs to exactly one project, is available in all
-environments of that project, and carries state unique per environment (FR-56):
+All flag routes are project-scoped (§4/§5 live under `projects/:projectId`) — a flag belongs
+to exactly one project, is available in all environments of that project, and carries state
+unique per environment (FR-56). There are no unscoped flag routes: every flag row has a
+`project_id` (03 §1), so every flag operation names its project.
 
-- Flag create: `POST /api/v1/projects/:projectId/flags` — developer with an assignment to
-  `:projectId` may create; admin may create for any project (FR-58).
-- Flag list per project: `GET /api/v1/projects/:projectId/flags`.
-- Definition update / copy / delete: the per-environment routes move under the project path, e.g.
-  `PUT /api/v1/projects/:projectId/flags/:key/definitions/:env`. The
-  `…/flags/:key/definitions/:env` shape is retained only for the bootstrap admin (full access,
-  FR-57).
+Authorization:
+
+- Admin session / `manage` key: any project (FR-57).
+- Developer: assigned projects only — create flags and environments, toggle state (FR-58).
+- Product owner: assigned projects only — view and toggle state (FR-59).
+- Any other caller → `403`.
 
 Environment-scoped operations remain environment-isolated: changing one environment's
 definition never affects another environment of the same flag (FR-8), and versions bump per

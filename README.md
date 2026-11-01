@@ -11,8 +11,11 @@ client is required.
 
 ## Status
 
-**Planning phase.** No application code exists yet. This repository currently contains the design
-and requirements documentation only.
+**M0 — Skeleton & tooling (in progress, TDD green).** The repository now contains the M0
+skeleton: npm workspaces (`server`, `web`, `shared`) on TypeScript (strict, ESM), vitest, ESLint +
+Prettier, a Fastify management API with `/healthz` + `/readyz`, env-driven config, and a Vite +
+Vue placeholder dashboard. Flag/store/evaluation work lands in M1–M3 per
+[docs/06-roadmap.md](docs/06-roadmap.md).
 
 The multi-user dashboard requirements are captured: login (FR-40/FR-53), per-user roles with
 different access levels (FR-54), per-project environments (FR-55), per-project flags with
@@ -61,4 +64,15 @@ percentage rollouts.
 
 ## Getting started
 
-Not yet available — see [docs/06-roadmap.md](docs/06-roadmap.md) for the implementation plan.
+Current state (M0):
+
+```bash
+docker compose up -d   # flagd (pinned image) + mariadb (pinned mariadb:11.8, healthcheck) — see docker-compose.yml
+npm run build:web      # vite build → web/dist
+npm run dev            # management API (Fastify) on :3000 (tsx watch)
+npm run dev:web        # dashboard dev server on :5173 (Vite proxy /api → :3000)
+npm test               # unit tier (vitest)
+```
+
+The full milestone plan lives in [docs/06-roadmap.md](docs/06-roadmap.md); the M0 acceptance
+checks are being closed as the skeleton lands.

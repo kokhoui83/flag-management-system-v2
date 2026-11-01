@@ -1,0 +1,33 @@
+{
+  "name": "flag-management-system",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "server",
+    "web",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "build:web": "npm run build -w web",
+    "test": "npm run test -w server",
+    "test:integration": "npm run test -w server -- --config vitest.config.integration.ts",
+    "test:e2e": "npm run test -w server -- --config vitest.config.e2e.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web && npm run typecheck -w shared"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.0.1",
+    "eslint-plugin-vitest": "^0.5.4",
+    "prettier": "^3.4.2",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.0.0"
+  }
+}

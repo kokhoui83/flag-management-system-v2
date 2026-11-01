@@ -10,3 +10,10 @@ graphify-out/graph.html
 
 # opencode local state
 .opencode/
+
+# dependencies / build artifacts
+node_modules/
+**/node_modules/
+web/dist/
+server/dist/
+shared/dist/

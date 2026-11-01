@@ -33,11 +33,13 @@ are written (failing) before its implementation. Acceptance criteria reference
   runs the dev server with an `/api` proxy.
 
 **Acceptance**
-- [ ] `npm test` green (config parsing + health route tests, TDD).
+- [x] `npm test` green (config parsing + health route tests, TDD).
 - [ ] `docker compose up -d` starts flagd + mariadb (both healthchecks green);
-      `docker compose down` clean.
-- [ ] App boots, `/healthz` 200, shuts down cleanly on SIGTERM.
-- [ ] Docs: this roadmap updated; README "Getting started" reflects M0 reality.
+      `docker compose down` clean. (mariadb healthcheck green verified; flagd starts via
+      `start --config` but exits while the management API is not serving the sync source — the
+      API lands fully in M2, at which point this re-verifies.)
+- [x] App boots, `/healthz` 200, shuts down cleanly on SIGTERM.
+- [x] Docs: this roadmap updated; README "Getting started" reflects M0 reality.
 
 ---
 

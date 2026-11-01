@@ -55,7 +55,7 @@ CREATE TABLE audit_logs (
   actor_type VARCHAR(16) NOT NULL CHECK (actor_type IN ('session','api_key')),
   actor_name VARCHAR(128) NOT NULL,             -- username or key name
   action     VARCHAR(64) NOT NULL,              -- dot-namespaced, see §5
-  entity     VARCHAR(32) NOT NULL,              -- 'flag' | 'definition' | 'api_key' | 'auth'
+  entity     VARCHAR(32) NOT NULL,              -- 'flag' | 'definition' | 'api_key' | 'auth' | 'project'
   entity_id  VARCHAR(256) NOT NULL,             -- flag key / def id / key id / '-'
   env        VARCHAR(64),                       -- NULL when not environment-specific
   before     JSON,                              -- or NULL
@@ -80,14 +80,21 @@ CREATE TABLE projects (
 
 CREATE TABLE project_environments (
   project_id  CHAR(26) NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  env         VARCHAR(64) NOT NULL,             -- per-project environment name (FR-55)
+  env         VARCHAR(64) NOT NULL,             -- per-project environment name (FR-55); name format per FR-55
   created_at DATETIME(6) NOT NULL,
   updated_at DATETIME(6) NOT NULL,
   PRIMARY KEY (project_id, env)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE users (
+  user_name     VARCHAR(128) PRIMARY KEY,       -- invited username (FR-53/FR-57); the bootstrap admin (FR-30) is env-configured and not stored here
+  password_hash VARCHAR(255) NOT NULL,          -- argon2id hash of the invite temporary password; plaintext never stored (FR-57)
+  global_role   VARCHAR(32) NOT NULL CHECK (global_role IN ('admin','developer','product-owner')),  -- FR-54
+  created_at    DATETIME(6) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE project_memberships (
-  user_name   VARCHAR(128) NOT NULL,            -- invited username (FR-57)
+  user_name   VARCHAR(128) NOT NULL REFERENCES users(user_name) ON DELETE CASCADE,
   project_id  CHAR(26) NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   role        VARCHAR(32) NOT NULL CHECK (role IN ('admin','developer','product-owner')),
   created_at DATETIME(6) NOT NULL,
@@ -105,10 +112,16 @@ Invariants (enforced in application code, transactionally):
 - Each flag definition is scoped to its owning project (`flags.project_id`) and its environment
   (`flag_definitions.env`) — the flag ↔ project ↔ env linkage the user requirements ask for;
   the (flag, env) pair stays unique within the project (FR-7).
-- Effective permissions of a user = union of the user's global type (`admin` | `developer` |
-  `product-owner`) and per-project grants (FR-54); `admin` holds full access on assigned projects
-  (FR-57). Developers and product owners only operate on projects they are assigned to (FR-58/FR-59);
-  other assignments fail with `403`.
+- Effective permissions of a user = union of the user's global type (`users.global_role`)
+  and per-project grants (`project_memberships.role`) (FR-54); `admin` holds full access on
+  assigned projects (FR-57). Developers and product owners only operate on projects they
+  are assigned to (FR-58/FR-59); other assignments fail with `403`. The bootstrap admin
+  (FR-30, env-configured) has full access and is not a `users` row.
+- Invited users exist only as `users` rows created by an invite (FR-57): the temporary
+  password is shown once and only its argon2id hash is stored; login verifies against
+  `users` (or the env-configured bootstrap admin) (FR-31).
+- Per-project environment names match `^[a-z][a-z0-9-]{0,63}$` and are unique within the
+  project (`project_environments` PK) (FR-55).
 - `flags.version` increments by exactly 1 per definition upsert (create or update) on that
   flag, in any environment (FR-5).
 - `flag_definitions.rules` is always a valid canonical rule array per §2 (validated before
@@ -346,6 +359,7 @@ in tests (property-based golden tests, §[05-testing](05-testing.md)).
 | `definition.create` / `definition.update` | `definition` | env set; before/after = definition payload |
 | `definition.copy` | `definition` | env = target; after includes `copiedFrom` env |
 | `project.create` | `project` | after = project (FR-55) |
-| `project.member.invite` | `project` | after = { user, role, projects } (FR-57) |
+| `project.environment.create` | `project` | env set; after = { env } (FR-55) |
+| `project.member.invite` | `project` | after = { user, role, projects }; never includes the temporary password (FR-57) |
 | `api_key.create` / `api_key.revoke` | `api_key` | never includes key material |
 | `auth.login` | `auth` | success only |

@@ -98,8 +98,8 @@ Each scenario maps to at least one test. `…` abbreviates context.
 
 ### 2.3 flagd E2E (real engine, Docker)
 
-- **G** flagd running with FMS as sync source; a boolean flag enabled in `staging`,
-  no rules, default `off`
+- **G** flagd running with FMS as sync source; a boolean flag enabled in its project's
+  `staging` environment, no rules, default `off`
   **W** `POST /api/v1/evaluate` for a user
   **T** `{value: false, variant: "off", reason: "STATIC"}` and `flagVersion` matches the
   stored version.
@@ -158,6 +158,13 @@ Each scenario maps to at least one test. `…` abbreviates context.
   **W** requested
   **T** `401` problem+json; with a valid `evaluate`-scoped key on a `manage` route → `403`.
 
+- **G** an admin invites `brian` (role `developer`, project `checkout`); the temporary
+  password is shown once in the invite response
+  **W** `brian` logs in with the username + temporary password
+  **T** a session is issued (FR-31/FR-53); the stored `users` row holds a hash, not the
+  plaintext (asserted by inspecting the DB, FR-57); `brian`'s session acts on `checkout`
+  only — other projects → `403` (FR-54, FR-58).
+
 - **G** a sync request with an `evaluate`-scoped key
   **W** issued
   **T** `403`; with the `sync` key → `200` (FR-27).
@@ -188,17 +195,17 @@ Each scenario maps to at least one test. `…` abbreviates context.
 
 ### 2.5 API surface
 
-- **G** `POST /api/v1/flags` with an invalid key (`"9bad!"`)
+- **G** `POST /api/v1/projects/:projectId/flags` with an invalid key (`"9bad!"`)
   **W** requested
   **T** `400` naming the `/key` problem (FR-1).
 
-- **G** `DELETE /api/v1/flags/:key`
+- **G** `DELETE /api/v1/projects/:projectId/flags/:key`
   **W** the flag was present in 2 environments
   **T** `204`; subsequent sync documents (both envs) omit the flag; audit `flag.delete`
   before-state includes both definitions (FR-4).
 
-- **G** `POST /api/v1/flags/:key/definitions/:env/copy` with `fromEnv` pointing at an env with
-  no definition
+- **G** `POST /api/v1/projects/:projectId/flags/:key/definitions/:env/copy` with `fromEnv`
+  pointing at an env with no definition
   **W** requested
   **T** `404` (not 400).
 
@@ -227,6 +234,10 @@ Covers the multi-user dashboard requirements FR-53–FR-59 (see [01-requirements
   **W** they submit the creation
   **T** both are scoped to the assigned project; the default env set is seeded on project create
   (FR-55, FR-56, FR-58).
+
+- **G** a developer adds environment `qa` to a project that already has `qa`
+  **W** the request is submitted
+  **T** `409` — environment names are unique within a project (FR-55).
 
 - **G** a developer without an assignment attempts to create a flag in a project they are not
   assigned to

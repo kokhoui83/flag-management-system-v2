@@ -34,3 +34,7 @@
 - Keep documentation accurate, concise, and consistent with the implementation.
 - Document non-obvious decisions and user-visible behavior; avoid comments that merely restate the code.
 - Use Mermaid for all diagrams in documentation (architecture, data flow, sequences, state); do not draw diagrams as ASCII art. File trees, tabular data, and literal command/code output may stay as plain text or code blocks.
+
+## Git Workflow
+
+- Never commit directly to `main`: create a topic branch (e.g. `docs/…`, `feat/…`, `fix/…`) for each unit of work and commit there; `main` only advances via merges.

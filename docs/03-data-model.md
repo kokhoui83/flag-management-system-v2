@@ -9,7 +9,7 @@ This document defines (a) the MariaDB schema, (b) FMS's canonical rule format, a
 MariaDB (InnoDB, `utf8mb4`), single database (`fms`). Timestamps are `DATETIME(6)` UTC —
 formatted ISO-8601 at the API boundary. JSON columns hold canonical JSON; they are validated
 in app code and never touched by JSON operators in domain queries (ADR-0007). Migrations:
-numbered SQL files in `server/src/db/migrations/`, applied at boot (Kysely migrate plugin);
+via Prisma (`prisma migrate`), initial migration generated in `prisma/migrations/<timestamp>_init/migration.sql`;
 this section is the reference for the initial migration.
 
 ```sql

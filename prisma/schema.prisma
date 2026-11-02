@@ -32,13 +32,13 @@ enum ProjectRole {
 
 // FR-56: owning project; flag key is unique within the project.
 model Flag {
-  id           String   @id @db.Char(26)
-  projectId   String   @db.Char(26) @map("project_id")
+  id          String   @id @db.Char(26)
+  projectId   String   @map("project_id") @db.Char(26)
   key         String
   description String   @default("") @db.VarChar(1024)
   version     Int      @default(1)
-  createdAt   DateTime @default(now()) @db.DateTime(6) @map("created_at")
-  updatedAt   DateTime @updatedAt @db.DateTime(6) @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at") @db.DateTime(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.DateTime(6)
 
   definitions FlagDefinition[]
 
@@ -49,14 +49,14 @@ model Flag {
 // FR-7/FR-10: one definition per (flag, env); enabled + variants + ordered rules.
 model FlagDefinition {
   id             String   @id @db.Char(26)
-  flagId         String   @db.Char(26) @map("flag_id")
+  flagId         String   @map("flag_id") @db.Char(26)
   env            String   @db.VarChar(64)
   enabled        Boolean  @default(false)
   variants       Json
-  defaultVariant String   @db.VarChar(64) @map("default_variant")
+  defaultVariant String   @map("default_variant") @db.VarChar(64)
   rules          Json
-  createdAt     DateTime @default(now()) @db.DateTime(6) @map("created_at")
-  updatedAt     DateTime @updatedAt @db.DateTime(6) @map("updated_at")
+  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.DateTime(6)
 
   flag Flag @relation(fields: [flagId], references: [id], onDelete: Cascade)
 
@@ -65,52 +65,52 @@ model FlagDefinition {
 }
 
 model ApiKey {
-  id           String    @id @db.Char(26)
-  name         String    @db.VarChar(128)
-  keyHash      String    @unique @db.Char(64) @map("key_hash")
-  keyPrefix    String    @db.VarChar(8) @map("key_prefix")
-  scope        ApiKeyScope
-  createdAt    DateTime  @default(now()) @db.DateTime(6) @map("created_at")
-  lastUsedAt   DateTime? @db.DateTime(6) @map("last_used_at")
-  revokedAt    DateTime? @db.DateTime(6) @map("revoked_at")
-  createdBy    String    @db.VarChar(128) @map("created_by")
+  id         String      @id @db.Char(26)
+  name       String      @db.VarChar(128)
+  keyHash    String      @unique @map("key_hash") @db.Char(64)
+  keyPrefix  String      @map("key_prefix") @db.VarChar(8)
+  scope      ApiKeyScope
+  createdAt  DateTime    @default(now()) @map("created_at") @db.DateTime(6)
+  lastUsedAt DateTime?   @map("last_used_at") @db.DateTime(6)
+  revokedAt  DateTime?   @map("revoked_at") @db.DateTime(6)
+  createdBy  String      @map("created_by") @db.VarChar(128)
 
   @@map("api_keys")
 }
 
 model AuditLog {
-  id         String   @id @db.Char(26)
-  createdAt DateTime @default(now()) @db.DateTime(6) @map("created_at")
+  id        String    @id @db.Char(26)
+  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(6)
   actorType ActorType
-  actorName String   @db.VarChar(128) @map("actor_name")
-  action    String   @db.VarChar(64) @map("action")
-  entity    String   @db.VarChar(32) @map("entity")
-  entityId  String   @db.VarChar(256) @map("entity_id")
-  env        String?  @db.VarChar(64) @map("env")
-  before     Json?
-  after      Json?
+  actorName String    @map("actor_name") @db.VarChar(128)
+  action    String    @map("action") @db.VarChar(64)
+  entity    String    @map("entity") @db.VarChar(32)
+  entityId  String    @map("entity_id") @db.VarChar(256)
+  env       String?   @map("env") @db.VarChar(64)
+  before    Json?
+  after     Json?
 
   @@map("audit_logs")
 }
 
 model Project {
-  id         String   @id @db.Char(26)
-  key       String   @unique @db.VarChar(128) @map("key")
-  name      String   @unique @db.VarChar(255) @map("name")
-  createdAt DateTime @default(now()) @db.DateTime(6) @map("created_at")
-  updatedAt DateTime @updatedAt @db.DateTime(6) @map("updated_at")
+  id        String   @id @db.Char(26)
+  key       String   @unique @map("key") @db.VarChar(128)
+  name      String   @unique @map("name") @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.DateTime(6)
 
   environments ProjectEnvironment[]
-  memberships ProjectMembership[]
+  memberships  ProjectMembership[]
 
   @@map("projects")
 }
 
 model ProjectEnvironment {
-  projectId String @db.Char(26) @map("project_id")
-  env      String @db.VarChar(64) @map("env")
-  createdAt DateTime @default(now()) @db.DateTime(6) @map("created_at")
-  updatedAt DateTime @updatedAt @db.DateTime(6) @map("updated_at")
+  projectId String   @map("project_id") @db.Char(26)
+  env       String   @map("env") @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.DateTime(6)
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -119,10 +119,10 @@ model ProjectEnvironment {
 }
 
 model User {
-  userName     String   @id @db.VarChar(128) @map("user_name")
-  passwordHash String   @db.VarChar(255) @map("password_hash")
+  userName     String     @id @map("user_name") @db.VarChar(128)
+  passwordHash String     @map("password_hash") @db.VarChar(255)
   globalRole   GlobalRole
-  createdAt    DateTime @default(now()) @db.DateTime(6) @map("created_at")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.DateTime(6)
 
   memberships ProjectMembership[]
 
@@ -130,11 +130,12 @@ model User {
 }
 
 model ProjectMembership {
-  userName  String @db.VarChar(128) @map("user_name")
-  projectId String @db.Char(26) @map("project_id")
+  userName  String      @map("user_name") @db.VarChar(128)
+  projectId String      @map("project_id") @db.Char(26)
   role      ProjectRole
+  createdAt DateTime    @default(now()) @map("created_at") @db.DateTime(6)
 
-  user User @relation(fields: [userName], references: [userName], onDelete: Cascade)
+  user    User    @relation(fields: [userName], references: [userName], onDelete: Cascade)
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@id([userName, projectId])

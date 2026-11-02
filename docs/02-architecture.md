@@ -416,7 +416,7 @@ terminating proxy), rate limiting, PII redaction in audit.
 ```
 docker compose up -d            # flagd + mariadb (images pinned; flagd config from flagd/config.yaml)
 npm run build:web               # vite build → web/dist
-npm start                       # API + dashboard on :3000
+npm run start -w server        # API + dashboard on :3000
 ```
 
 Dev loop: `npm run dev` (API, watch) + `npm run dev:web` (Vite dev server on :5173, proxying

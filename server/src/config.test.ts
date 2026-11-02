@@ -54,6 +54,14 @@ describe('config (architecture §9)', () => {
     expect(config.webDist).toBe('/var/lib/fms/web');
   });
 
+  it('rejects fractional port values', () => {
+    expect(() => loadConfig({ PORT: '3000.5' })).toThrow(/integer/);
+  });
+
+  it('rejects out-of-range port values', () => {
+    expect(() => loadConfig({ PORT: '70000' })).toThrow(/between 1 and 65535/);
+  });
+
   it('refuses insecure defaults when NODE_ENV=production', () => {
     expect(() => loadConfig({ NODE_ENV: 'production' })).toThrow(/insecure/i);
   });

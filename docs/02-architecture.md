@@ -20,7 +20,7 @@ flowchart TB
 
     browser <-->|"REST (cookie / Bearer auth) + SSE events"| api
     spa -.->|"served from"| api
-    api <-->|"auth, CRUD, audit (Kysely pool, async)"| db
+    api <-->|"auth, CRUD, audit (Prisma client, async)"| db
     flagd <-->|"sync: flagd polls GET /api/v1/sync/:env (ETag / 304, authHeader)"| api
     api -->|"evaluate: gRPC 8013 via OpenFeature server SDK"| flagd
     api -->|"SSE: GET /api/v1/events (relayed provider events)"| browser
@@ -48,7 +48,7 @@ Key properties:
 | --- | --- |
 | Language / runtime | TypeScript on Node.js ≥ 22 (ESM) |
 | HTTP framework | Fastify (structured logging, schema validation, static serving) |
-| Storage | MariaDB via Kysely (`@kysely/mysql` over `mysql2`), small connection pool; numbered SQL migrations applied at boot (ADR-0007) |
+| Storage | MariaDB via Prisma (driver adapter `@prisma/adapter-mariadb` over the `mariadb` connector, small pool), migrations via `prisma migrate` applied at boot (ADR-0007) |
 | Sync model memo | In-process per (project, env) `{ version, body, etag, variantTypes }`, compiled once per state change and invalidated on commit — steady-state sync polls and the evaluate proxy's variant-type lookup hit memory, not the DB |
 | Change events | In-process broadcaster: per-(project, env) queue of committed changes, drained onto the SSE stream when that (project, env)'s provider observes the change in flagd (ADR-0008) |
 | Sessions | JWT (HS256), 12 h expiry, `HttpOnly`/`SameSite=Lax` cookie + bearer use |
@@ -81,9 +81,8 @@ server/src/
 ├── app.ts                 # Fastify app factory (routes, plugins, static)
 ├── config.ts              # env parsing/defaults (pure, testable)
 ├── db/
-│   ├── index.ts           # Kysely pool, migrations applied at boot
-│   ├── schema.ts          # TS schema object
-│   └── migrations/        # numbered SQL migrations (ADR-0007)
+│   ├── index.ts           # Prisma client factory, migrations applied at boot (prisma migrate deploy)
+│   └── migrations/        # Prisma migration files (prisma/migrations/, ADR-0007)
 ├── domain/
 │   ├── flags.ts           # flag/definition validation (pure; uses @fms/shared)
 │   ├── rules.ts           # rule model + validation (pure; uses @fms/shared)
@@ -417,7 +416,7 @@ terminating proxy), rate limiting, PII redaction in audit.
 ```
 docker compose up -d            # flagd + mariadb (images pinned; flagd config from flagd/config.yaml)
 npm run build:web               # vite build → web/dist
-npm start                       # API + dashboard on :3000
+npm run start -w server        # API + dashboard on :3000
 ```
 
 Dev loop: `npm run dev` (API, watch) + `npm run dev:web` (Vite dev server on :5173, proxying

@@ -26,8 +26,9 @@ are written (failing) before its implementation. Acceptance criteria reference
 - Fastify app with `/healthz`; `/readyz` returning `503 {"status":"not_ready"}` until
   provider wiring exists (M3) — declared not-ready by default in M0.
 - `config.ts` env parsing with defaults (architecture §9), incl. `DATABASE_URL`.
-- Kysely pool (`DATABASE_URL`) + numbered SQL migrations applied at boot; the initial
-  migration creates the schema ([03-data-model.md §1](03-data-model.md)).
+- Prisma client (`DATABASE_URL`) + `prisma migrate deploy` applied at boot; the initial
+  migration creates the schema via Prisma (`prisma/migrations/2026…_init/migration.sql`,
+  [03-data-model.md §1](03-data-model.md)).
 - `web/` scaffolded (Vite + Vue 3 + TS + Naive UI + vue-router hash mode + Pinia) with a
   placeholder view; `npm run build:web` produces `web/dist` served at `/`; `npm run dev:web`
   runs the dev server with an `/api` proxy.
@@ -51,7 +52,7 @@ are written (failing) before its implementation. Acceptance criteria reference
   rule model per [03-data-model.md §2](03-data-model.md), plus the §1 invariants
   (project name/key uniqueness FR-55, per-project flag-key uniqueness FR-56, per-project
   env validation, effective permission union FR-54, version bumping).
-- Store (async, Kysely over the compose MariaDB): `flags`, `flag_definitions`, `audit_logs`,
+- Store (async, Prisma over the compose MariaDB): `flags`, `flag_definitions`, `audit_logs`,
   `api_keys`, `users`, `projects`, `project_environments`, `project_memberships` (schema per
   [03-data-model.md §1](03-data-model.md)); per-connection transactions for mutation + audit
   (FR-39); store tests on testcontainers.

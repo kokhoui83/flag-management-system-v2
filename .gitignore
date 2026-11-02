@@ -6,7 +6,7 @@ graphify-out/cost.json
 graphify-out/manifest.json
 graphify-out/memory/
 graphify-out/reflections/
-graphify-out/graph.html
+graphify-out/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
 
 # opencode local state
 .opencode/
@@ -20,3 +20,5 @@ shared/dist/
 
 # local env (secrets)
 .env
+
+.DS_Store

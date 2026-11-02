@@ -19,10 +19,11 @@ Use **MariaDB** as the sole system of record:
 - Compose service `mariadb` (image pinned, `mariadb:11.8` LTS line), env-driven credentials
   (`FMS_DB_DATABASE` / `FMS_DB_USER` / `FMS_DB_PASSWORD`), named volume for persistence,
   `mariadb-admin ping` healthcheck, port 3306 bound to localhost only.
-- Driver: **Kysely** (`@kysely/mysql` over `mysql2`) with a small connection pool. The schema
-  is a TS object; migrations are numbered SQL files in `server/src/db/migrations/`, applied
-  at boot (Kysely migrate plugin). v1 assumes a single API instance for boot-time
-  migrations; multi-instance migration locking is a v1.1 note.
+- Driver: **Prisma** (driver adapter `@prisma/adapter-mariadb` over the `mariadb` connector, small
+  connection pool). The schema is a Prisma `schema.prisma` datamodel; migrations are Prisma
+  migration files in `prisma/migrations/`, applied at boot (`prisma migrate deploy`).
+  v1 assumes a single API instance for boot-time migrations; multi-instance migration locking is a
+  v1.1 note.
 - ADR-0002's portability rule carries over: all persistence stays behind the thin store
   module — no driver types or SQL leak into `domain/`; JSON columns are validated in app
   code and never touched by JSON operators in domain queries.

@@ -36,8 +36,11 @@ function readInt(
 ): number {
   const raw = env[key];
   const value = raw === undefined ? fallback : Number(raw);
-  if (Number.isNaN(value)) {
+  if (!Number.isInteger(value)) {
     throw new Error(`Config error: ${key} must be an integer (got ${raw})`);
+  }
+  if (value < 1 || value > 65535) {
+    throw new Error(`Config error: ${key} must be between 1 and 65535 (got ${raw})`);
   }
   return value;
 }

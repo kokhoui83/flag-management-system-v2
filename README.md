@@ -56,7 +56,7 @@ percentage rollouts.
 
 | Component | Technology | Role |
 | --- | --- | --- |
-| Management API | Node.js (TypeScript), Fastify, MariaDB (Kysely) | System of record, REST API, sync source, evaluate proxy, SSE change events, hosts dashboard |
+| Management API | Node.js (TypeScript), Fastify, MariaDB (Prisma) | System of record, REST API, sync source, evaluate proxy, SSE change events, hosts dashboard |
 | MariaDB | `mariadb:11.8` (Docker) | Persistent storage (system of record) |
 | flagd | `ghcr.io/open-feature/flagd` (Docker) | Flag evaluation engine; syncs from the management API |
 | Dashboard | Vue 3 + Vite + TypeScript, Naive UI (built assets served by the API) | Flag CRUD, per-environment editor, evaluate playground, API keys, audit log, live change events |

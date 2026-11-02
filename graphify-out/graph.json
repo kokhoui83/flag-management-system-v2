@@ -63,42 +63,6 @@
       "source_location": "L18"
     },
     {
-      "id": "server_src_db_index_closeprismaclient",
-      "label": "closePrismaClient()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 3,
-      "community_name": "server/package.json",
-      "file_type": "code",
-      "norm_label": "closeprismaclient()",
-      "source_file": "server/src/db/index.ts",
-      "source_location": "L14"
-    },
-    {
-      "id": "server_src_db_index_createprismaclient",
-      "label": "createPrismaClient()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 3,
-      "community_name": "server/package.json",
-      "file_type": "code",
-      "norm_label": "createprismaclient()",
-      "source_file": "server/src/db/index.ts",
-      "source_location": "L9"
-    },
-    {
-      "id": "server_src_index_shutdown",
-      "label": "shutdown()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 3,
-      "community_name": "server/package.json",
-      "file_type": "code",
-      "norm_label": "shutdown()",
-      "source_file": "server/src/index.ts",
-      "source_location": "L22"
-    },
-    {
       "id": "server_src_app_createapp",
       "label": "createApp()",
       "_callable": true,
@@ -120,7 +84,7 @@
       "file_type": "code",
       "norm_label": "assertsecuredefaults()",
       "source_file": "server/src/config.ts",
-      "source_location": "L80"
+      "source_location": "L83"
     },
     {
       "id": "server_src_config_generatejwtsecret",
@@ -132,7 +96,7 @@
       "file_type": "code",
       "norm_label": "generatejwtsecret()",
       "source_file": "server/src/config.ts",
-      "source_location": "L73"
+      "source_location": "L76"
     },
     {
       "id": "server_src_config_loadconfig",
@@ -144,7 +108,7 @@
       "file_type": "code",
       "norm_label": "loadconfig()",
       "source_file": "server/src/config.ts",
-      "source_location": "L115"
+      "source_location": "L118"
     },
     {
       "id": "server_src_config_readint",
@@ -168,7 +132,7 @@
       "file_type": "code",
       "norm_label": "readstring()",
       "source_file": "server/src/config.ts",
-      "source_location": "L45"
+      "source_location": "L48"
     },
     {
       "id": "server_src_config_readstringlist",
@@ -180,7 +144,43 @@
       "file_type": "code",
       "norm_label": "readstringlist()",
       "source_file": "server/src/config.ts",
-      "source_location": "L54"
+      "source_location": "L57"
+    },
+    {
+      "id": "server_src_db_index_closeprismaclient",
+      "label": "closePrismaClient()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "config.ts",
+      "file_type": "code",
+      "norm_label": "closeprismaclient()",
+      "source_file": "server/src/db/index.ts",
+      "source_location": "L14"
+    },
+    {
+      "id": "server_src_db_index_createprismaclient",
+      "label": "createPrismaClient()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "config.ts",
+      "file_type": "code",
+      "norm_label": "createprismaclient()",
+      "source_file": "server/src/db/index.ts",
+      "source_location": "L9"
+    },
+    {
+      "id": "server_src_index_shutdown",
+      "label": "shutdown()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "config.ts",
+      "file_type": "code",
+      "norm_label": "shutdown()",
+      "source_file": "server/src/index.ts",
+      "source_location": "L22"
     },
     {
       "id": "docs_adr_0006_vue_dashboard",
@@ -1920,6 +1920,72 @@
       "source_location": "L4"
     },
     {
+      "id": "server_package_scripts",
+      "label": "scripts",
+      "_origin": "ast",
+      "community": 3,
+      "community_name": "server/package.json",
+      "file_type": "code",
+      "norm_label": "scripts",
+      "source_file": "server/package.json",
+      "source_location": "L7"
+    },
+    {
+      "id": "server_package_scripts_dev",
+      "label": "dev",
+      "_origin": "ast",
+      "community": 3,
+      "community_name": "server/package.json",
+      "file_type": "code",
+      "norm_label": "dev",
+      "source_file": "server/package.json",
+      "source_location": "L8"
+    },
+    {
+      "id": "server_package_scripts_start",
+      "label": "start",
+      "_origin": "ast",
+      "community": 3,
+      "community_name": "server/package.json",
+      "file_type": "code",
+      "norm_label": "start",
+      "source_file": "server/package.json",
+      "source_location": "L9"
+    },
+    {
+      "id": "server_package_scripts_test",
+      "label": "test",
+      "_origin": "ast",
+      "community": 3,
+      "community_name": "server/package.json",
+      "file_type": "code",
+      "norm_label": "test",
+      "source_file": "server/package.json",
+      "source_location": "L11"
+    },
+    {
+      "id": "server_package_scripts_test_integration",
+      "label": "test:integration",
+      "_origin": "ast",
+      "community": 3,
+      "community_name": "server/package.json",
+      "file_type": "code",
+      "norm_label": "test:integration",
+      "source_file": "server/package.json",
+      "source_location": "L12"
+    },
+    {
+      "id": "server_package_scripts_typecheck",
+      "label": "typecheck",
+      "_origin": "ast",
+      "community": 3,
+      "community_name": "server/package.json",
+      "file_type": "code",
+      "norm_label": "typecheck",
+      "source_file": "server/package.json",
+      "source_location": "L10"
+    },
+    {
       "id": "server_package_type",
       "label": "type",
       "_origin": "ast",
@@ -1942,72 +2008,6 @@
       "source_location": "L3"
     },
     {
-      "id": "server_src_db_index",
-      "label": "db/index.ts",
-      "_origin": "ast",
-      "community": 3,
-      "community_name": "server/package.json",
-      "file_type": "code",
-      "norm_label": "db/index.ts",
-      "source_file": "server/src/db/index.ts",
-      "source_location": "L1"
-    },
-    {
-      "id": "server_src_db_index_test",
-      "label": "index.test.ts",
-      "_origin": "ast",
-      "community": 3,
-      "community_name": "server/package.json",
-      "file_type": "code",
-      "norm_label": "index.test.ts",
-      "source_file": "server/src/db/index.test.ts",
-      "source_location": "L1"
-    },
-    {
-      "id": "server_src_index",
-      "label": "server/src/index.ts",
-      "_origin": "ast",
-      "community": 3,
-      "community_name": "server/package.json",
-      "file_type": "code",
-      "norm_label": "server/src/index.ts",
-      "source_file": "server/src/index.ts",
-      "source_location": "L1"
-    },
-    {
-      "id": "server_src_index_config",
-      "label": "config",
-      "_origin": "ast",
-      "community": 3,
-      "community_name": "server/package.json",
-      "file_type": "code",
-      "norm_label": "config",
-      "source_file": "server/src/index.ts",
-      "source_location": "L8"
-    },
-    {
-      "id": "server_src_index_prisma",
-      "label": "prisma",
-      "_origin": "ast",
-      "community": 3,
-      "community_name": "server/package.json",
-      "file_type": "code",
-      "norm_label": "prisma",
-      "source_file": "server/src/index.ts",
-      "source_location": "L10"
-    },
-    {
-      "id": "server_src_index_reporoot",
-      "label": "repoRoot",
-      "_origin": "ast",
-      "community": 3,
-      "community_name": "server/package.json",
-      "file_type": "code",
-      "norm_label": "reporoot",
-      "source_file": "server/src/index.ts",
-      "source_location": "L15"
-    },
-    {
       "id": "ref_prisma",
       "label": "prisma",
       "_origin": "ast",
@@ -2017,28 +2017,6 @@
       "norm_label": "prisma",
       "source_file": "server/package.json",
       "source_location": "L19"
-    },
-    {
-      "id": "ref_prisma_adapter_mariadb",
-      "label": "@prisma/adapter-mariadb",
-      "_origin": "ast",
-      "community": 3,
-      "community_name": "server/package.json",
-      "file_type": "concept",
-      "norm_label": "@prisma/adapter-mariadb",
-      "source_file": "server/package.json",
-      "source_location": "L16"
-    },
-    {
-      "id": "ref_prisma_client",
-      "label": "@prisma/client",
-      "_origin": "ast",
-      "community": 3,
-      "community_name": "server/package.json",
-      "file_type": "concept",
-      "norm_label": "@prisma/client",
-      "source_file": "server/package.json",
-      "source_location": "L17"
     },
     {
       "id": "ref_tsx",
@@ -2072,39 +2050,6 @@
       "norm_label": "typescript",
       "source_file": "server/package.json",
       "source_location": "L24"
-    },
-    {
-      "id": "ref_vitest",
-      "label": "vitest",
-      "_origin": "ast",
-      "community": 3,
-      "community_name": "server/package.json",
-      "file_type": "concept",
-      "norm_label": "vitest",
-      "source_file": "server/package.json",
-      "source_location": "L25"
-    },
-    {
-      "id": "server_src_db_index_ts_docref_adr_0007",
-      "label": "ADR-0007",
-      "_origin": "ast",
-      "community": 3,
-      "community_name": "server/package.json",
-      "file_type": "concept",
-      "norm_label": "adr-0007",
-      "source_file": "server/src/db/index.ts",
-      "source_location": "L6"
-    },
-    {
-      "id": "server_src_index_ts_docref_adr_0007",
-      "label": "ADR-0007",
-      "_origin": "ast",
-      "community": 3,
-      "community_name": "server/package.json",
-      "file_type": "concept",
-      "norm_label": "adr-0007",
-      "source_file": "server/src/index.ts",
-      "source_location": "L12"
     },
     {
       "id": "docs_adr_0007_mariadb_system_of_record",
@@ -2165,72 +2110,6 @@
       "norm_label": "decision",
       "source_file": "docs/adr/0007-mariadb-system-of-record.md",
       "source_location": "L15"
-    },
-    {
-      "id": "server_package_scripts",
-      "label": "scripts",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "scripts",
-      "file_type": "code",
-      "norm_label": "scripts",
-      "source_file": "server/package.json",
-      "source_location": "L7"
-    },
-    {
-      "id": "server_package_scripts_dev",
-      "label": "dev",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "scripts",
-      "file_type": "code",
-      "norm_label": "dev",
-      "source_file": "server/package.json",
-      "source_location": "L8"
-    },
-    {
-      "id": "server_package_scripts_start",
-      "label": "start",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "scripts",
-      "file_type": "code",
-      "norm_label": "start",
-      "source_file": "server/package.json",
-      "source_location": "L9"
-    },
-    {
-      "id": "server_package_scripts_test",
-      "label": "test",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "scripts",
-      "file_type": "code",
-      "norm_label": "test",
-      "source_file": "server/package.json",
-      "source_location": "L11"
-    },
-    {
-      "id": "server_package_scripts_test_integration",
-      "label": "test:integration",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "scripts",
-      "file_type": "code",
-      "norm_label": "test:integration",
-      "source_file": "server/package.json",
-      "source_location": "L12"
-    },
-    {
-      "id": "server_package_scripts_typecheck",
-      "label": "typecheck",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "scripts",
-      "file_type": "code",
-      "norm_label": "typecheck",
-      "source_file": "server/package.json",
-      "source_location": "L10"
     },
     {
       "id": "server_src_app",
@@ -2365,6 +2244,72 @@
       "source_location": "L1"
     },
     {
+      "id": "server_src_db_index",
+      "label": "db/index.ts",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "config.ts",
+      "file_type": "code",
+      "norm_label": "db/index.ts",
+      "source_file": "server/src/db/index.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "server_src_db_index_test",
+      "label": "index.test.ts",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "config.ts",
+      "file_type": "code",
+      "norm_label": "index.test.ts",
+      "source_file": "server/src/db/index.test.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "server_src_index",
+      "label": "server/src/index.ts",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "config.ts",
+      "file_type": "code",
+      "norm_label": "server/src/index.ts",
+      "source_file": "server/src/index.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "server_src_index_config",
+      "label": "config",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "config.ts",
+      "file_type": "code",
+      "norm_label": "config",
+      "source_file": "server/src/index.ts",
+      "source_location": "L8"
+    },
+    {
+      "id": "server_src_index_prisma",
+      "label": "prisma",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "config.ts",
+      "file_type": "code",
+      "norm_label": "prisma",
+      "source_file": "server/src/index.ts",
+      "source_location": "L10"
+    },
+    {
+      "id": "server_src_index_reporoot",
+      "label": "repoRoot",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "config.ts",
+      "file_type": "code",
+      "norm_label": "reporoot",
+      "source_file": "server/src/index.ts",
+      "source_location": "L15"
+    },
+    {
       "id": "ref_fastify",
       "label": "fastify",
       "_origin": "ast",
@@ -2385,6 +2330,61 @@
       "norm_label": "@fastify/static",
       "source_file": "server/package.json",
       "source_location": "L15"
+    },
+    {
+      "id": "ref_prisma_adapter_mariadb",
+      "label": "@prisma/adapter-mariadb",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "config.ts",
+      "file_type": "concept",
+      "norm_label": "@prisma/adapter-mariadb",
+      "source_file": "server/package.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "ref_prisma_client",
+      "label": "@prisma/client",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "config.ts",
+      "file_type": "concept",
+      "norm_label": "@prisma/client",
+      "source_file": "server/package.json",
+      "source_location": "L17"
+    },
+    {
+      "id": "ref_vitest",
+      "label": "vitest",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "config.ts",
+      "file_type": "concept",
+      "norm_label": "vitest",
+      "source_file": "server/package.json",
+      "source_location": "L25"
+    },
+    {
+      "id": "server_src_db_index_ts_docref_adr_0007",
+      "label": "ADR-0007",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "config.ts",
+      "file_type": "concept",
+      "norm_label": "adr-0007",
+      "source_file": "server/src/db/index.ts",
+      "source_location": "L6"
+    },
+    {
+      "id": "server_src_index_ts_docref_adr_0007",
+      "label": "ADR-0007",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "config.ts",
+      "file_type": "concept",
+      "norm_label": "adr-0007",
+      "source_file": "server/src/index.ts",
+      "source_location": "L12"
     },
     {
       "id": "docs_01_requirements_environment",
@@ -3027,7 +3027,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/config.ts",
-      "source_location": "L124",
+      "source_location": "L127",
       "weight": 1.0
     },
     {
@@ -3039,7 +3039,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/config.ts",
-      "source_location": "L126",
+      "source_location": "L129",
       "weight": 1.0
     },
     {
@@ -3051,7 +3051,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/config.ts",
-      "source_location": "L137",
+      "source_location": "L140",
       "weight": 1.0
     },
     {
@@ -3063,7 +3063,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/config.ts",
-      "source_location": "L140",
+      "source_location": "L143",
       "weight": 1.0
     },
     {
@@ -3075,7 +3075,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/config.ts",
-      "source_location": "L144",
+      "source_location": "L147",
       "weight": 1.0
     },
     {
@@ -3737,6 +3737,18 @@
       "context": "import",
       "source_file": "server/src/app.test.ts",
       "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "server_src_config_test",
+      "target": "ref_vitest",
+      "relation": "imports_from",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "import",
+      "source_file": "server/src/config.test.ts",
+      "source_location": "L1",
       "weight": 1.0
     },
     {
@@ -4678,7 +4690,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/src/config.ts",
-      "source_location": "L115",
+      "source_location": "L118",
       "weight": 1.0
     },
     {
@@ -4733,7 +4745,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/src/config.ts",
-      "source_location": "L45",
+      "source_location": "L48",
       "weight": 1.0
     },
     {
@@ -4755,7 +4767,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/src/config.ts",
-      "source_location": "L54",
+      "source_location": "L57",
       "weight": 1.0
     },
     {
@@ -4777,7 +4789,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/src/config.ts",
-      "source_location": "L73",
+      "source_location": "L76",
       "weight": 1.0
     },
     {
@@ -4799,7 +4811,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/src/config.ts",
-      "source_location": "L80",
+      "source_location": "L83",
       "weight": 1.0
     },
     {
@@ -6322,5 +6334,5 @@
       "source_file": "docs/02-architecture.md"
     }
   ],
-  "built_at_commit": "57f3135a42e0112e9fff6ea35f4e5475c3060515"
+  "built_at_commit": "8b80cebde78d5b2abb89b8568a5338961a14ede4"
 }

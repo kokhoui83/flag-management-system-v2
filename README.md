@@ -11,11 +11,21 @@ client is required.
 
 ## Status
 
-**M0 — Skeleton & tooling (in progress, TDD green).** The repository now contains the M0
+**M0 — Skeleton & tooling (complete, TDD green).** The repository now contains the M0
 skeleton: npm workspaces (`server`, `web`, `shared`) on TypeScript (strict, ESM), vitest, ESLint +
 Prettier, a Fastify management API with `/healthz` + `/readyz`, env-driven config, and a Vite +
-Vue placeholder dashboard. Flag/store/evaluation work lands in M1–M3 per
-[docs/06-roadmap.md](docs/06-roadmap.md).
+Vue placeholder dashboard.
+
+**M1 — Flags & definitions core / system of record (complete, TDD green).** The M1 surface is
+implemented and verified end to end: `@fms/shared` canonical types plus all-at-once validation
+(flag key, env, variants, default variant, rules); the management API (Fastify + Prisma/MariaDB)
+with session auth (JWT + bootstrap admin, invited users with argon2id temp passwords), projects,
+flags, per-environment definitions with version semantics (create=1, per-env update +1, idempotent
+put no-op), append-only audit log, API keys with scopes, RFC 9457 problem+json errors, and the
+hand-maintained OpenAPI document served at `GET /api/v1/openapi.json`. Integration-tested against
+a testcontainers MariaDB; unit tier green.
+
+Flag/store/evaluation work continues in M2–M3 per [docs/06-roadmap.md](docs/06-roadmap.md).
 
 The multi-user dashboard requirements are captured: login (FR-40/FR-53), per-user roles with
 different access levels (FR-54), per-project environments (FR-55), per-project flags with
@@ -64,15 +74,17 @@ percentage rollouts.
 
 ## Getting started
 
-Current state (M0):
+Current state (M1 — flags & definitions core landed):
 
 ```bash
 docker compose up -d   # flagd (pinned image) + mariadb (pinned mariadb:11.8, healthcheck) — see docker-compose.yml
 npm run build:web      # vite build → web/dist
 npm run dev            # management API (Fastify) on :3000 (tsx watch)
 npm run dev:web        # dashboard dev server on :5173 (Vite proxy /api → :3000)
-npm test               # unit tier (vitest)
+npm test               # unit tier (vitest; server + shared)
+npm run test:integration  # integration tier (testcontainers MariaDB) — M1 flags/definitions suite
 ```
 
-The full milestone plan lives in [docs/06-roadmap.md](docs/06-roadmap.md); the M0 acceptance
-checks are being closed as the skeleton lands.
+The full milestone plan lives in [docs/06-roadmap.md](docs/06-roadmap.md); the M1 acceptance
+checks are green per [05-testing.md](docs/05-testing.md) §2.1/§2.4/§2.5 and the version-bump
+semantics (FR-5).

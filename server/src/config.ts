@@ -9,6 +9,7 @@ export const DEFAULT_PORT = 3000;
 export const DEFAULT_FLAGD_HOST = 'localhost';
 export const DEFAULT_FLAGD_PORT = 8013;
 export const DEFAULT_ENVS = ['dev', 'staging', 'prod'];
+export const DEFAULT_ENVIRONMENTS: readonly string[] = DEFAULT_ENVS;
 // Resolved from the repo root so the server can boot from any working directory.
 export const DEFAULT_WEB_DIST = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

@@ -1,64 +1,67 @@
-# Graph Report - flag-management-system  (2026-11-02)
+# Graph Report - flag-management-system  (2026-11-03)
 
 ## Corpus Check
-- 45 files · ~20,682 words
+- 56 files · ~30,656 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 252 nodes · 290 edges · 25 communities (15 shown, 5 thin omitted)
-- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 24 edges (avg confidence: 0.84)
+- 404 nodes · 570 edges · 29 communities (19 shown, 4 thin omitted)
+- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 31 edges (avg confidence: 0.84)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `8b80cebd`
+- Built from commit: `b6ae7d09`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- ADR-0006 — Vue 3 + Vite dashboard in a separate workspace
+- routes.ts
 - Flag Management System Architecture
 - web/package.json
-- server/package.json
-- Feature Flag
-- ADR-0007 — MariaDB as the system of record
-- config.ts
+- dependencies
+- Architecture Decision Records
+- store/index.ts
+- Store
+- app.ts
 - Client Application
 - Dashboard
 - ULID
 - OpenAPI
 - package.json
 - compilerOptions
-- scripts
+- config.ts
 - compilerOptions
 - shared/package.json
-- dependencies
+- createAuthService
 - server/tsconfig.json
 - shared/tsconfig.json
 - shared/src/index.ts
+- devDependencies
+- scripts
 
 ## God Nodes (most connected - your core abstractions)
-1. `compilerOptions` - 16 edges
-2. `scripts` - 12 edges
-3. `loadConfig()` - 9 edges
-4. `Flag Management System Architecture` - 9 edges
-5. `Architecture Decision Records` - 9 edges
-6. `Flag Management System` - 9 edges
-7. `Flag Management System API Contract` - 8 edges
-8. `Flagd Model Compilation and Data Model` - 7 edges
-9. `Flag Management System Testing Strategy` - 7 edges
-10. `compilerOptions` - 6 edges
+1. `Store` - 29 edges
+2. `compilerOptions` - 16 edges
+3. `FmsError` - 15 edges
+4. `createAuthService()` - 14 edges
+5. `scripts` - 12 edges
+6. `registerRoutes()` - 12 edges
+7. `createApp()` - 10 edges
+8. `loadConfig()` - 10 edges
+9. `AuthService` - 9 edges
+10. `createStore()` - 9 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `ProblemDetails` --references--> `ValidationProblem`  [EXTRACTED]
+  server/src/http/problem.ts → shared/src/index.ts
+- `registerRoutes()` --calls--> `validateDefinition()`  [EXTRACTED]
+  server/src/http/routes.ts → shared/src/index.ts
 - `Evaluation` --conceptually_related_to--> `flagd`  [INFERRED]
   docs/01-requirements.md → README.md
 - `Flag Management System Testing Strategy` --references--> `Development Guidelines`  [EXTRACTED]
   docs/05-testing.md → AGENTS.md
-- `JWT Session` --conceptually_related_to--> `Flag Management System API Contract`  [INFERRED]
-  docs/01-requirements.md → docs/04-api.md
-- `Management API` --conceptually_related_to--> `Flag Sync`  [INFERRED]
-  docs/02-architecture.md → docs/01-requirements.md
-- `Flag Management System` --references--> `Flag Management System Requirements`  [EXTRACTED]
-  README.md → docs/01-requirements.md
+- `Flag Management System` --references--> `Architecture Decision Records`  [EXTRACTED]
+  README.md → docs/adr/README.md
 
 ## Import Cycles
 - None detected.
@@ -68,59 +71,63 @@
 - **Flag Authoring Model** — docs_01_requirements_feature_flag, docs_01_requirements_definition, docs_01_requirements_rule, docs_01_requirements_percentage_rule [INFERRED 0.85]
 - **Flag Evaluation Implementation Chain** — docs_02_architecture_flagd_provider, docs_02_architecture_flag_evaluator, docs_01_requirements_evaluation, readme_flagd [INFERRED 0.85]
 
-## Communities (25 total, 5 thin omitted)
+## Communities (29 total, 4 thin omitted)
 
-### Community 0 - "ADR-0006 — Vue 3 + Vite dashboard in a separate workspace"
-Cohesion: 0.18
-Nodes (8): ADR-0006 — Vue 3 + Vite dashboard in a separate workspace, Consequences, Context, Decision, ADR-0008 — Flag change events: OpenFeature events + FMS SSE relay, Consequences, Context, Decision
+### Community 0 - "routes.ts"
+Cohesion: 0.09
+Nodes (26): EffectiveRole, AuthService, COOKIE_NAME, fastify, FastifyRequest, Principal, SessionContext, FmsError (+18 more)
 
 ### Community 1 - "Flag Management System Architecture"
-Cohesion: 0.16
-Nodes (24): Development Guidelines, Environment, Evaluation, Flag Management System Requirements, JWT Session, Flag Sync, Flag Evaluator, Flag Management System Architecture (+16 more)
+Cohesion: 0.22
+Nodes (18): Development Guidelines, Evaluation, Flag Management System Requirements, JWT Session, Flag Evaluator, Flag Management System Architecture, flagd, Flagd Provider (+10 more)
 
 ### Community 2 - "web/package.json"
+Cohesion: 0.05
+Nodes (37): happy-dom, naive-ui, pinia, vite, @vitejs/plugin-vue, vue, vue-router, @vue/test-utils (+29 more)
+
+### Community 3 - "dependencies"
+Cohesion: 0.29
+Nodes (7): dependencies, fastify, @fastify/cookie, @fastify/static, prisma, @prisma/adapter-mariadb, @prisma/client
+
+### Community 4 - "Architecture Decision Records"
 Cohesion: 0.06
-Nodes (31): happy-dom, naive-ui, pinia, vite, @vitejs/plugin-vue, vue, vue-router, @vue/test-utils (+23 more)
+Nodes (32): API Key, Attribute Condition, Audit Log, Flag Definition, Environment, Feature Flag, Flag Version, Percentage Rule (+24 more)
 
-### Community 3 - "server/package.json"
-Cohesion: 0.07
-Nodes (26): prisma, tsx, @types/node, typescript, dependencies, fastify, @fastify/static, prisma (+18 more)
+### Community 5 - "store/index.ts"
+Cohesion: 0.08
+Nodes (25): DEFAULT_ENVIRONMENTS, ActorType, API_KEY_SCOPES, ApiKeyScope, Role, ROLES, AuditLogRecord, AuditPage (+17 more)
 
-### Community 4 - "Feature Flag"
-Cohesion: 0.15
-Nodes (14): API Key, Attribute Condition, Audit Log, Flag Definition, Feature Flag, Flag Version, Percentage Rule, Percentage Rollout (+6 more)
-
-### Community 5 - "ADR-0007 — MariaDB as the system of record"
-Cohesion: 0.40
-Nodes (4): ADR-0007 — MariaDB as the system of record, Consequences, Context, Decision
-
-### Community 7 - "config.ts"
+### Community 6 - "Store"
 Cohesion: 0.09
-Nodes (29): fastify, @fastify/static, @prisma/adapter-mariadb, @prisma/client, vitest, createApp(), AppConfig, assertSecureDefaults() (+21 more)
+Nodes (3): AppOptions, Store, FlagRule
+
+### Community 7 - "app.ts"
+Cohesion: 0.07
+Nodes (35): RFC-9457, fastify, @fastify/cookie, @fastify/static, prisma, @prisma/adapter-mariadb, @prisma/client, supertest (+27 more)
 
 ### Community 12 - "package.json"
-Cohesion: 0.10
-Nodes (20): devDependencies, eslint, eslint-config-prettier, @eslint/js, eslint-plugin-vitest, prettier, typescript, typescript-eslint (+12 more)
+Cohesion: 0.06
+Nodes (32): devDependencies, eslint, eslint-config-prettier, @eslint/js, eslint-plugin-vitest, prettier, typescript, typescript-eslint (+24 more)
 
 ### Community 13 - "compilerOptions"
 Cohesion: 0.11
 Nodes (17): compilerOptions, declaration, esModuleInterop, forceConsistentCasingInFileNames, lib, module, moduleResolution, noFallthroughCasesInSwitch (+9 more)
 
-### Community 14 - "scripts"
-Cohesion: 0.17
-Nodes (12): scripts, build:web, dev, dev:web, format, format:check, lint, lint:fix (+4 more)
+### Community 14 - "config.ts"
+Cohesion: 0.19
+Nodes (14): assertSecureDefaults(), DEFAULT_ENVS, DEFAULT_FLAGD_HOST, DEFAULT_FLAGD_PORT, DEFAULT_PORT, DEFAULT_WEB_DIST, generateJwtSecret(), INSECURE_ADMIN_PASSWORD (+6 more)
 
 ### Community 15 - "compilerOptions"
 Cohesion: 0.20
 Nodes (9): compilerOptions, jsx, module, moduleResolution, noEmit, types, extends, include (+1 more)
 
 ### Community 16 - "shared/package.json"
-Cohesion: 0.22
-Nodes (8): main, name, private, scripts, typecheck, type, types, version
+Cohesion: 0.20
+Nodes (9): main, name, private, scripts, test, typecheck, type, types (+1 more)
 
-### Community 17 - "dependencies"
-Cohesion: 0.33
-Nodes (6): dependencies, naive-ui, pinia, @vitejs/plugin-vue, vue, vue-router
+### Community 17 - "createAuthService"
+Cohesion: 0.24
+Nodes (10): createAuthService(), authenticate(), issue(), requireProjectRole(), resolve(), safeEqual(), signJwt(), storeUserSession() (+2 more)
 
 ### Community 18 - "server/tsconfig.json"
 Cohesion: 0.33
@@ -130,25 +137,37 @@ Nodes (5): compilerOptions, outDir, extends, include, ../tsconfig.base.json
 Cohesion: 0.33
 Nodes (5): compilerOptions, outDir, extends, include, ../tsconfig.base.json
 
+### Community 20 - "shared/src/index.ts"
+Cohesion: 0.11
+Nodes (27): definitionsEqual(), nextFlagVersion(), stableStringify(), StoredFlagDefinition, ATTRIBUTE_OPS, AttributeCondition, AttributeOp, AttributeRule (+19 more)
+
+### Community 26 - "devDependencies"
+Cohesion: 0.25
+Nodes (8): devDependencies, supertest, @testcontainers/mariadb, tsx, @types/node, @types/supertest, typescript, vitest
+
+### Community 27 - "scripts"
+Cohesion: 0.33
+Nodes (6): scripts, dev, start, test, test:integration, typecheck
+
 ## Knowledge Gaps
-- **153 isolated node(s):** `DEFAULT_PORT`, `DEFAULT_FLAGD_HOST`, `DEFAULT_FLAGD_PORT`, `DEFAULT_ENVS`, `DEFAULT_WEB_DIST` (+148 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 159 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **5 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **195 isolated node(s):** `name`, `version`, `private`, `type`, `workspaces` (+190 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 233 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **4 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Architecture Decision Records` connect `Flag Management System Architecture` to `ADR-0006 — Vue 3 + Vite dashboard in a separate workspace`, `Feature Flag`, `ADR-0007 — MariaDB as the system of record`?**
-  _High betweenness centrality (0.029) - this node is a cross-community bridge._
-- **Why does `Ordered rules with a terminal percentage rule` connect `Feature Flag` to `Flag Management System Architecture`?**
-  _High betweenness centrality (0.011) - this node is a cross-community bridge._
-- **What connects `DEFAULT_PORT`, `DEFAULT_FLAGD_HOST`, `DEFAULT_FLAGD_PORT` to the rest of the system?**
-  _153 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Why does `Store` connect `Store` to `routes.ts`, `store/index.ts`, `app.ts`?**
+  _High betweenness centrality (0.054) - this node is a cross-community bridge._
+- **Why does `fastify` connect `app.ts` to `routes.ts`?**
+  _High betweenness centrality (0.035) - this node is a cross-community bridge._
+- **Why does `createAuthService()` connect `createAuthService` to `routes.ts`, `app.ts`?**
+  _High betweenness centrality (0.025) - this node is a cross-community bridge._
+- **Are the 6 inferred relationships involving `createAuthService()` (e.g. with `isAdmin()` and `issue()`) actually correct?**
+  _`createAuthService()` has 6 INFERRED edges - model-reasoned connections that need verification._
+- **What connects `name`, `version`, `private` to the rest of the system?**
+  _195 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `routes.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.08961593172119488 - nodes in this community are weakly interconnected._
 - **Should `web/package.json` be split into smaller, more focused modules?**
-  _Cohesion score 0.06349206349206349 - nodes in this community are weakly interconnected._
-- **Should `server/package.json` be split into smaller, more focused modules?**
-  _Cohesion score 0.07407407407407407 - nodes in this community are weakly interconnected._
-- **Should `config.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.09206349206349207 - nodes in this community are weakly interconnected._
-- **Should `package.json` be split into smaller, more focused modules?**
-  _Cohesion score 0.1038961038961039 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.053426248548199766 - nodes in this community are weakly interconnected._

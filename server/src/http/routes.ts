@@ -1,0 +1,432 @@
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { type AuthService } from './auth';
+import {
+  type ApiKeyRecord,
+  type AuditPage,
+  type PutDefinitionResult,
+  type Store,
+} from '../store';
+import {
+  validateDefinition,
+  validateEnvName,
+  validateFlagKey,
+  type FlagDefinitionInput,
+} from '@fms/shared';
+import { FmsError, validationError } from './problem';
+
+export interface RouteServices {
+  auth: AuthService;
+  store: Store;
+}
+
+function actorName(principal: { type: string; session?: { username: string }; apiKey?: ApiKeyRecord }): string {
+  if (principal.type === 'session') return principal.session?.username ?? 'session';
+  return principal.apiKey?.name ?? 'api_key';
+}
+
+function paramsOf(request: FastifyRequest): Record<string, string> {
+  return request.params as unknown as Record<string, string>;
+}
+
+function queryOf(request: FastifyRequest): Record<string, string> {
+  const query = request.query as unknown;
+  return (query ?? {}) as Record<string, string>;
+}
+
+function paramValue(source: Record<string, string>, key: string): string {
+  const value = source[key];
+  if (value === undefined) {
+    throw new FmsError(404, 'https://fms.local/errors/not-found', `Missing path parameter '${key}'`);
+  }
+  return value;
+}
+
+export async function registerRoutes(app: FastifyInstance, services: RouteServices): Promise<void> {
+  const { auth, store } = services;
+
+  app.get('/healthz', async () => ({ status: 'ok' }));
+  app.get('/readyz', async (_request, reply) => {
+    // M0: provider wiring (flagd) does not exist yet — declared not-ready by default.
+    // Returns 503 until the M3 provider registry reports READY (FR-24).
+    return reply.code(503).send({ status: 'not_ready' });
+  });
+
+  // ---------------------------------------------------------------- auth
+
+  app.post('/api/v1/auth/login', async (request, reply) => {
+    const body = request.body as { username?: string; password?: string };
+    const session =
+      (await auth.verifyBootstrap(body.username ?? '', body.password ?? '')) ??
+      (await auth.verifyUser(body.username ?? '', body.password ?? ''));
+    if (!session) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Invalid credentials');
+    }
+    const token = auth.issue(session, 'jwt');
+    reply
+      .setCookie('fms_token', token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 12 * 60 * 60,
+      })
+      .send({
+        token,
+        expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+      });
+  });
+
+  app.post('/api/v1/auth/logout', async (_request, reply) => {
+    reply
+      .setCookie('fms_token', '', { httpOnly: true, sameSite: 'lax', path: '/', expires: new Date(0) })
+      .send();
+  });
+
+  // ---------------------------------------------------------------- projects
+
+  app.get('/api/v1/projects', async (request) => {
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    const isAdmin = await auth.isAdmin(principal);
+    if (principal.type === 'api_key' && !isAdmin) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Manage scope required');
+    }
+    const assignments =
+      principal.type === 'session'
+        ? await store.listMemberAssignments(principal.session.username)
+        : [];
+    const projects = await store.listProjects({ isAdmin, username: '', assignments });
+    return { projects };
+  });
+
+  app.post('/api/v1/projects', async (request, reply) => {
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    const admin = await auth.isAdmin(principal);
+    if (!admin) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Admin capability required');
+    }
+    const body = request.body as { key?: string; name?: string };
+    if (!body.key || !body.name) {
+      throw new FmsError(400, 'https://fms.local/errors/validation', 'key and name are required');
+    }
+    const result = await store.createProject({
+      key: body.key,
+      name: body.name,
+      actor: actorName(principal),
+    });
+    if (!result.ok) {
+      throw new FmsError(409, 'https://fms.local/errors/conflict', `Project '${body.name}' already exists`);
+    }
+    return reply.code(201).send(result.project);
+  });
+
+  app.post('/api/v1/projects/:projectId/environments', async (request) => {
+    const projectId = paramValue(paramsOf(request), 'projectId');
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    const session = await auth.requireProjectRole(principal, projectId);
+    void session;
+    const body = request.body as { env?: string };
+    const problems = validateEnvName(body.env);
+    if (problems.length > 0) {
+      throw validationError('Invalid environment name', problems);
+    }
+    const outcome = await store.createEnvironment(projectId, body.env ?? '', 'admin');
+    if (outcome === 'conflict') {
+      throw new FmsError(409, 'https://fms.local/errors/conflict', `Environment '${body.env}' already exists in this project`);
+    }
+    return { projectId, env: body.env };
+  });
+
+  app.get('/api/v1/projects/:projectId/members', async (request) => {
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    const admin = await auth.isAdmin(principal);
+    if (!admin) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Admin capability required');
+    }
+    const members = await store.listMembers(paramValue(paramsOf(request), 'projectId'));
+    return { members };
+  });
+
+  app.post('/api/v1/projects/:projectId/members', async (request, reply) => {
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    const admin = await auth.isAdmin(principal);
+    if (!admin) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Admin capability required');
+    }
+    const body = request.body as { username?: string; role?: string; projectIds?: string[] };
+    if (!body.username || !body.role || !body.projectIds) {
+      throw new FmsError(400, 'https://fms.local/errors/validation', 'username, role and projectIds are required');
+    }
+    const invited = await store.inviteMember({
+      username: body.username,
+      role: body.role as 'admin' | 'developer' | 'product-owner',
+      projectIds: body.projectIds,
+      actor: actorName(principal),
+    });
+    return reply.code(201).send({
+      user: invited.user,
+      role: body.role,
+      projects: invited.memberships.map((m) => m.projectId),
+      password: invited.tempPassword,
+    });
+  });
+
+  // ---------------------------------------------------------------- flags
+
+  app.get('/api/v1/projects/:projectId/flags', async (request) => {
+    const projectId = paramValue(paramsOf(request), 'projectId');
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    await auth.requireProjectRole(principal, projectId);
+    const flags = await store.listFlags(projectId);
+    return { flags };
+  });
+
+  app.post('/api/v1/projects/:projectId/flags', async (request, reply) => {
+    const projectId = paramValue(paramsOf(request), 'projectId');
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    const role = await auth.requireProjectRole(principal, projectId);
+    void role;
+    const body = request.body as { key?: string; description?: string };
+    const keyProblems = validateFlagKey(body.key);
+    if (keyProblems.length > 0) {
+      throw validationError('Invalid flag key', keyProblems);
+    }
+    const outcome = await store.createFlag({
+      projectId,
+      key: body.key ?? '',
+      description: body.description ?? '',
+      actor: actorName(principal),
+    });
+    if (outcome === 'conflict') {
+      throw new FmsError(409, 'https://fms.local/errors/conflict', `Flag key '${body.key}' already exists in this project`);
+    }
+    const flag = await store.getFlag(projectId, body.key ?? '');
+    return reply.code(201).send(flag);
+  });
+
+  app.get('/api/v1/projects/:projectId/flags/:key', async (request) => {
+    const projectId = paramValue(paramsOf(request), 'projectId');
+    const key = paramValue(paramsOf(request), 'key');
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    await auth.requireProjectRole(principal, projectId);
+    const flag = await store.getFlag(projectId, key);
+    if (!flag) {
+      throw new FmsError(404, 'https://fms.local/errors/not-found', `Flag '${key}' not found`);
+    }
+    return flag;
+  });
+
+  app.put('/api/v1/projects/:projectId/flags/:key', async (request) => {
+    const projectId = paramValue(paramsOf(request), 'projectId');
+    const key = paramValue(paramsOf(request), 'key');
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    const role = await auth.requireProjectRole(principal, projectId);
+    void role;
+    const body = request.body as { description?: string };
+    const outcome = await store.updateFlagDescription(
+      projectId,
+      key,
+      body.description ?? '',
+      actorName(principal),
+    );
+    if (outcome === 'not_found') {
+      throw new FmsError(404, 'https://fms.local/errors/not-found', `Flag '${key}' not found`);
+    }
+    const flag = await store.getFlag(projectId, key);
+    return flag;
+  });
+
+  app.delete('/api/v1/projects/:projectId/flags/:key', async (request, reply) => {
+    const projectId = paramValue(paramsOf(request), 'projectId');
+    const key = paramValue(paramsOf(request), 'key');
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    const admin = await auth.isAdmin(principal);
+    if (!admin) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Admin capability required');
+    }
+    const outcome = await store.deleteFlag(projectId, key, actorName(principal));
+    if (outcome === 'not_found') {
+      throw new FmsError(404, 'https://fms.local/errors/not-found', `Flag '${key}' not found`);
+    }
+    return reply.code(204).send();
+  });
+
+  app.put('/api/v1/projects/:projectId/flags/:key/definitions/:env', async (request) => {
+    const projectId = paramValue(paramsOf(request), 'projectId');
+    const key = paramValue(paramsOf(request), 'key');
+    const env = paramValue(paramsOf(request), 'env');
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    const role = await auth.requireProjectRole(principal, projectId);
+    void role;
+    const body = request.body as FlagDefinitionInput;
+    const problems = validateDefinition(body);
+    if (problems.length > 0) {
+      throw validationError('Invalid definition', problems);
+    }
+    const result: PutDefinitionResult = await store.putDefinition({
+      projectId,
+      flagKey: key,
+      env,
+      definition: {
+        enabled: body.enabled,
+        variants: body.variants,
+        defaultVariant: body.defaultVariant,
+        rules: body.rules,
+      },
+      actor: actorName(principal),
+    });
+    if (!result.found) {
+      throw new FmsError(404, 'https://fms.local/errors/not-found', `Flag '${key}' not found`);
+    }
+    return { flagKey: result.flagKey, env: result.env, version: result.version };
+  });
+
+  app.post('/api/v1/projects/:projectId/flags/:key/definitions/:env/copy', async (request) => {
+    const projectId = paramValue(paramsOf(request), 'projectId');
+    const key = paramValue(paramsOf(request), 'key');
+    const env = paramValue(paramsOf(request), 'env');
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    const role = await auth.requireProjectRole(principal, projectId);
+    void role;
+    const body = request.body as { fromEnv?: string };
+    if (!body.fromEnv) {
+      throw new FmsError(400, 'https://fms.local/errors/validation', 'fromEnv is required');
+    }
+    if (body.fromEnv === env) {
+      throw new FmsError(400, 'https://fms.local/errors/validation', 'fromEnv must differ from env');
+    }
+    const outcome = await store.copyDefinition({
+      projectId,
+      flagKey: key,
+      env,
+      fromEnv: body.fromEnv,
+      actor: actorName(principal),
+    });
+    if (outcome === 'not_found') {
+      throw new FmsError(404, 'https://fms.local/errors/not-found', `Source environment '${body.fromEnv}' has no definition for flag '${key}'`);
+    }
+    const flag = await store.getFlag(projectId, key);
+    return { flagKey: key, env, version: flag?.version ?? 0 };
+  });
+
+  // ---------------------------------------------------------------- audit / keys / openapi
+
+  app.get('/api/v1/audit', async (request) => {
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    const admin = await auth.isAdmin(principal);
+    if (!admin) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Admin capability required');
+    }
+    const query = {
+      limit: Math.min(Math.max(parseInt(String(queryOf(request).limit ?? '50'), 10) || 50, 1), 200),
+      before: (queryOf(request).before as string) ?? null,
+      action: (queryOf(request).action as string) ?? null,
+      entity: (queryOf(request).entity as string) ?? null,
+      actor: (queryOf(request).actor as string) ?? null,
+    };
+    const page: AuditPage = await store.listAudit(query);
+    return page;
+  });
+
+  app.get('/api/v1/api-keys', async (request) => {
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    const admin = await auth.isAdmin(principal);
+    if (!admin) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Admin capability required');
+    }
+    const keys = await store.listApiKeys();
+    return { keys };
+  });
+
+  app.post('/api/v1/api-keys', async (request, reply) => {
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    const admin = await auth.isAdmin(principal);
+    if (!admin) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Admin capability required');
+    }
+    const body = request.body as { name?: string; scope?: string };
+    if (!body.name || !body.scope) {
+      throw new FmsError(400, 'https://fms.local/errors/validation', 'name and scope are required');
+    }
+    const { key, plaintext } = await store.createApiKey({
+      name: body.name,
+      scope: body.scope as 'manage' | 'evaluate' | 'sync' | 'all',
+      createdBy: actorName(principal),
+    });
+    return reply.code(201).send({
+      id: key.id,
+      name: key.name,
+      scope: key.scope,
+      key: plaintext,
+      createdAt: key.createdAt,
+    });
+  });
+
+  app.delete('/api/v1/api-keys/:id', async (request, reply) => {
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    const admin = await auth.isAdmin(principal);
+    if (!admin) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Admin capability required');
+    }
+    const outcome = await store.revokeApiKey(String(paramValue(paramsOf(request), 'id')));
+    if (outcome === 'not_found') {
+      throw new FmsError(404, 'https://fms.local/errors/not-found', 'API key not found');
+    }
+    return reply.code(204).send();
+  });
+
+  app.get('/api/v1/openapi.json', async () => {
+    const { readFileSync } = await import('node:fs');
+    const path = await import('node:path');
+    const openApi = JSON.parse(
+      readFileSync(path.resolve(process.cwd(), 'server/openapi.json'), 'utf8'),
+    );
+    return openApi;
+  });
+}

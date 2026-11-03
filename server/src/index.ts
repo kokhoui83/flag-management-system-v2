@@ -3,11 +3,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from './config';
 import { createApp } from './app';
-import { closePrismaClient, createPrismaClient } from './db';
+import { createPrismaClient, closePrismaClient } from './db';
+import { createStore, type Store } from './store';
 
 const config = loadConfig();
 
 const prisma = createPrismaClient(config.databaseUrl);
+const store: Store = createStore(prisma);
 
 // Boot-time migrations (ADR-0007 / Prisma migrate): fail fast if the schema cannot be applied.
 // The Prisma config + schema live at the repo root (npm workspaces); run from there so the
@@ -15,7 +17,7 @@ const prisma = createPrismaClient(config.databaseUrl);
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 execSync('npx prisma migrate deploy', { cwd: repoRoot, stdio: 'inherit', env: process.env });
 
-const app = await createApp(config);
+const app = await createApp(config, { store });
 await app.listen({ port: config.port });
 
 let shuttingDown = false;

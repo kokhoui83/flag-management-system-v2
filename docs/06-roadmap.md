@@ -70,14 +70,24 @@ are written (failing) before its implementation. Acceptance criteria reference
 - Audit actions per [03-data-model.md §5](03-data-model.md).
 
 **Acceptance**
-- [ ] All [05-testing.md §2.1, §2.4, §2.5](05-testing.md) scenarios green (written first),
+- [x] All [05-testing.md §2.1, §2.4, §2.5](05-testing.md) scenarios green (written first),
       plus the API-level [§2.6](05-testing.md) multi-user scenarios (invite flow, role/project
       403s, project-scoped flag create/toggle, 409 duplicate project) — the UI-level §2.6
-      assertions land in M4.
-- [ ] Version bump semantics verified: create=1, per-env update +1, idempotent put no-op
+      assertions land in M4. (Flagd-facing scenarios — sync `GET /api/v1/sync/:env` FR-26/FR-27,
+      events SSE FR-51, evaluate FR-21–FR-25 — are M2/M3 scope and land with those endpoints.)
+- [x] Version bump semantics verified: create=1, per-env update +1, idempotent put no-op
       (FR-5).
-- [ ] `npm test` + `typecheck` + `lint` green (unit tier, no Docker);
+- [x] `npm test` + `typecheck` + `lint` green (unit tier, no Docker);
       `npm run test:integration` green against testcontainers MariaDB.
+
+### M1 wrap-up (2026-11-03)
+
+- OpenAPI: hand-maintained `server/openapi.json` (no codegen/glue library) served at
+  `GET /api/v1/openapi.json`; the hand-maintained choice is documented here per the M1 acceptance.
+- TDD evidence for the milestone: unit tier green (`@fms/server` 17 tests, `@fms/shared` 19),
+  integration tier green (`server/test/m1.integration.test.ts`, 5 scenarios against
+  testcontainers MariaDB), `typecheck` + `lint` green; version-bump semantics verified in the
+  integration run.
 
 ---
 

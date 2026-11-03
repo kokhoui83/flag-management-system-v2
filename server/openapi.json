@@ -1,0 +1,64 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Flag Management System Management API",
+    "version": "0.0.0",
+    "description": "Management API of the Flag Management System (M1 surface: projects, flags, definitions, audit, API keys, auth). Full contract: docs/04-api.md."
+  },
+  "servers": [
+    { "url": "http://localhost:3000" }
+  ],
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "Issue session token (bootstrap admin or invited user)",
+        "operationId": "login",
+        "tags": ["Auth"],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { type: "object", required: ["username", "password"], properties: { username: { type: "string" }, password: { type: "string" } } } } } },
+        "responses": {
+          "200": { "description": "Session issued", "content": { "application/json": { "schema": { type: "object", properties: { token: { type: "string" }, expiresAt: { type: "string", format: "date-time" } } } } } },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": { "summary": "Clear session", "operationId": "logout", "tags": ["Auth"], "responses": { "204": { "description": "No content" } } }
+    },
+    "/api/v1/projects": {
+      "get": { "summary": "List visible projects", "operationId": "listProjects", "tags": ["Projects"], "responses": { "200": { "description": "OK" } } },
+      "post": { "summary": "Create project (admin)", "operationId": "createProject", "tags": ["Projects"], "responses": { "201": { "description": "Created" }, "409": { "description": "Conflict" } } }
+    },
+    "/api/v1/projects/{projectId}/environments": {
+      "post": { "summary": "Add project environment", "operationId": "createProjectEnvironment", "tags": ["Projects"], "responses": { "201": { "description": "Created" }, "400": { "description": "Invalid env" }, "409": { "description": "Conflict" } } }
+    },
+    "/api/v1/projects/{projectId}/members": {
+      "get": { "summary": "List project members (admin)", "operationId": "listMembers", "tags": ["Projects"], "responses": { "200": { "description": "OK" } } },
+      "post": { "summary": "Invite member (admin)", "operationId": "inviteMember", "tags": ["Projects"], "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/v1/projects/{projectId}/flags": {
+      "get": { "summary": "List flags of a project", "operationId": "listFlags", "tags": ["Flags"], "responses": { "200": { "description": "OK" } } },
+      "post": { "summary": "Create flag (FR-2/FR-3/FR-56)", "operationId": "createFlag", "tags": ["Flags"], "responses": { "201": { "description": "Created" }, "400": { "description": "Invalid key" }, "409": { "description": "Conflict" } } }
+    },
+    "/api/v1/projects/{projectId}/flags/{key}": {
+      "get": { "summary": "Get flag", "operationId": "getFlag", "tags": ["Flags"], "responses": { "200": { "description": "OK" }, "404": { "description": "Not found" } } },
+      "put": { "summary": "Update flag description", "operationId": "updateFlag", "tags": ["Flags"], "responses": { "200": { "description": "OK" }, "404": { "description": "Not found" } } },
+      "delete": { "summary": "Delete flag (FR-4)", "operationId": "deleteFlag", "tags": ["Flags"], "responses": { "204": { "description": "Deleted" } } }
+    },
+    "/api/v1/projects/{projectId}/flags/{key}/definitions/{env}": {
+      "put": { "summary": "Put definition (FR-5/FR-14)", "operationId": "putDefinition", "tags": ["Flags"], "responses": { "200": { "description": "OK" }, "400": { "description": "Validation" }, "404": { "description": "Not found" } } }
+    },
+    "/api/v1/projects/{projectId}/flags/{key}/definitions/{env}/copy": {
+      "post": { "summary": "Copy definition from another env (FR-9)", "operationId": "copyDefinition", "tags": ["Flags"], "responses": { "200": { "description": "OK" }, "400": { "description": "Bad request" }, "404": { "description": "Not found" } } }
+    },
+    "/api/v1/audit": {
+      "get": { "summary": "List audit entries (FR-38)", "operationId": "listAudit", "tags": ["Audit"], "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/v1/api-keys": {
+      "get": { "summary": "List API keys", "operationId": "listApiKeys", "tags": ["ApiKeys"], "responses": { "200": { "description": "OK" } } },
+      "post": { "summary": "Create API key (FR-32)", "operationId": "createApiKey", "tags": ["ApiKeys"], "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/v1/api-keys/{id}": {
+      "delete": { "summary": "Revoke API key (FR-34)", "operationId": "revokeApiKey", "tags": ["ApiKeys"], "responses": { "204": { "description": "No content" } } }
+    }
+  }
+}

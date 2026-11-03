@@ -13,6 +13,8 @@ import { FlagdModelMemo } from './sync/model-memo';
 export interface AppOptions {
   /** Overrides the Prisma-backed store (tests inject one bound to a test DB). */
   store?: Store;
+  /** Shared memo for the store and sync route (tests inject one with their store). */
+  memo?: FlagdModelMemo;
 }
 
 const PUBLIC_PATHS = new Set(['/healthz', '/readyz', '/api/v1/auth/login', '/api/v1/auth/logout']);
@@ -24,7 +26,7 @@ const PUBLIC_PATHS = new Set(['/healthz', '/readyz', '/api/v1/auth/login', '/api
  */
 export async function createApp(config: AppConfig, options: AppOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: true });
-  const memo = new FlagdModelMemo();
+  const memo = options.memo ?? new FlagdModelMemo();
   const store = options.store ?? createStore(createPrismaClient(config.databaseUrl), { memo });
   const auth = createAuthService({
     store,

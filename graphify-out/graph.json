@@ -206,19 +206,6 @@
       "source_location": "L50"
     },
     {
-      "id": "server_src_domain_flagd_model_flagdflagentry",
-      "label": "FlagdFlagEntry",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 1,
-      "community_name": "flagd-model.ts",
-      "file_type": "code",
-      "norm_label": "flagdflagentry",
-      "source_file": "server/src/domain/flagd-model.ts",
-      "source_location": "L26"
-    },
-    {
       "id": "server_src_domain_flagd_model_flagdflaginput",
       "label": "FlagdFlagInput",
       "_callable": true,
@@ -323,17 +310,17 @@
       "source_location": "L77"
     },
     {
-      "id": "shared_src_index_variantvalue",
-      "label": "VariantValue",
+      "id": "server_src_domain_flagd_model_flagdflagentry",
+      "label": "FlagdFlagEntry",
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "community": 1,
-      "community_name": "flagd-model.ts",
+      "community": 20,
+      "community_name": "shared/src/index.ts",
       "file_type": "code",
-      "norm_label": "variantvalue",
-      "source_file": "shared/src/index.ts",
-      "source_location": "L48"
+      "norm_label": "flagdflagentry",
+      "source_file": "server/src/domain/flagd-model.ts",
+      "source_location": "L26"
     },
     {
       "id": "server_src_domain_flags_storedflagdefinition",
@@ -440,13 +427,26 @@
       "source_location": "L47"
     },
     {
+      "id": "shared_src_index_variantvalue",
+      "label": "VariantValue",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 20,
+      "community_name": "shared/src/index.ts",
+      "file_type": "code",
+      "norm_label": "variantvalue",
+      "source_file": "shared/src/index.ts",
+      "source_location": "L48"
+    },
+    {
       "id": "server_src_config_appconfig",
       "label": "AppConfig",
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "community": 27,
-      "community_name": "m2.sync.integration.test.ts",
+      "community": 34,
+      "community_name": "m1.integration.test.ts",
       "file_type": "code",
       "norm_label": "appconfig",
       "source_file": "server/src/config.ts",
@@ -696,7 +696,7 @@
       "file_type": "code",
       "norm_label": "createapp()",
       "source_file": "server/src/app.ts",
-      "source_location": "L25"
+      "source_location": "L27"
     },
     {
       "id": "server_src_http_auth_authservice_cansync",
@@ -1035,6 +1035,18 @@
       "source_location": "L24"
     },
     {
+      "id": "server_src_http_routes_ifnonematchmatches",
+      "label": "ifNoneMatchMatches()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 0,
+      "community_name": "app.ts",
+      "file_type": "code",
+      "norm_label": "ifnonematchmatches()",
+      "source_file": "server/src/http/routes.ts",
+      "source_location": "L46"
+    },
+    {
       "id": "server_src_http_routes_paramsof",
       "label": "paramsOf()",
       "_callable": true,
@@ -1080,7 +1092,7 @@
       "file_type": "code",
       "norm_label": "registerroutes()",
       "source_file": "server/src/http/routes.ts",
-      "source_location": "L46"
+      "source_location": "L59"
     },
     {
       "id": "server_src_sync_model_memo_flagdmodelmemo_invalidate",
@@ -1503,42 +1515,6 @@
       "source_location": "L92"
     },
     {
-      "id": "server_test_m1_integration_test_admintoken",
-      "label": "adminToken()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 27,
-      "community_name": "m2.sync.integration.test.ts",
-      "file_type": "code",
-      "norm_label": "admintoken()",
-      "source_file": "server/test/m1.integration.test.ts",
-      "source_location": "L55"
-    },
-    {
-      "id": "server_test_m1_integration_test_createproject",
-      "label": "createProject()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 27,
-      "community_name": "m2.sync.integration.test.ts",
-      "file_type": "code",
-      "norm_label": "createproject()",
-      "source_file": "server/test/m1.integration.test.ts",
-      "source_location": "L59"
-    },
-    {
-      "id": "server_test_m1_integration_test_login",
-      "label": "login()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 27,
-      "community_name": "m2.sync.integration.test.ts",
-      "file_type": "code",
-      "norm_label": "login()",
-      "source_file": "server/test/m1.integration.test.ts",
-      "source_location": "L44"
-    },
-    {
       "id": "server_test_m2_sync_integration_test_admintoken",
       "label": "adminToken()",
       "_callable": true,
@@ -1548,7 +1524,19 @@
       "file_type": "code",
       "norm_label": "admintoken()",
       "source_file": "server/test/m2.sync.integration.test.ts",
-      "source_location": "L55"
+      "source_location": "L58"
+    },
+    {
+      "id": "server_test_m2_sync_integration_test_authheader",
+      "label": "authHeader()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 27,
+      "community_name": "m2.sync.integration.test.ts",
+      "file_type": "code",
+      "norm_label": "authheader()",
+      "source_file": "server/test/m2.sync.integration.test.ts",
+      "source_location": "L62"
     },
     {
       "id": "server_test_m2_sync_integration_test_createapikey",
@@ -1560,7 +1548,7 @@
       "file_type": "code",
       "norm_label": "createapikey()",
       "source_file": "server/test/m2.sync.integration.test.ts",
-      "source_location": "L100"
+      "source_location": "L107"
     },
     {
       "id": "server_test_m2_sync_integration_test_createflag",
@@ -1572,7 +1560,7 @@
       "file_type": "code",
       "norm_label": "createflag()",
       "source_file": "server/test/m2.sync.integration.test.ts",
-      "source_location": "L69"
+      "source_location": "L76"
     },
     {
       "id": "server_test_m2_sync_integration_test_createproject",
@@ -1584,7 +1572,7 @@
       "file_type": "code",
       "norm_label": "createproject()",
       "source_file": "server/test/m2.sync.integration.test.ts",
-      "source_location": "L59"
+      "source_location": "L66"
     },
     {
       "id": "server_test_m2_sync_integration_test_login",
@@ -1596,7 +1584,7 @@
       "file_type": "code",
       "norm_label": "login()",
       "source_file": "server/test/m2.sync.integration.test.ts",
-      "source_location": "L44"
+      "source_location": "L47"
     },
     {
       "id": "server_test_m2_sync_integration_test_putdefinition",
@@ -1608,7 +1596,7 @@
       "file_type": "code",
       "norm_label": "putdefinition()",
       "source_file": "server/test/m2.sync.integration.test.ts",
-      "source_location": "L79"
+      "source_location": "L86"
     },
     {
       "id": "server_src_db_index_closeprismaclient",
@@ -1645,6 +1633,42 @@
       "norm_label": "shutdown()",
       "source_file": "server/src/index.ts",
       "source_location": "L26"
+    },
+    {
+      "id": "server_test_m1_integration_test_admintoken",
+      "label": "adminToken()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 34,
+      "community_name": "m1.integration.test.ts",
+      "file_type": "code",
+      "norm_label": "admintoken()",
+      "source_file": "server/test/m1.integration.test.ts",
+      "source_location": "L55"
+    },
+    {
+      "id": "server_test_m1_integration_test_createproject",
+      "label": "createProject()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 34,
+      "community_name": "m1.integration.test.ts",
+      "file_type": "code",
+      "norm_label": "createproject()",
+      "source_file": "server/test/m1.integration.test.ts",
+      "source_location": "L59"
+    },
+    {
+      "id": "server_test_m1_integration_test_login",
+      "label": "login()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 34,
+      "community_name": "m1.integration.test.ts",
+      "file_type": "code",
+      "norm_label": "login()",
+      "source_file": "server/test/m1.integration.test.ts",
+      "source_location": "L44"
     },
     {
       "id": "server_src_domain_types_hasprojectaccess",
@@ -2048,7 +2072,7 @@
       "file_type": "code",
       "norm_label": "public_paths",
       "source_file": "server/src/app.ts",
-      "source_location": "L18"
+      "source_location": "L20"
     },
     {
       "id": "server_src_app_test",
@@ -2147,7 +2171,29 @@
       "file_type": "concept",
       "norm_label": "rfc-9457",
       "source_file": "server/src/app.ts",
-      "source_location": "L23"
+      "source_location": "L25"
+    },
+    {
+      "id": "ref_fastify",
+      "label": "fastify",
+      "_origin": "ast",
+      "community": 0,
+      "community_name": "app.ts",
+      "file_type": "concept",
+      "norm_label": "fastify",
+      "source_file": "server/package.json",
+      "source_location": "L20"
+    },
+    {
+      "id": "ref_fastify_static",
+      "label": "@fastify/static",
+      "_origin": "ast",
+      "community": 0,
+      "community_name": "app.ts",
+      "file_type": "concept",
+      "norm_label": "@fastify/static",
+      "source_file": "server/package.json",
+      "source_location": "L17"
     },
     {
       "id": "server_src_domain_flagd_model",
@@ -4317,39 +4363,6 @@
       "source_location": "L122"
     },
     {
-      "id": "server_test_fixtures_schema_flags_defaultvariant_description",
-      "label": "description",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "properties",
-      "file_type": "code",
-      "norm_label": "description",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L135"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_defaultvariant_title",
-      "label": "title",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "properties",
-      "file_type": "code",
-      "norm_label": "title",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L134"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_defaultvariant_type",
-      "label": "type",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "properties",
-      "file_type": "code",
-      "norm_label": "type",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L136"
-    },
-    {
       "id": "server_test_fixtures_schema_flags_definitions_baseflag",
       "label": "baseFlag",
       "_origin": "ast",
@@ -4359,105 +4372,6 @@
       "norm_label": "baseflag",
       "source_file": "server/test/fixtures/schema/flags.json",
       "source_location": "L120"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_flagsetid_description",
-      "label": "description",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "properties",
-      "file_type": "code",
-      "norm_label": "description",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L65"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_flagsetid_type",
-      "label": "type",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "properties",
-      "file_type": "code",
-      "norm_label": "type",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L66"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_metadata_description",
-      "label": "description",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "properties",
-      "file_type": "code",
-      "norm_label": "description",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L62"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_metadata_properties",
-      "label": "properties",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "properties",
-      "file_type": "code",
-      "norm_label": "properties",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L63"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_metadata_ref",
-      "label": "$ref",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "properties",
-      "file_type": "code",
-      "norm_label": "$ref",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L73"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_metadata_title",
-      "label": "title",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "properties",
-      "file_type": "code",
-      "norm_label": "title",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L61"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_properties_defaultvariant",
-      "label": "defaultVariant",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "properties",
-      "file_type": "code",
-      "norm_label": "defaultvariant",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L133"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_properties_flagsetid",
-      "label": "flagSetId",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "properties",
-      "file_type": "code",
-      "norm_label": "flagsetid",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L64"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_properties_metadata",
-      "label": "metadata",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "properties",
-      "file_type": "code",
-      "norm_label": "metadata",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L60"
     },
     {
       "id": "server_test_fixtures_schema_flags_properties_state",
@@ -4480,17 +4394,6 @@
       "norm_label": "targeting",
       "source_file": "server/test/fixtures/schema/flags.json",
       "source_location": "L141"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_properties_version",
-      "label": "version",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "properties",
-      "file_type": "code",
-      "norm_label": "version",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L68"
     },
     {
       "id": "server_test_fixtures_schema_flags_state_description",
@@ -4548,50 +4451,6 @@
       "source_location": "L142"
     },
     {
-      "id": "server_test_fixtures_schema_flags_version_description",
-      "label": "description",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "properties",
-      "file_type": "code",
-      "norm_label": "description",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L69"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_version_type",
-      "label": "type",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "properties",
-      "file_type": "code",
-      "norm_label": "type",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L70"
-    },
-    {
-      "id": "server_test_m1_integration_test",
-      "label": "m1.integration.test.ts",
-      "_origin": "ast",
-      "community": 27,
-      "community_name": "m2.sync.integration.test.ts",
-      "file_type": "code",
-      "norm_label": "m1.integration.test.ts",
-      "source_file": "server/test/m1.integration.test.ts",
-      "source_location": "L1"
-    },
-    {
-      "id": "server_test_m1_integration_test_reporoot",
-      "label": "repoRoot",
-      "_origin": "ast",
-      "community": 27,
-      "community_name": "m2.sync.integration.test.ts",
-      "file_type": "code",
-      "norm_label": "reporoot",
-      "source_file": "server/test/m1.integration.test.ts",
-      "source_location": "L12"
-    },
-    {
       "id": "server_test_m2_sync_integration_test",
       "label": "m2.sync.integration.test.ts",
       "_origin": "ast",
@@ -4611,29 +4470,7 @@
       "file_type": "code",
       "norm_label": "reporoot",
       "source_file": "server/test/m2.sync.integration.test.ts",
-      "source_location": "L12"
-    },
-    {
-      "id": "ref_fastify",
-      "label": "fastify",
-      "_origin": "ast",
-      "community": 27,
-      "community_name": "m2.sync.integration.test.ts",
-      "file_type": "concept",
-      "norm_label": "fastify",
-      "source_file": "server/package.json",
-      "source_location": "L20"
-    },
-    {
-      "id": "ref_testcontainers_mariadb",
-      "label": "@testcontainers/mariadb",
-      "_origin": "ast",
-      "community": 27,
-      "community_name": "m2.sync.integration.test.ts",
-      "file_type": "concept",
-      "norm_label": "@testcontainers/mariadb",
-      "source_file": "server/package.json",
-      "source_location": "L24"
+      "source_location": "L13"
     },
     {
       "id": "shared_vitest_config",
@@ -5157,7 +4994,7 @@
       "label": "items",
       "_origin": "ast",
       "community": 30,
-      "community_name": "$ref",
+      "community_name": "associativeOp",
       "file_type": "code",
       "norm_label": "items",
       "source_file": "server/test/fixtures/schema/targeting.json",
@@ -5168,7 +5005,7 @@
       "label": "minItems",
       "_origin": "ast",
       "community": 30,
-      "community_name": "$ref",
+      "community_name": "associativeOp",
       "file_type": "code",
       "norm_label": "minitems",
       "source_file": "server/test/fixtures/schema/targeting.json",
@@ -5179,7 +5016,7 @@
       "label": "type",
       "_origin": "ast",
       "community": 30,
-      "community_name": "$ref",
+      "community_name": "associativeOp",
       "file_type": "code",
       "norm_label": "type",
       "source_file": "server/test/fixtures/schema/targeting.json",
@@ -5190,121 +5027,44 @@
       "label": "associativeOp",
       "_origin": "ast",
       "community": 30,
-      "community_name": "$ref",
+      "community_name": "associativeOp",
       "file_type": "code",
       "norm_label": "associativeop",
       "source_file": "server/test/fixtures/schema/targeting.json",
       "source_location": "L263"
     },
     {
-      "id": "server_test_fixtures_schema_targeting_definitions_fractionalshorthandop",
-      "label": "fractionalShorthandOp",
+      "id": "server_test_fixtures_schema_flags_booleanvariants_properties",
+      "label": "properties",
       "_origin": "ast",
-      "community": 30,
-      "community_name": "$ref",
+      "community": 31,
+      "community_name": "variants",
       "file_type": "code",
-      "norm_label": "fractionalshorthandop",
-      "source_file": "server/test/fixtures/schema/targeting.json",
-      "source_location": "L501"
+      "norm_label": "properties",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L165"
     },
     {
-      "id": "server_test_fixtures_schema_targeting_definitions_variadicop",
-      "label": "variadicOp",
-      "_origin": "ast",
-      "community": 30,
-      "community_name": "$ref",
-      "file_type": "code",
-      "norm_label": "variadicop",
-      "source_file": "server/test/fixtures/schema/targeting.json",
-      "source_location": "L316"
-    },
-    {
-      "id": "server_test_fixtures_schema_targeting_fractionalshorthandop_items",
-      "label": "items",
-      "_origin": "ast",
-      "community": 30,
-      "community_name": "$ref",
-      "file_type": "code",
-      "norm_label": "items",
-      "source_file": "server/test/fixtures/schema/targeting.json",
-      "source_location": "L504"
-    },
-    {
-      "id": "server_test_fixtures_schema_targeting_fractionalshorthandop_minitems",
-      "label": "minItems",
-      "_origin": "ast",
-      "community": 30,
-      "community_name": "$ref",
-      "file_type": "code",
-      "norm_label": "minitems",
-      "source_file": "server/test/fixtures/schema/targeting.json",
-      "source_location": "L503"
-    },
-    {
-      "id": "server_test_fixtures_schema_targeting_fractionalshorthandop_type",
+      "id": "server_test_fixtures_schema_flags_booleanvariants_type",
       "label": "type",
       "_origin": "ast",
-      "community": 30,
-      "community_name": "$ref",
+      "community": 31,
+      "community_name": "variants",
       "file_type": "code",
       "norm_label": "type",
-      "source_file": "server/test/fixtures/schema/targeting.json",
-      "source_location": "L502"
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L164"
     },
     {
-      "id": "server_test_fixtures_schema_targeting_items_ref",
-      "label": "$ref",
+      "id": "server_test_fixtures_schema_flags_definitions_booleanvariants",
+      "label": "booleanVariants",
       "_origin": "ast",
-      "community": 30,
-      "community_name": "$ref",
+      "community": 31,
+      "community_name": "variants",
       "file_type": "code",
-      "norm_label": "$ref",
-      "source_file": "server/test/fixtures/schema/targeting.json",
-      "source_location": "L137"
-    },
-    {
-      "id": "server_test_fixtures_schema_targeting_reduce_items",
-      "label": "items",
-      "_origin": "ast",
-      "community": 30,
-      "community_name": "$ref",
-      "file_type": "code",
-      "norm_label": "items",
-      "source_file": "server/test/fixtures/schema/targeting.json",
-      "source_location": "L257"
-    },
-    {
-      "id": "server_test_fixtures_schema_targeting_variadicop_items",
-      "label": "items",
-      "_origin": "ast",
-      "community": 30,
-      "community_name": "$ref",
-      "file_type": "code",
-      "norm_label": "items",
-      "source_file": "server/test/fixtures/schema/targeting.json",
-      "source_location": "L319"
-    },
-    {
-      "id": "server_test_fixtures_schema_targeting_variadicop_minitems",
-      "label": "minItems",
-      "_origin": "ast",
-      "community": 30,
-      "community_name": "$ref",
-      "file_type": "code",
-      "norm_label": "minitems",
-      "source_file": "server/test/fixtures/schema/targeting.json",
-      "source_location": "L318"
-    },
-    {
-      "id": "server_test_fixtures_schema_targeting_variadicop_type",
-      "label": "type",
-      "_origin": "ast",
-      "community": 30,
-      "community_name": "$ref",
-      "file_type": "code",
-      "norm_label": "type",
-      "source_file": "server/test/fixtures/schema/targeting.json",
-      "source_location": "L317"
+      "norm_label": "booleanvariants",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L163"
     },
     {
       "id": "server_test_fixtures_schema_flags_definitions_numbervariants",
@@ -5316,17 +5076,6 @@
       "norm_label": "numbervariants",
       "source_file": "server/test/fixtures/schema/flags.json",
       "source_location": "L191"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_definitions_objectvariants",
-      "label": "objectVariants",
-      "_origin": "ast",
-      "community": 31,
-      "community_name": "variants",
-      "file_type": "code",
-      "norm_label": "objectvariants",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L205"
     },
     {
       "id": "server_test_fixtures_schema_flags_definitions_stringvariants",
@@ -5360,28 +5109,6 @@
       "norm_label": "type",
       "source_file": "server/test/fixtures/schema/flags.json",
       "source_location": "L192"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_objectvariants_properties",
-      "label": "properties",
-      "_origin": "ast",
-      "community": 31,
-      "community_name": "variants",
-      "file_type": "code",
-      "norm_label": "properties",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L207"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_objectvariants_type",
-      "label": "type",
-      "_origin": "ast",
-      "community": 31,
-      "community_name": "variants",
-      "file_type": "code",
-      "norm_label": "type",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L206"
     },
     {
       "id": "server_test_fixtures_schema_flags_properties_variants",
@@ -5483,6 +5210,61 @@
       "source_location": "L171"
     },
     {
+      "id": "server_test_fixtures_schema_flags_baseconfig_description",
+      "label": "description",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "description",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L45"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_baseconfig_properties",
+      "label": "properties",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "properties",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L47"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_baseconfig_title",
+      "label": "title",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "title",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L44"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_baseconfig_type",
+      "label": "type",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "type",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L46"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_definitions_baseconfig",
+      "label": "baseConfig",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "baseconfig",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L43"
+    },
+    {
       "id": "server_test_fixtures_schema_flags_definitions_flagsmap",
       "label": "flagsMap",
       "_origin": "ast",
@@ -5492,6 +5274,83 @@
       "norm_label": "flagsmap",
       "source_file": "server/test/fixtures/schema/flags.json",
       "source_location": "L6"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_evaluators_additionalproperties",
+      "label": "additionalProperties",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "additionalproperties",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L52"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_evaluators_description",
+      "label": "description",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "description",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L50"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_evaluators_patternproperties",
+      "label": "patternProperties",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "patternproperties",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L53"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_evaluators_title",
+      "label": "title",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "title",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L49"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_evaluators_type",
+      "label": "type",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "type",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L51"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_flagsetid_description",
+      "label": "description",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "description",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L65"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_flagsetid_type",
+      "label": "type",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "type",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L66"
     },
     {
       "id": "server_test_fixtures_schema_flags_flagsmap_additionalproperties",
@@ -5560,6 +5419,50 @@
       "source_location": "L9"
     },
     {
+      "id": "server_test_fixtures_schema_flags_metadata_description",
+      "label": "description",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "description",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L62"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_metadata_properties",
+      "label": "properties",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "properties",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L63"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_metadata_ref",
+      "label": "$ref",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "$ref",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L73"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_metadata_title",
+      "label": "title",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "title",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L61"
+    },
+    {
       "id": "server_test_fixtures_schema_flags_patternproperties_1",
       "label": "^.{1,}$",
       "_origin": "ast",
@@ -5571,6 +5474,50 @@
       "source_location": "L13"
     },
     {
+      "id": "server_test_fixtures_schema_flags_properties_evaluators",
+      "label": "$evaluators",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "$evaluators",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L48"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_properties_flagsetid",
+      "label": "flagSetId",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "flagsetid",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L64"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_properties_metadata",
+      "label": "metadata",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "metadata",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L60"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_properties_version",
+      "label": "version",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "version",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L68"
+    },
+    {
       "id": "server_test_fixtures_schema_flags_variants_patternproperties",
       "label": "patternProperties",
       "_origin": "ast",
@@ -5580,6 +5527,28 @@
       "norm_label": "patternproperties",
       "source_file": "server/test/fixtures/schema/flags.json",
       "source_location": "L153"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_version_description",
+      "label": "description",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "description",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L69"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_version_type",
+      "label": "type",
+      "_origin": "ast",
+      "community": 32,
+      "community_name": "flagsMap",
+      "file_type": "code",
+      "norm_label": "type",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L70"
     },
     {
       "id": "server_test_fixtures_schema_targeting_definitions_stringcomparerule",
@@ -5714,125 +5683,37 @@
       "source_location": "L388"
     },
     {
-      "id": "server_test_fixtures_schema_flags_baseconfig_description",
-      "label": "description",
+      "id": "server_test_m1_integration_test",
+      "label": "m1.integration.test.ts",
       "_origin": "ast",
       "community": 34,
-      "community_name": "$evaluators",
+      "community_name": "m1.integration.test.ts",
       "file_type": "code",
-      "norm_label": "description",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L45"
+      "norm_label": "m1.integration.test.ts",
+      "source_file": "server/test/m1.integration.test.ts",
+      "source_location": "L1"
     },
     {
-      "id": "server_test_fixtures_schema_flags_baseconfig_properties",
-      "label": "properties",
+      "id": "server_test_m1_integration_test_reporoot",
+      "label": "repoRoot",
       "_origin": "ast",
       "community": 34,
-      "community_name": "$evaluators",
+      "community_name": "m1.integration.test.ts",
       "file_type": "code",
-      "norm_label": "properties",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L47"
+      "norm_label": "reporoot",
+      "source_file": "server/test/m1.integration.test.ts",
+      "source_location": "L12"
     },
     {
-      "id": "server_test_fixtures_schema_flags_baseconfig_title",
-      "label": "title",
+      "id": "ref_testcontainers_mariadb",
+      "label": "@testcontainers/mariadb",
       "_origin": "ast",
       "community": 34,
-      "community_name": "$evaluators",
-      "file_type": "code",
-      "norm_label": "title",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L44"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_baseconfig_type",
-      "label": "type",
-      "_origin": "ast",
-      "community": 34,
-      "community_name": "$evaluators",
-      "file_type": "code",
-      "norm_label": "type",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L46"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_definitions_baseconfig",
-      "label": "baseConfig",
-      "_origin": "ast",
-      "community": 34,
-      "community_name": "$evaluators",
-      "file_type": "code",
-      "norm_label": "baseconfig",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L43"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_evaluators_additionalproperties",
-      "label": "additionalProperties",
-      "_origin": "ast",
-      "community": 34,
-      "community_name": "$evaluators",
-      "file_type": "code",
-      "norm_label": "additionalproperties",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L52"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_evaluators_description",
-      "label": "description",
-      "_origin": "ast",
-      "community": 34,
-      "community_name": "$evaluators",
-      "file_type": "code",
-      "norm_label": "description",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L50"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_evaluators_patternproperties",
-      "label": "patternProperties",
-      "_origin": "ast",
-      "community": 34,
-      "community_name": "$evaluators",
-      "file_type": "code",
-      "norm_label": "patternproperties",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L53"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_evaluators_title",
-      "label": "title",
-      "_origin": "ast",
-      "community": 34,
-      "community_name": "$evaluators",
-      "file_type": "code",
-      "norm_label": "title",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L49"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_evaluators_type",
-      "label": "type",
-      "_origin": "ast",
-      "community": 34,
-      "community_name": "$evaluators",
-      "file_type": "code",
-      "norm_label": "type",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L51"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_properties_evaluators",
-      "label": "$evaluators",
-      "_origin": "ast",
-      "community": 34,
-      "community_name": "$evaluators",
-      "file_type": "code",
-      "norm_label": "$evaluators",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L48"
+      "community_name": "m1.integration.test.ts",
+      "file_type": "concept",
+      "norm_label": "@testcontainers/mariadb",
+      "source_file": "server/package.json",
+      "source_location": "L24"
     },
     {
       "id": "server_test_fixtures_schema_targeting_anyrule_anyof",
@@ -6339,6 +6220,17 @@
       "norm_label": "description",
       "source_file": "server/test/fixtures/schema/targeting.json",
       "source_location": "L253"
+    },
+    {
+      "id": "server_test_fixtures_schema_targeting_reduce_items",
+      "label": "items",
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "reduce",
+      "file_type": "code",
+      "norm_label": "items",
+      "source_file": "server/test/fixtures/schema/targeting.json",
+      "source_location": "L257"
     },
     {
       "id": "server_test_fixtures_schema_targeting_reduce_maxitems",
@@ -7236,70 +7128,48 @@
       "source_location": "L482"
     },
     {
-      "id": "server_test_fixtures_schema_flags_anyflag_anyof",
-      "label": "anyOf",
+      "id": "server_test_fixtures_schema_flags_defaultvariant_description",
+      "label": "description",
       "_origin": "ast",
       "community": 48,
-      "community_name": "definitions",
+      "community_name": "defaultVariant",
       "file_type": "code",
-      "norm_label": "anyof",
+      "norm_label": "description",
       "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L220"
+      "source_location": "L135"
     },
     {
-      "id": "server_test_fixtures_schema_flags_booleanvariants_properties",
-      "label": "properties",
+      "id": "server_test_fixtures_schema_flags_defaultvariant_title",
+      "label": "title",
       "_origin": "ast",
       "community": 48,
-      "community_name": "definitions",
+      "community_name": "defaultVariant",
       "file_type": "code",
-      "norm_label": "properties",
+      "norm_label": "title",
       "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L165"
+      "source_location": "L134"
     },
     {
-      "id": "server_test_fixtures_schema_flags_booleanvariants_type",
+      "id": "server_test_fixtures_schema_flags_defaultvariant_type",
       "label": "type",
       "_origin": "ast",
       "community": 48,
-      "community_name": "definitions",
+      "community_name": "defaultVariant",
       "file_type": "code",
       "norm_label": "type",
       "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L164"
+      "source_location": "L136"
     },
     {
-      "id": "server_test_fixtures_schema_flags_definitions",
-      "label": "definitions",
+      "id": "server_test_fixtures_schema_flags_properties_defaultvariant",
+      "label": "defaultVariant",
       "_origin": "ast",
       "community": 48,
-      "community_name": "definitions",
+      "community_name": "defaultVariant",
       "file_type": "code",
-      "norm_label": "definitions",
+      "norm_label": "defaultvariant",
       "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L5"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_definitions_anyflag",
-      "label": "anyFlag",
-      "_origin": "ast",
-      "community": 48,
-      "community_name": "definitions",
-      "file_type": "code",
-      "norm_label": "anyflag",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L219"
-    },
-    {
-      "id": "server_test_fixtures_schema_flags_definitions_booleanvariants",
-      "label": "booleanVariants",
-      "_origin": "ast",
-      "community": 48,
-      "community_name": "definitions",
-      "file_type": "code",
-      "norm_label": "booleanvariants",
-      "source_file": "server/test/fixtures/schema/flags.json",
-      "source_location": "L163"
+      "source_location": "L133"
     },
     {
       "id": "server_test_fixtures_schema_flags_definitions_flagsarray",
@@ -7691,7 +7561,7 @@
       "label": "items",
       "_origin": "ast",
       "community": 55,
-      "community_name": "binaryOp",
+      "community_name": "$ref",
       "file_type": "code",
       "norm_label": "items",
       "source_file": "server/test/fixtures/schema/targeting.json",
@@ -7702,7 +7572,7 @@
       "label": "maxItems",
       "_origin": "ast",
       "community": 55,
-      "community_name": "binaryOp",
+      "community_name": "$ref",
       "file_type": "code",
       "norm_label": "maxitems",
       "source_file": "server/test/fixtures/schema/targeting.json",
@@ -7713,7 +7583,7 @@
       "label": "minItems",
       "_origin": "ast",
       "community": 55,
-      "community_name": "binaryOp",
+      "community_name": "$ref",
       "file_type": "code",
       "norm_label": "minitems",
       "source_file": "server/test/fixtures/schema/targeting.json",
@@ -7724,29 +7594,18 @@
       "label": "type",
       "_origin": "ast",
       "community": 55,
-      "community_name": "binaryOp",
+      "community_name": "$ref",
       "file_type": "code",
       "norm_label": "type",
       "source_file": "server/test/fixtures/schema/targeting.json",
       "source_location": "L160"
     },
     {
-      "id": "server_test_fixtures_schema_targeting_definitions_binaryop",
-      "label": "binaryOp",
-      "_origin": "ast",
-      "community": 55,
-      "community_name": "binaryOp",
-      "file_type": "code",
-      "norm_label": "binaryop",
-      "source_file": "server/test/fixtures/schema/targeting.json",
-      "source_location": "L159"
-    },
-    {
       "id": "server_test_fixtures_schema_targeting_binaryorternaryop_items",
       "label": "items",
       "_origin": "ast",
-      "community": 56,
-      "community_name": "binaryOrTernaryOp",
+      "community": 55,
+      "community_name": "$ref",
       "file_type": "code",
       "norm_label": "items",
       "source_file": "server/test/fixtures/schema/targeting.json",
@@ -7756,8 +7615,8 @@
       "id": "server_test_fixtures_schema_targeting_binaryorternaryop_maxitems",
       "label": "maxItems",
       "_origin": "ast",
-      "community": 56,
-      "community_name": "binaryOrTernaryOp",
+      "community": 55,
+      "community_name": "$ref",
       "file_type": "code",
       "norm_label": "maxitems",
       "source_file": "server/test/fixtures/schema/targeting.json",
@@ -7767,8 +7626,8 @@
       "id": "server_test_fixtures_schema_targeting_binaryorternaryop_minitems",
       "label": "minItems",
       "_origin": "ast",
-      "community": 56,
-      "community_name": "binaryOrTernaryOp",
+      "community": 55,
+      "community_name": "$ref",
       "file_type": "code",
       "norm_label": "minitems",
       "source_file": "server/test/fixtures/schema/targeting.json",
@@ -7778,23 +7637,89 @@
       "id": "server_test_fixtures_schema_targeting_binaryorternaryop_type",
       "label": "type",
       "_origin": "ast",
-      "community": 56,
-      "community_name": "binaryOrTernaryOp",
+      "community": 55,
+      "community_name": "$ref",
       "file_type": "code",
       "norm_label": "type",
       "source_file": "server/test/fixtures/schema/targeting.json",
       "source_location": "L133"
     },
     {
+      "id": "server_test_fixtures_schema_targeting_definitions_binaryop",
+      "label": "binaryOp",
+      "_origin": "ast",
+      "community": 55,
+      "community_name": "$ref",
+      "file_type": "code",
+      "norm_label": "binaryop",
+      "source_file": "server/test/fixtures/schema/targeting.json",
+      "source_location": "L159"
+    },
+    {
       "id": "server_test_fixtures_schema_targeting_definitions_binaryorternaryop",
       "label": "binaryOrTernaryOp",
       "_origin": "ast",
-      "community": 56,
-      "community_name": "binaryOrTernaryOp",
+      "community": 55,
+      "community_name": "$ref",
       "file_type": "code",
       "norm_label": "binaryorternaryop",
       "source_file": "server/test/fixtures/schema/targeting.json",
       "source_location": "L132"
+    },
+    {
+      "id": "server_test_fixtures_schema_targeting_items_ref",
+      "label": "$ref",
+      "_origin": "ast",
+      "community": 55,
+      "community_name": "$ref",
+      "file_type": "code",
+      "norm_label": "$ref",
+      "source_file": "server/test/fixtures/schema/targeting.json",
+      "source_location": "L137"
+    },
+    {
+      "id": "server_test_fixtures_schema_targeting_definitions_fractionalshorthandop",
+      "label": "fractionalShorthandOp",
+      "_origin": "ast",
+      "community": 56,
+      "community_name": "fractionalShorthandOp",
+      "file_type": "code",
+      "norm_label": "fractionalshorthandop",
+      "source_file": "server/test/fixtures/schema/targeting.json",
+      "source_location": "L501"
+    },
+    {
+      "id": "server_test_fixtures_schema_targeting_fractionalshorthandop_items",
+      "label": "items",
+      "_origin": "ast",
+      "community": 56,
+      "community_name": "fractionalShorthandOp",
+      "file_type": "code",
+      "norm_label": "items",
+      "source_file": "server/test/fixtures/schema/targeting.json",
+      "source_location": "L504"
+    },
+    {
+      "id": "server_test_fixtures_schema_targeting_fractionalshorthandop_minitems",
+      "label": "minItems",
+      "_origin": "ast",
+      "community": 56,
+      "community_name": "fractionalShorthandOp",
+      "file_type": "code",
+      "norm_label": "minitems",
+      "source_file": "server/test/fixtures/schema/targeting.json",
+      "source_location": "L503"
+    },
+    {
+      "id": "server_test_fixtures_schema_targeting_fractionalshorthandop_type",
+      "label": "type",
+      "_origin": "ast",
+      "community": 56,
+      "community_name": "fractionalShorthandOp",
+      "file_type": "code",
+      "norm_label": "type",
+      "source_file": "server/test/fixtures/schema/targeting.json",
+      "source_location": "L502"
     },
     {
       "id": "server_test_fixtures_schema_targeting_definitions_semverstring",
@@ -7955,29 +7880,95 @@
       "label": "flags.json",
       "_origin": "ast",
       "community": 60,
-      "community_name": "flags.json",
+      "community_name": "definitions",
       "file_type": "code",
       "norm_label": "flags.json",
       "source_file": "server/test/fixtures/schema/flags.json",
       "source_location": "L1"
     },
     {
+      "id": "server_test_fixtures_schema_flags_anyflag_anyof",
+      "label": "anyOf",
+      "_origin": "ast",
+      "community": 60,
+      "community_name": "definitions",
+      "file_type": "code",
+      "norm_label": "anyof",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L220"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_definitions",
+      "label": "definitions",
+      "_origin": "ast",
+      "community": 60,
+      "community_name": "definitions",
+      "file_type": "code",
+      "norm_label": "definitions",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L5"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_definitions_anyflag",
+      "label": "anyFlag",
+      "_origin": "ast",
+      "community": 60,
+      "community_name": "definitions",
+      "file_type": "code",
+      "norm_label": "anyflag",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L219"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_definitions_objectvariants",
+      "label": "objectVariants",
+      "_origin": "ast",
+      "community": 60,
+      "community_name": "definitions",
+      "file_type": "code",
+      "norm_label": "objectvariants",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L205"
+    },
+    {
       "id": "server_test_fixtures_schema_flags_id",
       "label": "$id",
       "_origin": "ast",
       "community": 60,
-      "community_name": "flags.json",
+      "community_name": "definitions",
       "file_type": "code",
       "norm_label": "$id",
       "source_file": "server/test/fixtures/schema/flags.json",
       "source_location": "L2"
     },
     {
+      "id": "server_test_fixtures_schema_flags_objectvariants_properties",
+      "label": "properties",
+      "_origin": "ast",
+      "community": 60,
+      "community_name": "definitions",
+      "file_type": "code",
+      "norm_label": "properties",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L207"
+    },
+    {
+      "id": "server_test_fixtures_schema_flags_objectvariants_type",
+      "label": "type",
+      "_origin": "ast",
+      "community": 60,
+      "community_name": "definitions",
+      "file_type": "code",
+      "norm_label": "type",
+      "source_file": "server/test/fixtures/schema/flags.json",
+      "source_location": "L206"
+    },
+    {
       "id": "server_test_fixtures_schema_flags_ref",
       "label": "$ref",
       "_origin": "ast",
       "community": 60,
-      "community_name": "flags.json",
+      "community_name": "definitions",
       "file_type": "code",
       "norm_label": "$ref",
       "source_file": "server/test/fixtures/schema/flags.json",
@@ -7988,7 +7979,7 @@
       "label": "$schema",
       "_origin": "ast",
       "community": 60,
-      "community_name": "flags.json",
+      "community_name": "definitions",
       "file_type": "code",
       "norm_label": "$schema",
       "source_file": "server/test/fixtures/schema/flags.json",
@@ -8169,6 +8160,50 @@
       "norm_label": "title",
       "source_file": "server/test/fixtures/schema/flags.json",
       "source_location": "L249"
+    },
+    {
+      "id": "server_test_fixtures_schema_targeting_definitions_variadicop",
+      "label": "variadicOp",
+      "_origin": "ast",
+      "community": 65,
+      "community_name": "variadicOp",
+      "file_type": "code",
+      "norm_label": "variadicop",
+      "source_file": "server/test/fixtures/schema/targeting.json",
+      "source_location": "L316"
+    },
+    {
+      "id": "server_test_fixtures_schema_targeting_variadicop_items",
+      "label": "items",
+      "_origin": "ast",
+      "community": 65,
+      "community_name": "variadicOp",
+      "file_type": "code",
+      "norm_label": "items",
+      "source_file": "server/test/fixtures/schema/targeting.json",
+      "source_location": "L319"
+    },
+    {
+      "id": "server_test_fixtures_schema_targeting_variadicop_minitems",
+      "label": "minItems",
+      "_origin": "ast",
+      "community": 65,
+      "community_name": "variadicOp",
+      "file_type": "code",
+      "norm_label": "minitems",
+      "source_file": "server/test/fixtures/schema/targeting.json",
+      "source_location": "L318"
+    },
+    {
+      "id": "server_test_fixtures_schema_targeting_variadicop_type",
+      "label": "type",
+      "_origin": "ast",
+      "community": 65,
+      "community_name": "variadicOp",
+      "file_type": "code",
+      "norm_label": "type",
+      "source_file": "server/test/fixtures/schema/targeting.json",
+      "source_location": "L317"
     },
     {
       "id": "server_package",
@@ -8488,17 +8523,6 @@
       "norm_label": "@fastify/cookie",
       "source_file": "server/package.json",
       "source_location": "L16"
-    },
-    {
-      "id": "ref_fastify_static",
-      "label": "@fastify/static",
-      "_origin": "ast",
-      "community": 7,
-      "community_name": "server/package.json",
-      "file_type": "concept",
-      "norm_label": "@fastify/static",
-      "source_file": "server/package.json",
-      "source_location": "L17"
     },
     {
       "id": "ref_prisma",
@@ -9218,7 +9242,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/app.ts",
-      "source_location": "L27",
+      "source_location": "L29",
       "weight": 1.0
     },
     {
@@ -9230,7 +9254,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/app.ts",
-      "source_location": "L28",
+      "source_location": "L30",
       "weight": 1.0
     },
     {
@@ -9242,7 +9266,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/app.ts",
-      "source_location": "L28",
+      "source_location": "L30",
       "weight": 1.0
     },
     {
@@ -9254,7 +9278,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/app.ts",
-      "source_location": "L29",
+      "source_location": "L31",
       "weight": 1.0
     },
     {
@@ -9266,7 +9290,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/app.ts",
-      "source_location": "L49",
+      "source_location": "L51",
       "weight": 1.0
     },
     {
@@ -9278,7 +9302,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/app.ts",
-      "source_location": "L55",
+      "source_location": "L57",
       "weight": 1.0
     },
     {
@@ -9290,7 +9314,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/app.ts",
-      "source_location": "L61",
+      "source_location": "L63",
       "weight": 1.0
     },
     {
@@ -9638,7 +9662,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/http/routes.ts",
-      "source_location": "L121",
+      "source_location": "L134",
       "weight": 1.0
     },
     {
@@ -9650,7 +9674,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/http/routes.ts",
-      "source_location": "L130",
+      "source_location": "L143",
       "weight": 1.0
     },
     {
@@ -9662,7 +9686,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/http/routes.ts",
-      "source_location": "L130",
+      "source_location": "L143",
       "weight": 1.0
     },
     {
@@ -9674,7 +9698,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/http/routes.ts",
-      "source_location": "L138",
+      "source_location": "L151",
       "weight": 1.0
     },
     {
@@ -9686,7 +9710,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/http/routes.ts",
-      "source_location": "L140",
+      "source_location": "L153",
       "weight": 1.0
     },
     {
@@ -9698,7 +9722,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/http/routes.ts",
-      "source_location": "L211",
+      "source_location": "L224",
       "weight": 1.0
     },
     {
@@ -9710,7 +9734,19 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/http/routes.ts",
-      "source_location": "L295",
+      "source_location": "L308",
+      "weight": 1.0
+    },
+    {
+      "source": "server_src_http_routes_registerroutes",
+      "target": "server_src_http_routes_ifnonematchmatches",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "server/src/http/routes.ts",
+      "source_location": "L386",
       "weight": 1.0
     },
     {
@@ -9722,7 +9758,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/http/routes.ts",
-      "source_location": "L393",
+      "source_location": "L406",
       "weight": 1.0
     },
     {
@@ -9734,7 +9770,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/http/routes.ts",
-      "source_location": "L64",
+      "source_location": "L77",
       "weight": 1.0
     },
     {
@@ -9794,7 +9830,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/src/store/index.ts",
-      "source_location": "L548",
+      "source_location": "L549",
       "weight": 1.0
     },
     {
@@ -9890,7 +9926,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "server/test/m2.sync.integration.test.ts",
-      "source_location": "L56",
+      "source_location": "L59",
       "weight": 1.0
     },
     {
@@ -9999,6 +10035,18 @@
       "context": "field",
       "source_file": "server/src/app.ts",
       "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "server_src_app_appoptions",
+      "target": "server_src_sync_model_memo_flagdmodelmemo",
+      "relation": "references",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "field",
+      "source_file": "server/src/app.ts",
+      "source_location": "L17",
       "weight": 1.0
     },
     {
@@ -11467,6 +11515,18 @@
     },
     {
       "source": "server_test_m2_sync_integration_test",
+      "target": "server_src_sync_model_memo_flagdmodelmemo",
+      "relation": "imports",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "import",
+      "source_file": "server/test/m2.sync.integration.test.ts",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "server_test_m2_sync_integration_test",
       "target": "server_src_db_index_createprismaclient",
       "relation": "imports",
       "_origin": "ast",
@@ -12475,7 +12535,7 @@
     },
     {
       "source": "server_test_m2_sync_integration_test",
-      "target": "ref_fastify",
+      "target": "server_src_sync_model_memo",
       "relation": "imports_from",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -12483,6 +12543,18 @@
       "context": "import",
       "source_file": "server/test/m2.sync.integration.test.ts",
       "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "server_test_m2_sync_integration_test",
+      "target": "ref_fastify",
+      "relation": "imports_from",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "import",
+      "source_file": "server/test/m2.sync.integration.test.ts",
+      "source_location": "L11",
       "type_only": true,
       "weight": 1.0
     },
@@ -12698,7 +12770,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/src/app.ts",
-      "source_location": "L23",
+      "source_location": "L25",
       "weight": 1.0
     },
     {
@@ -13523,7 +13595,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/src/app.ts",
-      "source_location": "L18",
+      "source_location": "L20",
       "weight": 1.0
     },
     {
@@ -13534,7 +13606,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/src/app.ts",
-      "source_location": "L25",
+      "source_location": "L27",
       "weight": 1.0
     },
     {
@@ -14408,13 +14480,24 @@
     },
     {
       "source": "server_src_http_routes",
-      "target": "server_src_http_routes_registerroutes",
+      "target": "server_src_http_routes_ifnonematchmatches",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/src/http/routes.ts",
       "source_location": "L46",
+      "weight": 1.0
+    },
+    {
+      "source": "server_src_http_routes",
+      "target": "server_src_http_routes_registerroutes",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "server/src/http/routes.ts",
+      "source_location": "L59",
       "weight": 1.0
     },
     {
@@ -18649,7 +18732,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/test/m2.sync.integration.test.ts",
-      "source_location": "L100",
+      "source_location": "L107",
       "weight": 1.0
     },
     {
@@ -18660,7 +18743,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/test/m2.sync.integration.test.ts",
-      "source_location": "L12",
+      "source_location": "L13",
       "weight": 1.0
     },
     {
@@ -18671,7 +18754,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/test/m2.sync.integration.test.ts",
-      "source_location": "L44",
+      "source_location": "L47",
       "weight": 1.0
     },
     {
@@ -18682,7 +18765,18 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/test/m2.sync.integration.test.ts",
-      "source_location": "L55",
+      "source_location": "L58",
+      "weight": 1.0
+    },
+    {
+      "source": "server_test_m2_sync_integration_test",
+      "target": "server_test_m2_sync_integration_test_authheader",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "server/test/m2.sync.integration.test.ts",
+      "source_location": "L62",
       "weight": 1.0
     },
     {
@@ -18693,7 +18787,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/test/m2.sync.integration.test.ts",
-      "source_location": "L59",
+      "source_location": "L66",
       "weight": 1.0
     },
     {
@@ -18704,7 +18798,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/test/m2.sync.integration.test.ts",
-      "source_location": "L69",
+      "source_location": "L76",
       "weight": 1.0
     },
     {
@@ -18715,7 +18809,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "server/test/m2.sync.integration.test.ts",
-      "source_location": "L79",
+      "source_location": "L86",
       "weight": 1.0
     },
     {
@@ -20374,7 +20468,7 @@
       "confidence_score": 0.85,
       "context": "collection",
       "source_file": "server/src/http/auth.ts",
-      "source_location": "L206",
+      "source_location": "L207",
       "weight": 1.0
     },
     {
@@ -20386,7 +20480,7 @@
       "confidence_score": 0.85,
       "context": "collection",
       "source_file": "server/src/http/auth.ts",
-      "source_location": "L207",
+      "source_location": "L208",
       "weight": 1.0
     },
     {
@@ -20398,7 +20492,7 @@
       "confidence_score": 0.85,
       "context": "collection",
       "source_file": "server/src/http/auth.ts",
-      "source_location": "L208",
+      "source_location": "L209",
       "weight": 1.0
     },
     {
@@ -20410,7 +20504,7 @@
       "confidence_score": 0.85,
       "context": "collection",
       "source_file": "server/src/http/auth.ts",
-      "source_location": "L209",
+      "source_location": "L210",
       "weight": 1.0
     },
     {
@@ -20422,7 +20516,7 @@
       "confidence_score": 0.85,
       "context": "collection",
       "source_file": "server/src/http/auth.ts",
-      "source_location": "L210",
+      "source_location": "L211",
       "weight": 1.0
     },
     {
@@ -20434,7 +20528,7 @@
       "confidence_score": 0.85,
       "context": "collection",
       "source_file": "server/src/http/auth.ts",
-      "source_location": "L211",
+      "source_location": "L212",
       "weight": 1.0
     },
     {
@@ -20446,7 +20540,7 @@
       "confidence_score": 0.85,
       "context": "collection",
       "source_file": "server/src/http/auth.ts",
-      "source_location": "L212",
+      "source_location": "L213",
       "weight": 1.0
     },
     {
@@ -20968,5 +21062,5 @@
       "source_file": "docs/02-architecture.md"
     }
   ],
-  "built_at_commit": "20f6911baf8a663aa52ebe2392ae85cf79e46e0e"
+  "built_at_commit": "bb09d8da505732ac2a8ac3f55aa046a98a6260e9"
 }

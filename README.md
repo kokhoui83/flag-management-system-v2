@@ -27,10 +27,12 @@ a testcontainers MariaDB; unit tier green.
 
 **M2 — Model compilation & sync endpoint (complete, TDD green).** FMS now compiles stored flag
 state into the flagd flag-set document (JSONLogic targeting, terminal `fractional`, byte-stable
-serialization, state-hash ETag) and serves it via the authenticated
+serialization, quoted strong state-hash ETag) and serves it via the authenticated
 `GET /api/v1/sync/:projectKey/:env` endpoint (project-namespaced flag set ID per the OQ-6
-resolution) with `sync`-scoped API-key auth and `If-None-Match` → `304` semantics; the sync model
-is memoized per (project, env) and invalidated on commit.
+resolution). Sync-scoped API keys or project-authorized admin sessions can access it;
+`If-None-Match` follows standard list, weak-comparison, and wildcard semantics. The model is
+memoized per (project, env) and invalidated after definition copies and flag deletions as well as
+definition writes.
 
 Flag/store/evaluation work continues in M3–M4 per [docs/06-roadmap.md](docs/06-roadmap.md).
 

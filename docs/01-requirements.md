@@ -143,7 +143,8 @@ applies. v1 rule types:
   `If-None-Match` receive `304 Not Modified`. The set-level flag set ID is project-namespaced
   per the OQ-6 resolution: `<projectKey>:<env>` (e.g. `checkout:staging`).
 - **FR-27** — The sync endpoint is authenticated (API key with `sync` scope; flagd is
-  configured to send it).
+  configured to send it). Admin sessions may also sync, but project-scoped admin sessions are
+  limited to their assigned project.
 - **FR-28** — Model publication is a pure function of stored state: the same state always
   yields the same serialized document (stable key ordering, stable ETag).
 - **FR-29** — Every change to flag state is visible to flagd within one sync interval

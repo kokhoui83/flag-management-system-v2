@@ -534,6 +534,7 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
           actorName: actor,
         });
       });
+      deps.memo?.invalidateByProject(projectId);
       return 'deleted';
     },
 
@@ -678,6 +679,7 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
           actorName: actor,
         });
       });
+      deps.memo?.invalidate(projectId, env);
       return 'copied';
     },
 

@@ -172,7 +172,7 @@ describe('domain: flagd model compilation (roadmap M2)', () => {
     });
     const stateBody = stableStringify({ ...doc, metadata: { flagSetId: doc.metadata.flagSetId, generator: doc.metadata.generator } });
     expect(stateBody).not.toContain('generatedAt');
-    expect(etagFor(stateBody)).toBe(`fms-${createHash('sha256').update(stateBody).digest('hex')}`);
+    expect(etagFor(stateBody)).toBe(`"fms-${createHash('sha256').update(stateBody).digest('hex')}"`);
   });
 
   it('produces equal ETags for equal state regardless of generatedAt', () => {

@@ -43,6 +43,19 @@ function paramValue(source: Record<string, string>, key: string): string {
   return value;
 }
 
+function ifNoneMatchMatches(header: string | string[] | undefined, etag: string): boolean {
+  const values = Array.isArray(header) ? header : header ? [header] : [];
+  return values.some((value) => {
+    const candidates = value.matchAll(/(?:^|,)\s*((?:W\/)?"[^"]*"|\*)(?=\s*(?:,|$))/g);
+    for (const [, candidate] of candidates) {
+      if (!candidate) continue;
+      if (candidate === '*') return true;
+      if ((candidate.startsWith('W/') ? candidate.slice(2) : candidate) === etag) return true;
+    }
+    return false;
+  });
+}
+
 export async function registerRoutes(app: FastifyInstance, services: RouteServices): Promise<void> {
   const { auth, store, memo } = services;
 
@@ -352,8 +365,7 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     if (!principal) {
       throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
     }
-    const allowed = await auth.canSync(principal);
-    if (!allowed) {
+    if (principal.type === 'api_key' && !(await auth.canSync(principal))) {
       throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Sync scope required');
     }
     const params = paramsOf(request);
@@ -363,14 +375,15 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     if (!project) {
       throw new FmsError(404, 'https://fms.local/errors/not-found', `Project '${projectKey}' not found`);
     }
+    if (principal.type === 'session' && !(await auth.canSync(principal, project.id))) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Sync access required for this project');
+    }
     if (!project.environments.includes(env)) {
       throw new FmsError(404, 'https://fms.local/errors/not-found', `Environment '${env}' not found in project '${projectKey}'`);
     }
     const flags = await store.listFlagdModelInputs(project.id, env);
     const compiled = memo.get({ projectId: project.id, env, flagSetId: `${project.key}:${env}`, flags });
-    const ifNoneMatch = request.headers['if-none-match'];
-    const candidates = Array.isArray(ifNoneMatch) ? ifNoneMatch : ifNoneMatch ? [ifNoneMatch] : [];
-    if (candidates.includes(compiled.etag)) {
+    if (ifNoneMatchMatches(request.headers['if-none-match'], compiled.etag)) {
       reply.header('ETag', compiled.etag);
       return reply.code(304).send();
     }

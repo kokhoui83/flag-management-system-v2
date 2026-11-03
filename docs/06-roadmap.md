@@ -103,12 +103,15 @@ selectors all follow the resolution.
 - `domain/flagd-model.ts`: compiler per [03-data-model.md §3](03-data-model.md) —
   JSONLogic emission, op mapping, `fractional` (no bucketing expr), nested `if` chains,
   flag-level `metadata.version`, set-level `metadata.flagSetId` (per the OQ-6 resolution).
-- Stable serialization + ETag (state-hash, `generatedAt` excluded) (FR-26/FR-28).
+- Stable serialization + quoted strong ETag (state-hash, `generatedAt` excluded); honor
+  standard `If-None-Match` list, weak-comparison, and wildcard semantics (FR-26/FR-28).
 - Sync endpoint (route shape per the OQ-6 resolution; e.g. `GET /api/v1/sync/…`) with
-  `sync` scope + `If-None-Match` → `304` (FR-26/FR-27).
+  `sync` API-key scope or project-authorized admin session + `If-None-Match` → `304`
+  (FR-26/FR-27).
 - Sync model memoization: per (project, env) `{ version, body, etag, variantTypes }`
-  compiled once per state change, invalidated on commit; the sync endpoint (and later the
-  evaluate proxy's variant-type lookup) serves from the memo (architecture §2.1).
+  compiled once per state change, invalidated after commit for definition create/update/copy and
+  for all environments when a flag is deleted; the sync endpoint (and later the evaluate proxy's
+  variant-type lookup) serves from the memo (architecture §2.1).
 - Vendor the official flagd JSON schema into `test/fixtures/schema/` + refresh script;
   contract tests validate every emitted document (NFR-9).
 - Golden-file tests for the compiler (fixtures committed).

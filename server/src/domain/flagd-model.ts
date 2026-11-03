@@ -154,7 +154,7 @@ export function stateBodyOf(doc: FlagdModelDocument): string {
 
 /** ETag = `"fms-" + SHA-256 hex of the state-derived body` (FR-26). */
 export function etagFor(body: string): string {
-  return `fms-${createHash('sha256').update(body).digest('hex')}`;
+  return `"fms-${createHash('sha256').update(body).digest('hex')}"`;
 }
 
 /** Variant type per flag key, derived from the variant values (for the later evaluate proxy lookup). */

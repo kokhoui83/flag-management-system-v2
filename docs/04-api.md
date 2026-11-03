@@ -217,28 +217,31 @@ Replaces the target definition with a copy of the source (FR-9); audited as
 
 ### `GET /api/v1/sync/:projectKey/:env`
 
-Requires `sync` scope (FR-27). Returns the flagd model document for the (project, environment)
-flag set (format: [03-data-model.md §3.1](03-data-model.md)).
+Requires an API key with `sync` scope, or an admin session authorized for the requested project
+(FR-27). A project-scoped admin session cannot fetch another project's model; a `sync` API key is
+not project-bound. Returns the flagd model document for the (project, environment) flag set
+(format: [03-data-model.md §3.1](03-data-model.md)).
 
 ```
 GET /api/v1/sync/checkout/staging
 Authorization: Bearer fms_…
 
 200 OK
-ETag: fms-a1b2c3…
+ETag: "fms-a1b2c3"
 Content-Type: application/json
 
 { "metadata": { "flagSetId": "checkout:staging", … }, "flags": { … } }
 
-304 Not Modified            ← when If-None-Match matches the current ETag
+304 Not Modified            ← when If-None-Match matches the current ETag (including weak/list/wildcard forms)
 404                         ← unknown project or environment
 ```
 
-Behavior: byte-stable serialization per state (FR-28); ETag excludes the `generatedAt`
-metadata field; 304 responses carry the current `ETag` header.
+Behavior: byte-stable serialization per state (FR-28); ETag is a quoted strong entity tag and
+excludes the `generatedAt` metadata field. `If-None-Match` uses HTTP weak comparison, supports
+entity-tag lists and `*`, and 304 responses carry the current `ETag` header.
 
-Errors: unauthenticated → `401`; without `sync` scope → `403`; unknown project or environment →
-`404`.
+Errors: unauthenticated → `401`; without the required API-key scope or project admin access →
+`403`; unknown project or environment → `404`.
 
 ## 7. Evaluate
 

@@ -7,6 +7,7 @@ import { createPrismaClient } from '../src/db';
 import { createStore, type Store } from '../src/store';
 import { createApp } from '../src/app';
 import { loadConfig, type AppConfig } from '../src/config';
+import { FlagdModelMemo } from '../src/sync/model-memo';
 import type { FastifyInstance } from 'fastify';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -17,6 +18,7 @@ describe('M2 — flagd model compilation & sync endpoint (integration: MariaDB v
   let store: Store;
   let app: FastifyInstance;
   let config: AppConfig;
+  let memo: FlagdModelMemo;
 
   beforeAll(async () => {
     container = new MariaDbContainer('mariadb:11.8')
@@ -30,9 +32,10 @@ describe('M2 — flagd model compilation & sync endpoint (integration: MariaDB v
       `mysql://${started.getUsername()}:${started.getUserPassword()}@${started.getHost()}:${started.getPort()}/${started.getDatabase()}`;
     execSync('npx prisma migrate deploy', { cwd: repoRoot, stdio: 'inherit', env: process.env });
     prisma = createPrismaClient(process.env.DATABASE_URL!);
-    store = createStore(prisma);
+    memo = new FlagdModelMemo();
+    store = createStore(prisma, { memo });
     config = loadConfig({ NODE_ENV: 'development', DATABASE_URL: process.env.DATABASE_URL! });
-    app = await createApp(config, { store });
+    app = await createApp(config, { store, memo });
   }, 900_000);
 
   afterAll(async () => {
@@ -54,6 +57,10 @@ describe('M2 — flagd model compilation & sync endpoint (integration: MariaDB v
 
   async function adminToken(): Promise<string> {
     return login('admin', 'dev-insecure-password');
+  }
+
+  function authHeader(token: string): string {
+    return ['Bearer', token].join(' ');
   }
 
   async function createProject(token: string, key: string, name: string) {
@@ -126,7 +133,7 @@ describe('M2 — flagd model compilation & sync endpoint (integration: MariaDB v
       headers: { authorization: `Bearer ${token}` },
     });
     expect(sync.statusCode).toBe(200);
-    expect(sync.headers.etag).toMatch(/^fms-/);
+    expect(sync.headers.etag).toMatch(/^"fms-[a-f0-9]+"$/);
     const body = sync.json();
     expect(body.metadata.flagSetId).toBe('flagd-sync:staging');
     expect(body.metadata.generator).toBe('fms');
@@ -160,12 +167,40 @@ describe('M2 — flagd model compilation & sync endpoint (integration: MariaDB v
     expect(notModified.statusCode).toBe(304);
     expect(notModified.headers.etag).toBe(etag);
 
+    const weakMatch = await app.inject({
+      method: 'GET',
+      url: '/api/v1/sync/flagd-sync-304/staging',
+      headers: { authorization: authHeader(token), 'if-none-match': 'W/' + etag },
+    });
+    expect(weakMatch.statusCode).toBe(304);
+
+    const listMatch = await app.inject({
+      method: 'GET',
+      url: '/api/v1/sync/flagd-sync-304/staging',
+      headers: { authorization: authHeader(token), 'if-none-match': '"other", ' + etag },
+    });
+    expect(listMatch.statusCode).toBe(304);
+
+    const wildcardMatch = await app.inject({
+      method: 'GET',
+      url: '/api/v1/sync/flagd-sync-304/staging',
+      headers: { authorization: authHeader(token), 'if-none-match': '*' },
+    });
+    expect(wildcardMatch.statusCode).toBe(304);
+
     const stale = await app.inject({
       method: 'GET',
       url: '/api/v1/sync/flagd-sync-304/staging',
-      headers: { authorization: `Bearer ${token}`, 'if-none-match': 'fms-stale' },
+      headers: { authorization: authHeader(token), 'if-none-match': 'fms-stale' },
     });
     expect(stale.statusCode).toBe(200);
+
+    const malformed = await app.inject({
+      method: 'GET',
+      url: '/api/v1/sync/flagd-sync-304/staging',
+      headers: { authorization: authHeader(token), 'if-none-match': 'malformed ' + etag },
+    });
+    expect(malformed.statusCode).toBe(200);
   });
 
   it('returns 404 for an unknown project or environment on the sync endpoint', async () => {
@@ -173,14 +208,14 @@ describe('M2 — flagd model compilation & sync endpoint (integration: MariaDB v
     const syncUnknownProject = await app.inject({
       method: 'GET',
       url: '/api/v1/sync/does-not-exist/staging',
-      headers: { authorization: `Bearer ${token}` },
+      headers: { authorization: authHeader(token) },
     });
     expect(syncUnknownProject.statusCode).toBe(404);
 
     const syncUnknownEnv = await app.inject({
       method: 'GET',
       url: '/api/v1/sync/flagd-sync/qa',
-      headers: { authorization: `Bearer ${token}` },
+      headers: { authorization: authHeader(token) },
     });
     expect(syncUnknownEnv.statusCode).toBe(404);
   });
@@ -192,7 +227,7 @@ describe('M2 — flagd model compilation & sync endpoint (integration: MariaDB v
     const evaluateSync = await app.inject({
       method: 'GET',
       url: '/api/v1/sync/flagd-sync/staging',
-      headers: { authorization: `Bearer ${evaluateKey}` },
+      headers: { authorization: authHeader(evaluateKey) },
     });
     expect(evaluateSync.statusCode).toBe(403);
 
@@ -200,8 +235,91 @@ describe('M2 — flagd model compilation & sync endpoint (integration: MariaDB v
     const syncOk = await app.inject({
       method: 'GET',
       url: '/api/v1/sync/flagd-sync/staging',
-      headers: { authorization: `Bearer ${syncKey}` },
+      headers: { authorization: authHeader(syncKey) },
     });
     expect(syncOk.statusCode).toBe(200);
+  });
+
+  it('limits project-scoped admin sessions to their assigned project on sync', async () => {
+    const token = await adminToken();
+    const assigned = await createProject(token, 'sync-assigned', 'Sync Assigned');
+    await createProject(token, 'sync-unassigned', 'Sync Unassigned');
+    const invite = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${assigned.body.id}/members`,
+      headers: { authorization: authHeader(token) },
+      payload: { username: 'sync-project-admin', role: 'developer', projectIds: [assigned.body.id] },
+    });
+    expect(invite.statusCode).toBe(201);
+    await prisma.projectMembership.update({
+      where: { userName_projectId: { userName: 'sync-project-admin', projectId: assigned.body.id } },
+      data: { role: 'ADMIN' },
+    });
+    const scopedAdminToken = await login('sync-project-admin', invite.json().password);
+
+    const assignedSync = await app.inject({
+      method: 'GET',
+      url: '/api/v1/sync/sync-assigned/staging',
+      headers: { authorization: authHeader(scopedAdminToken) },
+    });
+    expect(assignedSync.statusCode).toBe(200);
+
+    const unassignedSync = await app.inject({
+      method: 'GET',
+      url: `/api/v1/sync/sync-unassigned/staging`,
+      headers: { authorization: authHeader(scopedAdminToken) },
+    });
+    expect(unassignedSync.statusCode).toBe(403);
+  });
+
+  it('refreshes the sync model after copying or deleting a definition when another flag holds the max version', async () => {
+    const token = await adminToken();
+    const created = await createProject(token, 'sync-invalidation', 'Sync Invalidation');
+    const projectId = created.body.id;
+    expect((await createFlag(token, projectId, 'copied-flag', 'Copied flag')).statusCode).toBe(201);
+    expect((await putDefinition(token, projectId, 'copied-flag', 'dev', true)).statusCode).toBe(200);
+
+    expect((await createFlag(token, projectId, 'max-version-flag', 'Version keeper')).statusCode).toBe(201);
+    expect((await putDefinition(token, projectId, 'max-version-flag', 'staging', true)).statusCode).toBe(200);
+    expect((await putDefinition(token, projectId, 'max-version-flag', 'prod', true)).statusCode).toBe(200);
+
+    const initial = await app.inject({
+      method: 'GET',
+      url: '/api/v1/sync/sync-invalidation/staging',
+      headers: { authorization: authHeader(token) },
+    });
+    expect(initial.statusCode).toBe(200);
+    expect(initial.json().flags['copied-flag']).toBeUndefined();
+
+    const copied = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/flags/copied-flag/definitions/staging/copy`,
+      headers: { authorization: authHeader(token) },
+      payload: { fromEnv: 'dev' },
+    });
+    expect(copied.statusCode).toBe(200);
+
+    const afterCopy = await app.inject({
+      method: 'GET',
+      url: '/api/v1/sync/sync-invalidation/staging',
+      headers: { authorization: authHeader(token), 'if-none-match': initial.headers.etag as string },
+    });
+    expect(afterCopy.statusCode).toBe(200);
+    expect(afterCopy.json().flags['copied-flag'].state).toBe('ENABLED');
+
+    const deleted = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/projects/${projectId}/flags/copied-flag`,
+      headers: { authorization: authHeader(token) },
+    });
+    expect(deleted.statusCode).toBe(204);
+
+    const afterDelete = await app.inject({
+      method: 'GET',
+      url: '/api/v1/sync/sync-invalidation/staging',
+      headers: { authorization: authHeader(token), 'if-none-match': afterCopy.headers.etag as string },
+    });
+    expect(afterDelete.statusCode).toBe(200);
+    expect(afterDelete.json().flags['copied-flag']).toBeUndefined();
   });
 });

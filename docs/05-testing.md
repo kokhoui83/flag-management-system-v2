@@ -217,6 +217,19 @@ Each scenario maps to at least one test. `…` abbreviates context.
   **W** requested
   **T** `404` (no implicit flag creation).
 
+- **G** a sync request has a valid `If-None-Match` entity-tag list, weak tag, or `*`
+  **W** issued for an existing project and environment
+  **T** `304` with the current quoted strong `ETag`; a non-matching tag returns `200`.
+
+- **G** an admin session assigned admin capability on project `checkout`
+  **W** it requests sync models for `checkout` and an unassigned project
+  **T** the assigned project succeeds and the other returns `403`; a `sync` API key retains
+  its project-independent scope.
+
+- **G** a definition is copied or a flag is deleted while another flag has the maximum version
+  **W** the sync model is requested again
+  **T** the memo is invalidated and the response reflects the committed state, not the cached body.
+
 ### 2.6 Multi-user, projects & environments (dashboard)
 
 Covers the multi-user dashboard requirements FR-53–FR-59 (see [01-requirements.md](01-requirements.md)).

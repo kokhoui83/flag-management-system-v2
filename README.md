@@ -25,7 +25,14 @@ put no-op), append-only audit log, API keys with scopes, RFC 9457 problem+json e
 hand-maintained OpenAPI document served at `GET /api/v1/openapi.json`. Integration-tested against
 a testcontainers MariaDB; unit tier green.
 
-Flag/store/evaluation work continues in M2–M3 per [docs/06-roadmap.md](docs/06-roadmap.md).
+**M2 — Model compilation & sync endpoint (complete, TDD green).** FMS now compiles stored flag
+state into the flagd flag-set document (JSONLogic targeting, terminal `fractional`, byte-stable
+serialization, state-hash ETag) and serves it via the authenticated
+`GET /api/v1/sync/:projectKey/:env` endpoint (project-namespaced flag set ID per the OQ-6
+resolution) with `sync`-scoped API-key auth and `If-None-Match` → `304` semantics; the sync model
+is memoized per (project, env) and invalidated on commit.
+
+Flag/store/evaluation work continues in M3–M4 per [docs/06-roadmap.md](docs/06-roadmap.md).
 
 The multi-user dashboard requirements are captured: login (FR-40/FR-53), per-user roles with
 different access levels (FR-54), per-project environments (FR-55), per-project flags with
@@ -74,7 +81,7 @@ percentage rollouts.
 
 ## Getting started
 
-Current state (M1 — flags & definitions core landed):
+Current state (M2 — model compilation & sync endpoint landed):
 
 ```bash
 docker compose up -d   # flagd (pinned image) + mariadb (pinned mariadb:11.8, healthcheck) — see docker-compose.yml
@@ -85,6 +92,6 @@ npm test               # unit tier (vitest; server + shared)
 npm run test:integration  # integration tier (testcontainers MariaDB) — M1 flags/definitions suite
 ```
 
-The full milestone plan lives in [docs/06-roadmap.md](docs/06-roadmap.md); the M1 acceptance
-checks are green per [05-testing.md](docs/05-testing.md) §2.1/§2.4/§2.5 and the version-bump
-semantics (FR-5).
+The full milestone plan lives in [docs/06-roadmap.md](docs/06-roadmap.md); the M2 acceptance
+checks are green per [05-testing.md](docs/05-testing.md) §2.2 (compiler/ETag) and the sync-scope
+scenarios, plus the integration tier against testcontainers MariaDB (FR-26/FR-27/FR-28).

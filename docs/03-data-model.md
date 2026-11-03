@@ -203,13 +203,13 @@ Validation returns the full list of problems, each with a JSON pointer into the 
 
 ### 3.1 Output document shape
 
-`compile(flags, env)` — pure function — emits, per environment, the document served at
-`GET /api/v1/sync/:env` (FR-26):
+`compile(flags, env, flagSetId)` — pure function — emits, per (project, environment), the
+document served at `GET /api/v1/sync/:projectKey/:env` (FR-26):
 
 ```json
 {
   "$schema": "https://flagd.dev/schema/v0/flags.json",
-  "metadata": { "flagSetId": "staging", "generator": "fms", "generatedAt": "2026-10-26T12:00:00Z" },
+  "metadata": { "flagSetId": "checkout:staging", "generator": "fms", "generatedAt": "2026-10-26T12:00:00Z" },
   "flags": {
     "new-checkout": {
       "state": "ENABLED",
@@ -224,7 +224,8 @@ Validation returns the full list of problems, each with a JSON pointer into the 
 
 Rules of compilation:
 
-- Set-level `metadata.flagSetId` = the environment name (ADR-0004).
+- Set-level `metadata.flagSetId` = the project-namespaced flag set ID `<projectKey>:<env>`
+  (OQ-6 resolution, ADR-0004): e.g. `checkout:staging`.
 - `state` = `"ENABLED"` if `enabled`, else `"DISABLED"` (FR-10; disabled flags evaluate with
   `reason=DISABLED` and no value).
 - `variants` copied verbatim from the definition (type homogeneity already enforced at write

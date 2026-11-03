@@ -21,7 +21,7 @@ Options:
 
 Option 3. Concretely:
 
-- The sync document for environment `e` carries set-level `"metadata": { "flagSetId": "e" }`
+- The sync document for (project, environment) carries set-level `"metadata": { "flagSetId": "<projectKey>:<env>" }` (per the OQ-6 resolution, project-namespaced)
   (ADR-0003's one-source-per-env layout: flagd's sync sources can each declare a set-level
   `flagSetId`; a single source document cannot hold two entries for the same flag key under
   different sets, so one source per environment is required, not just convenient).

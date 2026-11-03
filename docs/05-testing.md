@@ -172,7 +172,7 @@ Each scenario maps to at least one test. `…` abbreviates context.
 - **G** an `evaluate`-scoped key on `GET /api/v1/events`
   **W** requested
   **T** the stream opens (`200`, `text/event-stream`); the same key on
-  `GET /api/v1/sync/:env` → `403` (scope split, §1).
+  `GET /api/v1/sync/:projectKey/:env` → `403` (scope split, §1).
 
 - **G** an API key is created
   **W** its plaintext is shown

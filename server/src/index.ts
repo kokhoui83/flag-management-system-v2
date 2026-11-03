@@ -5,11 +5,13 @@ import { loadConfig } from './config';
 import { createApp } from './app';
 import { createPrismaClient, closePrismaClient } from './db';
 import { createStore, type Store } from './store';
+import { FlagdModelMemo } from './sync/model-memo';
 
 const config = loadConfig();
 
 const prisma = createPrismaClient(config.databaseUrl);
-const store: Store = createStore(prisma);
+const memo = new FlagdModelMemo();
+const store: Store = createStore(prisma, { memo });
 
 // Boot-time migrations (ADR-0007 / Prisma migrate): fail fast if the schema cannot be applied.
 // The Prisma config + schema live at the repo root (npm workspaces); run from there so the

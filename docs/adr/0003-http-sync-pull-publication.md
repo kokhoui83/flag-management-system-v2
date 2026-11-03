@@ -12,9 +12,10 @@ cheap steady-state operation, authenticated.
 
 ## Decision
 
-FMS acts as an **HTTP sync source**: flagd polls `GET /api/v1/sync/:env` (one source per
-environment) using flagd's `http` provider with `interval` (default 5 s) and `authHeader`
-(carrying a dedicated `sync`-scoped API key).
+FMS acts as an **HTTP sync source**: flagd polls `GET /api/v1/sync/:projectKey/:env` (one source
+per (project, environment) — flag set ID `<projectKey>:<env>` per the OQ-6 resolution) using
+flagd's `http` provider with `interval` (default 5 s) and `authHeader` (carrying a dedicated
+`sync`-scoped API key).
 
 FMS endpoints:
 

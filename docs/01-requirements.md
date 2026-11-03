@@ -132,14 +132,16 @@ applies. v1 rule types:
   `503` with a structured error — never a silently defaulted value (no "success-shaped
   fallback").
 - **FR-25** — Client applications integrate **directly** with flagd via the official
-  OpenFeature SDKs + flagd provider (gRPC, `flagSetId=<env>` selector). FMS documents this
-  pattern; it requires no FMS API at runtime.
+  OpenFeature SDKs + flagd provider (gRPC, `flagSetId=<projectKey>:<env>` selector per the OQ-6
+  resolution). FMS documents this pattern; it requires no FMS API at runtime.
 
 ### 4.6 Publish / sync
 
-- **FR-26** — FMS exposes `GET /api/v1/sync/:env` returning the complete flagd model document
-  for that environment's flag set (schema `https://flagd.dev/schema/v0/flags.json`), with a
-  strong `ETag`; clients (flagd) sending `If-None-Match` receive `304 Not Modified`.
+- **FR-26** — FMS exposes `GET /api/v1/sync/:projectKey/:env` returning the complete flagd
+  model document for that (project, environment) flag set (schema
+  `https://flagd.dev/schema/v0/flags.json`), with a strong `ETag`; clients (flagd) sending
+  `If-None-Match` receive `304 Not Modified`. The set-level flag set ID is project-namespaced
+  per the OQ-6 resolution: `<projectKey>:<env>` (e.g. `checkout:staging`).
 - **FR-27** — The sync endpoint is authenticated (API key with `sync` scope; flagd is
   configured to send it).
 - **FR-28** — Model publication is a pure function of stored state: the same state always
@@ -276,4 +278,4 @@ multi-user, multi-project scope:
 | OQ-3 | Should scheduled rollouts (`$flagd.timestamp`-based `fractional` weights) get an API/UI in v1.1? | Postpone; the compiled model already *can* express them via advanced rule JSON escape hatch (see OQ-4). |
 | OQ-4 | Do we need an "advanced JSONLogic" escape-hatch field for power users beyond the structured rule editor? | Postpone to v1.1; the compiler must not make this unnecessary later. |
 | OQ-5 | Port to Postgres for multi-instance FMS? | Post-v1 — MariaDB is the v1 store (ADR-0007); schema and queries stay Postgres-mappable under the ADR-0002/ADR-0007 portability rule. |
-| OQ-6 | When projects can have per-project environments, how are flagd flag sets named when environment names repeat across projects (e.g. two projects both with a `staging`)? | Inclination: flag set IDs become project-namespaced (e.g. `<projectKey>:<env>`) — needs a small ADR-0004 update before M2 lands. |
+| OQ-6 | When projects can have per-project environments, how are flagd flag sets named when environment names repeat across projects (e.g. two projects both with a `staging`)? | **Resolved (M2)**: flag set IDs become project-namespaced — `<projectKey>:<env>` (e.g. `checkout:staging`); ADR-0004 updated accordingly. |

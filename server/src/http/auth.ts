@@ -36,6 +36,8 @@ export interface AuthService {
   isAdmin(principal: Principal): Promise<boolean>;
   /** Effective role of the caller on a project (FR-53/FR-54); throws 403 when none. */
   requireProjectRole(principal: Principal, projectId: string): Promise<EffectiveRole>;
+  /** True when the principal may fetch flagd sync models (FR-27: `sync` scope or full admin capability). */
+  canSync(principal: Principal): Promise<boolean>;
 }
 
 export function createAuthService(deps: {
@@ -184,6 +186,22 @@ export function createAuthService(deps: {
     return role;
   }
 
+  async function canSync(principal: Principal): Promise<boolean> {
+    if (principal.type === 'api_key') {
+      const scope = principal.apiKey.scope.toUpperCase();
+      return scope === 'SYNC' || scope === 'ALL';
+    }
+    if (principal.session.isBootstrapAdmin) return true;
+    const user = await store.findUserByName(principal.session.username);
+    const globalRole = user?.globalRole?.toUpperCase();
+    if (globalRole === 'ADMIN') return true;
+    for (const membership of await store.listMemberAssignments(principal.session.username)) {
+      const membershipRole = membership.role ? membership.role.toUpperCase() : null;
+      if (membershipRole === 'ADMIN') return true;
+    }
+    return false;
+  }
+
   return {
     resolve,
     verifyBootstrap,
@@ -191,5 +209,6 @@ export function createAuthService(deps: {
     issue,
     isAdmin,
     requireProjectRole,
+    canSync,
   };
 }

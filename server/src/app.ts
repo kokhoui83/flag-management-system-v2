@@ -8,6 +8,7 @@ import { FmsError, problemBody, PROBLEM_TYPES } from './http/problem';
 import { createStore, type Store } from './store';
 import { createPrismaClient } from './db';
 import { type AppConfig } from './config';
+import { FlagdModelMemo } from './sync/model-memo';
 
 export interface AppOptions {
   /** Overrides the Prisma-backed store (tests inject one bound to a test DB). */
@@ -23,7 +24,8 @@ const PUBLIC_PATHS = new Set(['/healthz', '/readyz', '/api/v1/auth/login', '/api
  */
 export async function createApp(config: AppConfig, options: AppOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: true });
-  const store = options.store ?? createStore(createPrismaClient(config.databaseUrl));
+  const memo = new FlagdModelMemo();
+  const store = options.store ?? createStore(createPrismaClient(config.databaseUrl), { memo });
   const auth = createAuthService({
     store,
     adminUsername: config.adminUsername,
@@ -55,7 +57,7 @@ export async function createApp(config: AppConfig, options: AppOptions = {}): Pr
 
   app.register(fastifyCookie);
 
-  const services: RouteServices = { auth, store };
+  const services: RouteServices = { auth, store, memo };
   await registerRoutes(app, services);
 
   if (existsSync(config.webDist)) {

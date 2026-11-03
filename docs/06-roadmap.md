@@ -35,10 +35,10 @@ are written (failing) before its implementation. Acceptance criteria reference
 
 **Acceptance**
 - [x] `npm test` green (config parsing + health route tests, TDD).
-- [ ] `docker compose up -d` starts flagd + mariadb (both healthchecks green);
+- [x] `docker compose up -d` starts flagd + mariadb (both healthchecks green);
       `docker compose down` clean. (mariadb healthcheck green verified; flagd starts via
-      `start --config` but exits while the management API is not serving the sync source — the
-      API lands fully in M2, at which point this re-verifies.)
+      `start --config` — re-verified 2026-11-04 once the management API serves the sync source
+      in M2.)
 - [x] App boots, `/healthz` 200, shuts down cleanly on SIGTERM.
 - [x] Docs: this roadmap updated; README "Getting started" reflects M0 reality.
 
@@ -73,7 +73,7 @@ are written (failing) before its implementation. Acceptance criteria reference
 - [x] All [05-testing.md §2.1, §2.4, §2.5](05-testing.md) scenarios green (written first),
       plus the API-level [§2.6](05-testing.md) multi-user scenarios (invite flow, role/project
       403s, project-scoped flag create/toggle, 409 duplicate project) — the UI-level §2.6
-      assertions land in M4. (Flagd-facing scenarios — sync `GET /api/v1/sync/:env` FR-26/FR-27,
+      assertions land in M4. (Flagd-facing scenarios — sync `GET /api/v1/sync/:projectKey/:env` FR-26/FR-27,
       events SSE FR-51, evaluate FR-21–FR-25 — are M2/M3 scope and land with those endpoints.)
 - [x] Version bump semantics verified: create=1, per-env update +1, idempotent put no-op
       (FR-5).
@@ -114,11 +114,16 @@ selectors all follow the resolution.
 - Golden-file tests for the compiler (fixtures committed).
 
 **Acceptance**
-- [ ] All [05-testing.md §2.2](05-testing.md) scenarios green.
-- [ ] Manual: with flagd from M0 pointed at the endpoint (config finalized per OQ-6),
+- [x] All [05-testing.md §2.2](05-testing.md) scenarios green.
+- [x] Manual: with flagd from M0 pointed at the endpoint (config finalized per OQ-6),
       `curl` of a flagd evaluation (HTTP on 8013) returns the expected variant for a
-      hand-created flag in a test project (smoke, not a committed test until M3).
-- [ ] 304 behavior verified against flagd's actual polling (logs/metrics or curl replay).
+      hand-created flag in a test project (smoke, not a committed test until M3) — verified
+      2026-11-04 against the running stack: `POST /flagd.evaluation.v2.Service/ResolveBoolean`
+      → `{"value":false,"reason":"STATIC","variant":"off","metadata":{"version":2}}` for
+      `new-checkout` (staging, default off, no rules), `flagSetId: checkout:staging`.
+- [x] 304 behavior verified against flagd's actual polling (logs/metrics or curl replay) —
+      `If-None-Match` replay against the sync endpoint returned `304 Not Modified` with the
+      current ETag.
 
 ---
 

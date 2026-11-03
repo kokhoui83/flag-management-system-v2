@@ -13,10 +13,12 @@ import {
   type FlagDefinitionInput,
 } from '@fms/shared';
 import { FmsError, validationError } from './problem';
+import { FlagdModelMemo } from '../sync/model-memo';
 
 export interface RouteServices {
   auth: AuthService;
   store: Store;
+  memo: FlagdModelMemo;
 }
 
 function actorName(principal: { type: string; session?: { username: string }; apiKey?: ApiKeyRecord }): string {
@@ -42,7 +44,7 @@ function paramValue(source: Record<string, string>, key: string): string {
 }
 
 export async function registerRoutes(app: FastifyInstance, services: RouteServices): Promise<void> {
-  const { auth, store } = services;
+  const { auth, store, memo } = services;
 
   app.get('/healthz', async () => ({ status: 'ok' }));
   app.get('/readyz', async (_request, reply) => {
@@ -341,6 +343,39 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     }
     const flag = await store.getFlag(projectId, key);
     return { flagKey: key, env, version: flag?.version ?? 0 };
+  });
+
+  // ---------------------------------------------------------------- sync (flagd source)
+
+  app.get('/api/v1/sync/:projectKey/:env', async (request, reply) => {
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    const allowed = await auth.canSync(principal);
+    if (!allowed) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Sync scope required');
+    }
+    const params = paramsOf(request);
+    const projectKey = paramValue(params, 'projectKey');
+    const env = paramValue(params, 'env');
+    const project = await store.getProject(projectKey);
+    if (!project) {
+      throw new FmsError(404, 'https://fms.local/errors/not-found', `Project '${projectKey}' not found`);
+    }
+    if (!project.environments.includes(env)) {
+      throw new FmsError(404, 'https://fms.local/errors/not-found', `Environment '${env}' not found in project '${projectKey}'`);
+    }
+    const flags = await store.listFlagdModelInputs(project.id, env);
+    const compiled = memo.get({ projectId: project.id, env, flagSetId: `${project.key}:${env}`, flags });
+    const ifNoneMatch = request.headers['if-none-match'];
+    const candidates = Array.isArray(ifNoneMatch) ? ifNoneMatch : ifNoneMatch ? [ifNoneMatch] : [];
+    if (candidates.includes(compiled.etag)) {
+      reply.header('ETag', compiled.etag);
+      return reply.code(304).send();
+    }
+    reply.header('ETag', compiled.etag);
+    return reply.code(200).type('application/json').send(compiled.body);
   });
 
   // ---------------------------------------------------------------- audit / keys / openapi

@@ -21,10 +21,10 @@ flowchart TB
     browser <-->|"REST (cookie / Bearer auth) + SSE events"| api
     spa -.->|"served from"| api
     api <-->|"auth, CRUD, audit (Prisma client, async)"| db
-    flagd <-->|"sync: flagd polls GET /api/v1/sync/:env (ETag / 304, authHeader)"| api
+    flagd <-->|"sync: flagd polls GET /api/v1/sync/:projectKey/:env (ETag / 304, authHeader)"| api
     api -->|"evaluate: gRPC 8013 via OpenFeature server SDK"| flagd
     api -->|"SSE: GET /api/v1/events (relayed provider events)"| browser
-    clients -->|"evaluate: gRPC 8013, selector flagSetId=env"| flagd
+    clients -->|"evaluate: gRPC 8013, selector flagSetId=<projectKey>:<env>"| flagd
 ```
 
 Key properties:
@@ -59,9 +59,9 @@ Key properties:
 Responsibilities:
 
 1. **REST API** for projects, flags, definitions, keys, audit (contract in [04-api.md](04-api.md)).
-2. **Model publication**: pure function `compile(flag, definition, env) → flagd model document`,
-   plus the `/api/v1/sync/:env` endpoint with strong ETags (details in
-   [03-data-model.md](03-data-model.md)).
+2. **Model publication**: pure function `compile(flag, definition, env, flagSetId) → flagd
+   model document`, plus the `/api/v1/sync/:projectKey/:env` endpoint with strong ETags (details
+   in [03-data-model.md](03-data-model.md)).
 3. **Evaluate proxy**: `/api/v1/evaluate` delegating to OpenFeature (one `FlagdProvider`
    instance per (project, environment); each created with a selector over the flag-set ID —
    naming per OQ-6).
@@ -113,15 +113,15 @@ Run as a Docker container (`ghcr.io/open-feature/flagd:<pinned tag>`), started v
 
 ```yaml
 sources:
-  - uri: http://host.docker.internal:3000/api/v1/sync/dev
+  - uri: http://host.docker.internal:3000/api/v1/sync/checkout/dev
     provider: http
     interval: 5
     authHeader: "Bearer fms_<SYNC_KEY>"
-  - uri: http://host.docker.internal:3000/api/v1/sync/staging
+  - uri: http://host.docker.internal:3000/api/v1/sync/checkout/staging
     provider: http
     interval: 5
     authHeader: "Bearer fms_<SYNC_KEY>"
-  - uri: http://host.docker.internal:3000/api/v1/sync/prod
+  - uri: http://host.docker.internal:3000/api/v1/sync/checkout/prod
     provider: http
     interval: 5
     authHeader: "Bearer fms_<SYNC_KEY>"
@@ -131,7 +131,7 @@ Initial layout: one source per environment of a single project. With per-project
 environments (FR-55) there is one source per (project, environment) — URI and `flagSetId`
 naming follow OQ-6 (see [06-roadmap.md](06-roadmap.md) M2).
 
-**Compose topology note:** In the v1 local deployment the management API runs as a host Node process and flagd runs in a Docker container (the API container image is a v1.1 candidate; see [06-roadmap.md](06-roadmap.md) M0). Inside a container, `localhost` refers to the container itself, so the flagd sync source URIs must point at the host: `http://host.docker.internal:3000/api/v1/sync/<env>` (Docker Desktop) or the compose service name (e.g. `http://api:3000/api/v1/sync/<env>`) once the API runs in a container.
+**Compose topology note:** In the v1 local deployment the management API runs as a host Node process and flagd runs in a Docker container (the API container image is a v1.1 candidate; see [06-roadmap.md](06-roadmap.md) M0). Inside a container, `localhost` refers to the container itself, so the flagd sync source URIs must point at the host: `http://host.docker.internal:3000/api/v1/sync/checkout/<env>` (Docker Desktop) or the compose service name (e.g. `http://api:3000/api/v1/sync/checkout/<env>`) once the API runs in a container.
 
 Notes (verified against current flagd docs):
 
@@ -234,7 +234,7 @@ sequenceDiagram
     Note over API,DB: FR-39 — audit write failure rolls back the transaction
     Note over API: queue {flagKey, version, at, auditId} for events (ADR-0008)
     API-->>D: 200 updated flag + new version
-    F->>API: GET /api/v1/sync/:env (If-None-Match)
+    F->>API: GET /api/v1/sync/:projectKey/:env (If-None-Match)
     alt model changed
         API-->>F: 200 model document + new ETag
     else unchanged
@@ -255,7 +255,7 @@ sequenceDiagram
     participant F as flagd
 
     C->>P: typed call, e.g. getBooleanValue(key, default, context)
-    P->>F: gRPC 8013 (flagd-selector: flagSetId=env)
+    P->>F: gRPC 8013 (flagd-selector: flagSetId=<projectKey>:<env>)
     F-->>P: { value, variant, reason, metadata{version, ...} }
     P-->>C: resolved value
 ```
@@ -316,7 +316,7 @@ sequenceDiagram
 ## 4. Environments as flag sets (ADR-0004)
 
 - Environments (`dev`/`staging`/`prod`) map 1:1 to flagd **flag sets**: the sync document for
-  environment `e` carries set-level `"metadata": { "flagSetId": "e" }`. With per-project
+  environment carries set-level `"metadata": { "flagSetId": "<projectKey>:<env>" }`. With per-project
   environments (FR-55), set IDs may become project-namespaced (`<projectKey>:<env>`) — open
   question OQ-6 in [01-requirements.md](01-requirements.md).
 - flagd's selector mechanism (`flagSetId=<env>`) isolates environments: a provider configured

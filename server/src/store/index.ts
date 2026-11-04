@@ -719,21 +719,23 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
       const plaintext = `fms_${keyBody}`;
       const keyHash = createHash('sha256').update(plaintext).digest('hex');
       const apiKeyScope = scope.toUpperCase() as 'MANAGE' | 'EVALUATE' | 'SYNC' | 'ALL';
-      const key = await prisma.apiKey.create({
-        data: { id: generateUlid(), name, keyHash, keyPrefix: plaintext.slice(0, 8), scope: apiKeyScope, createdBy },
-      });
-      // FR-34 / FR-36 / docs/03-data-model.md §5: key creation is audited; key material never enters the audit trail.
-      await prisma.$transaction(async (tx) => {
+      const key = await prisma.$transaction(async (tx) => {
+        const created = await tx.apiKey.create({
+          data: { id: generateUlid(), name, keyHash, keyPrefix: plaintext.slice(0, 8), scope: apiKeyScope, createdBy },
+        });
+        // FR-34 / FR-36 / docs/03-data-model.md §5: key creation is audited; key material never enters the audit trail.
+        // The create and its audit share one transaction so an audit failure aborts the mutation (FR-39).
         await writeAudit(tx, {
           action: 'api_key.create',
           entity: 'api_key',
-          entityId: key.id,
+          entityId: created.id,
           env: null,
           before: null,
-          after: { id: key.id, name, scope: apiKeyScope, createdBy },
+          after: { id: created.id, name, scope: apiKeyScope, createdBy },
           actorType: 'session',
           actorName: createdBy,
         });
+        return created;
       });
       return { key, plaintext };
     },
@@ -745,9 +747,10 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
       // FR-34: revoking a key that does not exist is a clean not_found (no Prisma update error).
       if (!key) return 'not_found';
       const revokedAt = new Date();
-      const updated = await prisma.apiKey.update({ where: { id }, data: { revokedAt } });
-      // FR-34 / FR-36 / docs/03-data-model.md §5: key revocation is audited; key material never enters the audit trail.
-      await prisma.$transaction(async (tx) => {
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.apiKey.update({ where: { id }, data: { revokedAt } });
+        // FR-34 / FR-36 / docs/03-data-model.md §5: key revocation is audited; key material never enters the audit trail.
+        // The revoke and its audit share one transaction so an audit failure aborts the mutation (FR-39).
         await writeAudit(tx, {
           action: 'api_key.revoke',
           entity: 'api_key',
@@ -758,6 +761,7 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
           actorType: 'session',
           actorName: actor,
         });
+        return result;
       });
       return updated.revokedAt !== null ? 'revoked' : 'not_found';
     },

@@ -617,4 +617,67 @@ describe('M1 — Flags & definitions core (integration: MariaDB via testcontaine
     expect(entries[0].action).toBe('project.environment.create');
     expect(entries[0].actorName).toBe('audit-dev');
   });
+
+  it('aborts API-key creation when the audit write fails (FR-39: no untracked mutation)', async () => {
+    const token = await adminToken();
+
+    // FR-39: an audit write failure aborts the mutation (BEFORE INSERT trigger seam).
+    await prisma.$executeRawUnsafe(
+      'CREATE TRIGGER audit_write_fail BEFORE INSERT ON audit_logs FOR EACH ROW BEGIN SET NEW.entity_id = NULL; END;',
+    );
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/api-keys',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { name: 'audit-fail-create', scope: 'manage' },
+    });
+    expect(created.statusCode).toBe(500);
+
+    await prisma.$executeRawUnsafe('DROP TRIGGER audit_write_fail');
+
+    // The failed creation was rolled back — nothing was created un-audited.
+    const keys = await app.inject({
+      method: 'GET',
+      url: '/api/v1/api-keys',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const keyNames = (keys.json().keys as Array<{ name: string }>).map((k) => k.name);
+    expect(keyNames).not.toContain('audit-fail-create');
+  });
+
+  it('aborts API-key revocation when the audit write fails (FR-39: no untracked mutation)', async () => {
+    const token = await adminToken();
+
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/api-keys',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { name: 'audit-fail-revoke', scope: 'manage' },
+    });
+    expect(created.statusCode).toBe(201);
+    const keyId: string = created.json().id;
+
+    await prisma.$executeRawUnsafe(
+      'CREATE TRIGGER audit_write_fail BEFORE INSERT ON audit_logs FOR EACH ROW BEGIN SET NEW.entity_id = NULL; END;',
+    );
+    const revoked = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/api-keys/${keyId}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(revoked.statusCode).toBe(500);
+
+    await prisma.$executeRawUnsafe('DROP TRIGGER audit_write_fail');
+
+    // The failed revocation was rolled back — the key stays active.
+    const keys = await app.inject({
+      method: 'GET',
+      url: '/api/v1/api-keys',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const entry = (keys.json().keys as Array<{ id: string; name: string; revokedAt: unknown }>).find(
+      (k) => k.name === 'audit-fail-revoke',
+    );
+    expect(entry?.revokedAt).toBeNull();
+  });
 });

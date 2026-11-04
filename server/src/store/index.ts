@@ -149,8 +149,10 @@ export interface Store {
   listMembers(projectId: string): Promise<Array<{ user: string; role: string }>>;
   inviteMember(input: {
     username: string;
-    role: Role;
-    projectIds: string[];
+    /** Global role applied to the invited user (FR-54/FR-57). */
+    globalRole: Role;
+    /** Independent per-project assignments (FR-54/FR-57); a membership may elevate, never reduce. */
+    assignments: Array<{ projectId: string; role: Role }>;
     actor: string;
   }): Promise<{ user: string; tempPassword: string; memberships: Array<{ projectId: string; role: string }> }>;
   createFlag(input: { projectId: string; key: string; description: string; actor: string }): Promise<'created' | 'conflict'>;
@@ -222,6 +224,15 @@ async function writeAudit(
       after: (input.after ?? null) as Prisma.InputJsonValue,
     },
   });
+}
+
+/** Normalizes a capability/role name (`product-owner`) to the Prisma enum spelling (`PRODUCT_OWNER`). */
+function toPrismaRole(role: string): 'ADMIN' | 'DEVELOPER' | 'PRODUCT_OWNER' {
+  const normalized = (role ?? '').trim().toUpperCase().replace(/-/g, '_');
+  if (normalized !== 'ADMIN' && normalized !== 'DEVELOPER' && normalized !== 'PRODUCT_OWNER') {
+    throw new Error(`Invalid role for membership: ${role}`);
+  }
+  return normalized as 'ADMIN' | 'DEVELOPER' | 'PRODUCT_OWNER';
 }
 
 export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo } = {}): Store {
@@ -360,32 +371,33 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
         orderBy: { userName: 'asc' },
       }).then((rows) => rows.map((r) => ({ user: r.user.userName, role: r.role }))),
 
-    inviteMember: async ({ username, role, projectIds, actor }) => {
+    inviteMember: async ({ username, globalRole, assignments, actor }) => {
       const tempPassword = `temp-${randomBytes(9).toString('base64url')}`;
       const passwordHash = await argon2Hash(tempPassword);
       const memberships: Array<{ projectId: string; role: string }> = [];
-      const globalRole = role.toUpperCase() as 'ADMIN' | 'DEVELOPER' | 'PRODUCT_OWNER';
+      const globalRoleUpper = toPrismaRole(globalRole);
       await prisma.$transaction(async (tx) => {
         await tx.user.upsert({
           where: { userName: username },
-          update: { passwordHash, globalRole },
-          create: { userName: username, passwordHash, globalRole },
+          update: { passwordHash, globalRole: globalRoleUpper },
+          create: { userName: username, passwordHash, globalRole: globalRoleUpper },
         });
-        for (const projectId of projectIds) {
+        for (const assignment of assignments) {
+          const assignmentRole = toPrismaRole(assignment.role);
           await tx.projectMembership.upsert({
-            where: { userName_projectId: { userName: username, projectId } },
-            update: { role: globalRole },
-            create: { userName: username, projectId, role: globalRole },
+            where: { userName_projectId: { userName: username, projectId: assignment.projectId } },
+            update: { role: assignmentRole },
+            create: { userName: username, projectId: assignment.projectId, role: assignmentRole },
           });
-          memberships.push({ projectId, role });
+          memberships.push({ projectId: assignment.projectId, role: assignment.role });
         }
         await writeAudit(tx, {
           action: 'project.member.invite',
           entity: 'project',
-          entityId: projectIds[0] ?? username,
+          entityId: assignments[0]?.projectId ?? username,
           env: null,
           before: null,
-          after: { user: username, role, projects: projectIds },
+          after: { user: username, role: globalRoleUpper, projects: assignments },
           actorType: 'session',
           actorName: actor,
         });

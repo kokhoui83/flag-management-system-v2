@@ -248,7 +248,11 @@ describe('M2 — flagd model compilation & sync endpoint (integration: MariaDB v
       method: 'POST',
       url: `/api/v1/projects/${assigned.body.id}/members`,
       headers: { authorization: authHeader(token) },
-      payload: { username: 'sync-project-admin', role: 'developer', projectIds: [assigned.body.id] },
+      payload: {
+        username: 'sync-project-admin',
+        role: 'developer',
+        projects: [{ projectId: assigned.body.id, role: 'admin' }],
+      },
     });
     expect(invite.statusCode).toBe(201);
     await prisma.projectMembership.update({

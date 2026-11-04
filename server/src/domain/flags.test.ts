@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   nextFlagVersion,
   definitionsEqual,
+  solelyEnabledChanged,
+  productOwnerPutAllowed,
   type StoredFlagDefinition,
 } from './flags';
 import type { FlagDefinitionInput } from '@fms/shared';
@@ -62,5 +64,61 @@ describe('domain: definition equality (idempotency)', () => {
         { enabled: true, variants: { on: true, off: false }, defaultVariant: 'off', rules: [{ type: 'attribute', conditions: [], variant: 'on' }] },
       ),
     ).toBe(false);
+  });
+});
+
+describe('domain: product-owner definition policy (FR-59)', () => {
+  it('allows an enabled-only change for a product owner', () => {
+    expect(
+      solelyEnabledChanged(
+        stored({ enabled: true, variants: { on: true, off: false }, defaultVariant: 'off', rules: [] }),
+        { enabled: false, variants: { on: true, off: false }, defaultVariant: 'off', rules: [] },
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects a variant change for a product owner', () => {
+    expect(
+      solelyEnabledChanged(
+        stored({ enabled: true, variants: { on: true, off: false }, defaultVariant: 'off', rules: [] }),
+        { enabled: true, variants: { on: true, off: 'nope' }, defaultVariant: 'off', rules: [] },
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects a rule change for a product owner', () => {
+    expect(
+      solelyEnabledChanged(
+        stored({ enabled: true, variants: { on: true, off: false }, defaultVariant: 'off', rules: [] }),
+        {
+          enabled: true,
+          variants: { on: true, off: false },
+          defaultVariant: 'off',
+          rules: [{ type: 'attribute', conditions: [{ attribute: 'email', op: 'ends_with', value: '@acme.com' }], variant: 'on' }],
+        },
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects a default-variant change for a product owner', () => {
+    expect(
+      solelyEnabledChanged(
+        stored({ enabled: true, variants: { on: true, off: false }, defaultVariant: 'off', rules: [] }),
+        { enabled: true, variants: { on: true, off: false }, defaultVariant: 'on', rules: [] },
+      ),
+    ).toBe(false);
+  });
+
+  it('accepts an identical put as an allowed (idempotent) product-owner update', () => {
+    expect(
+      productOwnerPutAllowed(
+        stored({ enabled: true, variants: { on: true, off: false }, defaultVariant: 'off', rules: [] }),
+        { enabled: true, variants: { on: true, off: false }, defaultVariant: 'off', rules: [] },
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects creating a definition for a product owner (no stored definition)', () => {
+    expect(productOwnerPutAllowed(undefined, { enabled: true, variants: { on: true }, defaultVariant: 'on', rules: [] })).toBe(false);
   });
 });

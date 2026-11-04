@@ -67,7 +67,7 @@ Credentials are either the env-configured bootstrap admin (FR-30) or an invited 
 // request
 { "username": "admin", "password": "…" }
 // 200 response
-{ "token": "eyJ…", "expiresAt": "2026-10-26T24:00:00.000Z" }
+{ "token": "eyJ…", "expiresAt": "2026-10-27T00:00:00.000Z" }
 // + Set-Cookie: fms_token=eyJ…; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200
 // 401 on bad credentials (audit: auth.login on success only)
 ```
@@ -114,7 +114,8 @@ Flag routes live under the owning project (`flags.project_id` is NOT NULL — 03
 { "key": "new-checkout", "description": "Checkout v2 rollout" }
 // 201 response — flag as in GET (environments: {})
 // 409 if the key already exists in the project; 400 if key invalid (FR-1)
-// 403 without `manage` or an assignment to the project (FR-58)
+// 403 without `manage`, or without an admin/developer assignment to the project
+//     (FR-58; product owners may only toggle, FR-59)
 ```
 
 ### `GET /api/v1/projects/:projectId/flags/:key`
@@ -167,11 +168,14 @@ Environments with no definition are omitted (FR-7). Requires `evaluate` scope or
 ```json
 // request: { "description": "…" }   // description update only (key is immutable)
 // 200 → updated flag; 404 unknown
+// 403 without `manage` or an admin/developer assignment (product owner → 403, FR-59)
 ```
 
 ### `DELETE /api/v1/projects/:projectId/flags/:key`
 
 `204`. Deletes flag + all definitions + audit row recording full before-state (FR-4).
+Admin-only in v1 (`manage`/`all` key, or a global or project-scoped admin); developers and
+product owners → `403`.
 
 ## 5. Definitions
 
@@ -194,7 +198,14 @@ Full replace of one environment's definition (create or update).
 }
 // 200 → { "flagKey": "new-checkout", "env": "staging", "version": 8 }
 // 400 all-at-once validation problems (§2.1, FR-14); 404 unknown flag/env
+// 403 without `manage` or an admin/developer assignment (FR-58)
 ```
+
+`PUT` is the create-or-update path and also the toggle path: changing only `enabled` bumps the
+flag version and is audited as `definition.update`. A product owner assigned to the project may
+submit a definition update **only** when every field except `enabled` is byte-for-byte equal to
+the stored definition; any variant/rule/default change is `403` (FR-59). An identical `PUT`
+(idempotent no-op) is accepted and does not bump the version (FR-5).
 
 Constraints (rejected with `400`): variant name rules and type homogeneity (FR-11);
 `defaultVariant` ∈ variants (FR-12); rule shape per [03-data-model.md §2](03-data-model.md);
@@ -208,6 +219,7 @@ percentage rule terminal + at most one (FR-17/FR-18); variant references exist (
 // 200 → { "flagKey": "new-checkout", "env": "staging", "version": 9 }
 // 404 if source env has no definition
 // 400 if fromEnv == env
+// 403 without `manage` or an admin/developer assignment (product owner → 403, FR-59)
 ```
 
 Replaces the target definition with a copy of the source (FR-9); audited as
@@ -281,6 +293,10 @@ project's environments (FR-55).
 
 `flagVersion` is read from flag metadata returned by flagd (observed model version; also the
 basis of the dashboard's stale indicator, FR-47).
+
+`targetingKey` is optional for flags without a percentage rule. For a flag whose definition
+contains a percentage rule, omitting it yields flagd's single deterministic bucket (FR-19);
+the dashboard playground blocks evaluation until a targeting key is supplied (FR-44).
 
 ## 8. API keys
 
@@ -360,31 +376,36 @@ Unauthenticated. `200` when the process is alive, the database is reachable, and
 {
   "status": "not_ready",
   "db": "OK",
-  "flagd": { "dev": "READY", "staging": "STALE", "prod": "ERROR" }
+  "flagd": {
+    "checkout:dev": "READY",
+    "checkout:staging": "STALE",
+    "checkout:prod": "ERROR"
+  }
 }
 ```
 
 Provider states from OpenFeature events per (project, environment), keyed by flag-set ID
-(`READY` / `STALE` / `ERROR`; naming per OQ-6; see architecture §7) — the example above
-shows the default environment set of a single project. Readiness is not ready while the
-database reports `"DOWN"` or any provider is not `READY`.
+`<projectKey>:<env>` (`READY` / `STALE` / `ERROR`; OQ-6 resolution, architecture §7) — the
+example above shows the default environment set of project `checkout`. Readiness is not ready
+while the database reports `"DOWN"` or any provider is not `READY`.
 
 ## 11. OpenAPI
 
-A hand-maintained `openapi.yaml` (or generated via Fastify's `fastify-openapi-glue`, decided
-in M1) is published at `/api/v1/openapi.json` from M1 onward and kept in sync with this
-document; on conflict, this document + tests win. (SSE is specified here in §12; OpenAPI
-represents it as a `text/event-stream` response.)
+The hand-maintained `server/openapi.json` (decided in M1; no codegen/glue library) is
+published at `/api/v1/openapi.json` and updated in the same milestone as every API change;
+on conflict, this document + tests win. The M1/M2 surface is documented today; M3 adds
+evaluate/events/observed and M5 verifies completeness against this contract. (SSE is specified
+here in §12; OpenAPI represents it as a `text/event-stream` response.)
 
 ## 12. Events (SSE)
 
 ### `GET /api/v1/events`
 
 Requires `evaluate` scope or a session. Optional filter `?envs=` (comma-separated
-flag-set IDs, naming per OQ-6; unknown value → `400`).
+flag-set IDs `<projectKey>:<env>`; unknown value → `400`).
 
 ```
-GET /api/v1/events?envs=staging
+GET /api/v1/events?envs=checkout:staging
 Authorization: Bearer fms_…
 
 200 OK
@@ -395,13 +416,13 @@ Connection: keep-alive
 : keepalive (comment line, every 15 s)
 
 event: flag-changed
-data: {"env":"staging","flagKey":"new-checkout","version":8,"at":"2026-10-28T12:00:03.250Z"}
+data: {"projectKey":"checkout","env":"staging","flagSetId":"checkout:staging","flagKey":"new-checkout","version":8,"at":"2026-10-28T12:00:03.250Z"}
 
 event: provider-ready
-data: {"env":"staging","at":"2026-10-28T12:00:05.000Z"}
+data: {"projectKey":"checkout","env":"staging","flagSetId":"checkout:staging","at":"2026-10-28T12:00:05.000Z"}
 
 event: provider-error
-data: {"env":"staging","at":"2026-10-28T12:00:07.000Z"}
+data: {"projectKey":"checkout","env":"staging","flagSetId":"checkout:staging","at":"2026-10-28T12:00:07.000Z"}
 ```
 
 Semantics (ADR-0008):
@@ -424,8 +445,10 @@ flags, role-based access). See [01-requirements.md §4.9.1](01-requirements.md).
 
 ### `GET /api/v1/projects`
 
-Lists the projects visible to the caller: all projects for an `admin` session / `manage` API key;
-only assigned projects for `developer` and `product-owner` sessions and keys (FR-53, FR-54, FR-57).
+Lists the projects visible to the caller: all projects for an `admin` session or a
+`manage`/`all` API key; only assigned projects for `developer` and `product-owner` sessions
+(FR-53, FR-54, FR-57). API keys are scope-based and carry no project assignments; an
+`evaluate`/`sync` key cannot list projects (`403`).
 
 ```json
 {
@@ -461,7 +484,8 @@ FR-55/FR-58).
 ### `POST /api/v1/projects/:projectId/environments`
 
 Admin (`manage` scope) or a developer assigned to the project (FR-58) adds a custom
-environment to the project's environment set (FR-55):
+environment to the project's environment set (FR-55). A product owner assigned to the project
+cannot add environments (`403`, FR-59):
 
 ```json
 // request
@@ -501,11 +525,17 @@ to exactly one project, is available in all environments of that project, and ca
 unique per environment (FR-56). There are no unscoped flag routes: every flag row has a
 `project_id` (03 §1), so every flag operation names its project.
 
-Authorization:
+Authorization (capability matrix in [01-requirements.md §4.9.1](01-requirements.md)):
 
-- Admin session / `manage` key: any project (FR-57).
-- Developer: assigned projects only — create flags and environments, toggle state (FR-58).
-- Product owner: assigned projects only — view and toggle state (FR-59).
+- Global admin session / `manage`/`all` key: any project — full access, including flag
+  delete, member invites, environment creation, and audit/key management (FR-57).
+- A project member with role `admin` holds the project-scoped admin capabilities on that
+  project only (FR-54).
+- Developer: assigned projects only — create flags and environments, edit/copy definitions,
+  and toggle state (FR-58).
+- Product owner: assigned projects only — view and toggle state. A definition `PUT` is
+  accepted only when `enabled` is the sole change; any variant/rule/default edit, flag
+  create/delete, environment create, or copy → `403` (FR-59).
 - Any other caller → `403`.
 
 Environment-scoped operations remain environment-isolated: changing one environment's

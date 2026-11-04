@@ -18,7 +18,7 @@ Use **MariaDB** as the sole system of record:
 
 - Compose service `mariadb` (image pinned, `mariadb:11.8` LTS line), env-driven credentials
   (`FMS_DB_DATABASE` / `FMS_DB_USER` / `FMS_DB_PASSWORD`), named volume for persistence,
-  `mariadb-admin ping` healthcheck, port 3306 bound to localhost only.
+  `healthcheck.sh --connect` healthcheck, port 3306 bound to localhost only.
 - Driver: **Prisma** (driver adapter `@prisma/adapter-mariadb` over the `mariadb` connector, small
   connection pool). The schema is a Prisma `schema.prisma` datamodel; migrations are Prisma
   migration files in `prisma/migrations/`, applied at boot (`prisma migrate deploy`).
@@ -29,8 +29,9 @@ Use **MariaDB** as the sole system of record:
   code and never touched by JSON operators in domain queries.
 - Schema: InnoDB, `utf8mb4`. ULIDs as `CHAR(26)`; timestamps as `DATETIME(6)` UTC (formatted
   ISO-8601 at the API boundary); `enabled` as `TINYINT(1)`; `variants`/`rules`/`before`/
-  `after` as `JSON`. No `CHECK` on `env` (the env list is config-driven, FR-6; app-level
-  validation); `CHECK` constraints kept on `scope`/`actor_type` (fixed enums).
+  `after` as `JSON`. No `CHECK` on `env`: the default environment set is config-driven
+  (FR-6) and per-project additions live in `project_environments` (FR-55), validated in app
+  code; `CHECK` constraints kept on `scope`/`actor_type` (fixed enums).
 - Config: `DATABASE_URL` replaces `DATABASE_PATH` (dev default matches the compose service;
   `NODE_ENV=production` refuses the insecure default, same guardrail as admin credentials).
 - Backup: single-transaction `mariadb-dump`; restore documented in the M5 runbook.

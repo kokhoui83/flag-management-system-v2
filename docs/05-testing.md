@@ -29,6 +29,17 @@ calls. The shared validators are tested once, in the unit tier, and imported by 
 
 Each scenario maps to at least one test. `…` abbreviates context.
 
+Milestone map (used by [06-roadmap.md](06-roadmap.md) acceptance criteria):
+
+| Spec area | Milestone(s) |
+| --- | --- |
+| §2.1 Validation | M1 |
+| §2.2 Compilation | M2 |
+| §2.3 flagd E2E | M2 (ETag/304), M3 (evaluate, propagation, SSE, readiness, NFR-3) |
+| §2.4 Auth & audit | M1 (auth/audit/keys/revocation), M2 (sync scope), M3 (events scope) |
+| §2.5 API surface | M1 (flags/audit), M2 (sync/ETag/admin-sync/memo), M5 (OpenAPI) |
+| §2.6 Multi-user | M1 (API), M4 (UI) |
+
 ### 2.1 Validation
 
 - **G** a definition with variants `{"a": 1, "b": 2, "c": true}`
@@ -131,11 +142,16 @@ Each scenario maps to at least one test. `…` abbreviates context.
   **W** ≤ 2× sync interval
   **T** `readyz` returns READY and evaluation works again.
 
+- **G** flagd stopped
+  **W** a project/flag/definition/audit/API-key operation is attempted
+  **T** management operations still succeed; only `/evaluate` returns `503` (NFR-3, FR-24).
+
 - **G** a subscriber is connected to `GET /api/v1/events` (evaluate-scoped key); a definition
   is changed
   **W** ≤ 2× sync interval passes
-  **T** a `flag-changed` event arrives with the new version — and **not before** flagd serves
-  the new value (ordering asserted by evaluating first) (FR-51, FR-29).
+  **T** a `flag-changed` event arrives with `projectKey`, `env`, `flagSetId`, and the new
+  version — and **not before** flagd serves the new value (ordering asserted by evaluating
+  first) (FR-51, FR-29).
 
 - **G** a subscriber disconnects, a change is committed, the subscriber reconnects
   **W** it reads the stream
@@ -152,6 +168,15 @@ Each scenario maps to at least one test. `…` abbreviates context.
   **W** a definition is changed
   **T** the handler fires within ≤ 2× sync interval (FR-50, ADR-0008).
 
+- **G** a subscriber requests `GET /api/v1/events?envs=<unknown flag-set id>`
+  **W** the stream is opened
+  **T** `400` problem+json (FR-51).
+
+- **G** the local stack is warm
+  **W** 1,000 `/evaluate` calls are issued and a 1,000-flag sync document is fetched
+  **T** `/evaluate` p99 < 25 ms; sync p99 < 50 ms with ETag/304 and < 200 ms for the full
+  body (NFR-1; logged, not a flaky hard gate).
+
 ### 2.4 Auth & audit
 
 - **G** no/invalid/expired credential on a managed route
@@ -164,6 +189,16 @@ Each scenario maps to at least one test. `…` abbreviates context.
   **T** a session is issued (FR-31/FR-53); the stored `users` row holds a hash, not the
   plaintext (asserted by inspecting the DB, FR-57); `brian`'s session acts on `checkout`
   only — other projects → `403` (FR-54, FR-58).
+
+- **G** a product owner assigned to project `checkout`; the flag has a stored definition
+  **W** they `PUT` a definition changing a rule/variant, then `PUT` one changing only `enabled`
+  **T** the first is `403`; the second is `200`, bumps the version, and is audited as
+  `definition.update` with only `enabled` changed (FR-59, capability matrix).
+
+- **G** a developer assigned to project `checkout`
+  **W** they attempt to create a project, invite a member, create/revoke an API key, or read
+  the audit log
+  **T** each is `403` (FR-54/FR-58; admin-only operations).
 
 - **G** a sync request with an `evaluate`-scoped key
   **W** issued
@@ -230,6 +265,11 @@ Each scenario maps to at least one test. `…` abbreviates context.
   **W** the sync model is requested again
   **T** the memo is invalidated and the response reflects the committed state, not the cached body.
 
+- **G** the API surface for a milestone is complete
+  **W** `GET /api/v1/openapi.json` is fetched
+  **T** every route in [04-api.md](04-api.md) is represented and the document validates as
+  OpenAPI 3.0 (API §11).
+
 ### 2.6 Multi-user, projects & environments (dashboard)
 
 Covers the multi-user dashboard requirements FR-53–FR-59 (see [01-requirements.md](01-requirements.md)).
@@ -261,7 +301,13 @@ Covers the multi-user dashboard requirements FR-53–FR-59 (see [01-requirements
   environment
   **W** they toggle the flag
   **T** the state changes in `staging` only; the flag is available in all environments of the
-  project but its state stays unique per environment (FR-56, FR-59).
+  project but its state stays unique per environment (FR-56, FR-59); the variant/rule editor
+  is read-only for that user.
+
+- **G** a developer assigned to project `checkout` opens the dashboard
+  **W** they navigate to members, API keys, audit, or project creation
+  **T** those admin-only surfaces are unavailable and direct API calls return `403`
+  (capability matrix, FR-54/FR-58).
 
 - **G** an admin toggles a flag in the `dev` environment of a project
   **W** the toggle is saved
@@ -270,7 +316,8 @@ Covers the multi-user dashboard requirements FR-53–FR-59 (see [01-requirements
 
 - **G** an admin creates a project whose name is already taken by another project
   **W** the create request is submitted
-  **T** it fails with `409` — project names (and flag keys) are unique per FMS (FR-55, FR-56).
+  **T** it fails with `409` — project names and keys are unique per FMS (FR-55); flag keys
+  are unique per project, not globally (FR-56).
 
 ## 3. Determinism & hygiene
 

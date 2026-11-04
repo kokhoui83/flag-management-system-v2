@@ -236,8 +236,9 @@ Rules of compilation:
 - Flag-level `metadata.version` = `flags.version` (FR-5) — visible to consumers via OpenFeature
   flag metadata and used by the dashboard's sync-health badge (FR-47).
 - Serialization: object keys sorted, no whitespace → byte-stable for a given state
-  (FR-28). ETag = `"fms-" + SHA-256 hex of body`; the endpoint honors `If-None-Match` with
-  `304` (FR-26).
+  (FR-28). ETag = `"fms-" + SHA-256 hex of the state-derived body` (the serialized document
+  with `metadata.generatedAt` removed); the endpoint honors `If-None-Match` with `304`
+  (FR-26).
 - `generatedAt` is the **only** non-state-derived field; it is excluded from the ETag
   computation (ETag is computed over the body without the `metadata.generatedAt` field).
 - The emitted document is validated against the official JSON schema in tests (NFR-9).
@@ -263,7 +264,7 @@ Op mapping (strict; no coercion — deliberate, see ADR-0005):
 | --- | --- |
 | `eq` | `{ "===": [ { "var": attr }, value ] }` |
 | `neq` | `{ "!==": [ { "var": attr }, value ] }` |
-| `in` | `{ "in": [ value, [list...] ] }` (array form = membership) |
+| `in` | `{ "in": [ { "var": attr }, [list...] ] }` (array form = membership) |
 | `starts_with` | `{ "starts_with": [ { "var": attr }, value ] }` |
 | `ends_with` | `{ "ends_with": [ { "var": attr }, value ] }` |
 | `gt` / `gte` / `lt` / `lte` | `{ ">": [...] }` / `">="` / `"<"` / `"<="` |
@@ -279,6 +280,11 @@ rules = [r1, r2, r3(percentage)]   →
           { "if": [ cond(r2), variant(r2),
                     fractional(r3) ] } ] }
 ```
+
+The last attribute rule in a list with no percentage rule compiles to
+`{ "if": [ cond(rN), variant(rN), null ] }`; the `null` falls through to `defaultVariant`
+(the implicit final `else`). This keeps the emitted JSONLogic total and matches the golden
+files in [05-testing.md §2.2](05-testing.md).
 
 **Percentage rule (terminal) → `fractional`.**
 No bucketing expression is emitted, so flagd uses its built-in default bucketing value
@@ -364,3 +370,6 @@ in tests (property-based golden tests, §[05-testing](05-testing.md)).
 | `project.member.invite` | `project` | after = { user, role, projects }; never includes the temporary password (FR-57) |
 | `api_key.create` / `api_key.revoke` | `api_key` | never includes key material |
 | `auth.login` | `auth` | success only |
+
+A product-owner enable/disable toggle is recorded as `definition.update` with the `enabled`
+change in `before`/`after` (FR-59); it does not introduce a separate action name.

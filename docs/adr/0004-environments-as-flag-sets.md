@@ -22,14 +22,14 @@ Options:
 Option 3. Concretely:
 
 - The sync document for (project, environment) carries set-level `"metadata": { "flagSetId": "<projectKey>:<env>" }` (per the OQ-6 resolution, project-namespaced)
-  (ADR-0003's one-source-per-env layout: flagd's sync sources can each declare a set-level
+  (ADR-0003's one-source-per-flag-set layout: flagd's sync sources can each declare a set-level
   `flagSetId`; a single source document cannot hold two entries for the same flag key under
-  different sets, so one source per environment is required, not just convenient).
+  different sets, so one source per (project, environment) is required, not just convenient).
 - Evaluation isolation: each consumer uses a provider configured with
-  `selector: "flagSetId=<env>"` (Node provider: constructor option; flagd sends it via the
-  `flagd-selector` metadata). FMS's evaluate proxy keeps **one `FlagdProvider` instance per
-  environment** (three total) — the Node provider documents no per-request selector
-  (OQ-1), and three gRPC channels are negligible cost.
+  `selector: "flagSetId=<projectKey>:<env>"` (Node provider: constructor option; flagd sends
+  it via the `flagd-selector` metadata). FMS's evaluate proxy keeps **one `FlagdProvider`
+  instance per (project, environment)** — the Node provider documents no per-request selector
+  (OQ-1), and a gRPC channel per active flag set is negligible cost.
 - flagd selectors also give us future headroom: team/application flag sets without a new
   isolation mechanism.
 

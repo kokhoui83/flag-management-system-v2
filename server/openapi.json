@@ -3,7 +3,7 @@
   "info": {
     "title": "Flag Management System Management API",
     "version": "0.0.0",
-    "description": "Management API of the Flag Management System (M1 surface: projects, flags, definitions, audit, API keys, auth). Full contract: docs/04-api.md."
+    "description": "Management API of the Flag Management System (M1/M2 surface: auth, projects, flags, definitions, audit, API keys, sync). Full contract: docs/04-api.md."
   },
   "servers": [
     { "url": "http://localhost:3000" }
@@ -14,9 +14,9 @@
         "summary": "Issue session token (bootstrap admin or invited user)",
         "operationId": "login",
         "tags": ["Auth"],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { type: "object", required: ["username", "password"], properties: { username: { type: "string" }, password: { type: "string" } } } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["username", "password"], "properties": { "username": { "type": "string" }, "password": { "type": "string" } } } } } },
         "responses": {
-          "200": { "description": "Session issued", "content": { "application/json": { "schema": { type: "object", properties: { token: { type: "string" }, expiresAt: { type: "string", format: "date-time" } } } } } },
+          "200": { "description": "Session issued", "content": { "application/json": { "schema": { "type": "object", "properties": { "token": { "type": "string" }, "expiresAt": { "type": "string", "format": "date-time" } } } } } },
           "401": { "description": "Invalid credentials" }
         }
       }
@@ -33,7 +33,38 @@
     },
     "/api/v1/projects/{projectId}/members": {
       "get": { "summary": "List project members (admin)", "operationId": "listMembers", "tags": ["Projects"], "responses": { "200": { "description": "OK" } } },
-      "post": { "summary": "Invite member (admin)", "operationId": "inviteMember", "tags": ["Projects"], "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "summary": "Invite member with a global role and per-project roles (admin)",
+        "operationId": "inviteMember",
+        "tags": ["Projects"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "role", "projects"],
+                "properties": {
+                  "username": { "type": "string" },
+                  "role": { "type": "string", "enum": ["admin", "developer", "product-owner"] },
+                  "projects": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["projectId", "role"],
+                      "properties": {
+                        "projectId": { "type": "string" },
+                        "role": { "type": "string", "enum": ["admin", "developer", "product-owner"] }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Created" }, "400": { "description": "Validation" }, "403": { "description": "Forbidden" } }
+      }
     },
     "/api/v1/projects/{projectId}/flags": {
       "get": { "summary": "List flags of a project", "operationId": "listFlags", "tags": ["Flags"], "responses": { "200": { "description": "OK" } } },
@@ -49,6 +80,25 @@
     },
     "/api/v1/projects/{projectId}/flags/{key}/definitions/{env}/copy": {
       "post": { "summary": "Copy definition from another env (FR-9)", "operationId": "copyDefinition", "tags": ["Flags"], "responses": { "200": { "description": "OK" }, "400": { "description": "Bad request" }, "404": { "description": "Not found" } } }
+    },
+    "/api/v1/sync/{projectKey}/{env}": {
+      "get": {
+        "summary": "Get the flagd model document for a (project, environment) flag set (FR-26/FR-27)",
+        "operationId": "getSyncModel",
+        "tags": ["Sync"],
+        "parameters": [
+          { "name": "projectKey", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "env", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "If-None-Match", "in": "header", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Flagd model document", "headers": { "ETag": { "schema": { "type": "string" } } }, "content": { "application/json": { "schema": { "type": "object" } } } },
+          "304": { "description": "Not modified (matching If-None-Match)", "headers": { "ETag": { "schema": { "type": "string" } } } },
+          "401": { "description": "Unauthenticated" },
+          "403": { "description": "Missing sync scope or project access" },
+          "404": { "description": "Unknown project or environment" }
+        }
+      }
     },
     "/api/v1/audit": {
       "get": { "summary": "List audit entries (FR-38)", "operationId": "listAudit", "tags": ["Audit"], "responses": { "200": { "description": "OK" } } }

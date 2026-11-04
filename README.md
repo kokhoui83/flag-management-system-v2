@@ -16,14 +16,14 @@ skeleton: npm workspaces (`server`, `web`, `shared`) on TypeScript (strict, ESM)
 Prettier, a Fastify management API with `/healthz` + `/readyz`, env-driven config, and a Vite +
 Vue placeholder dashboard.
 
-**M1 — Flags & definitions core / system of record (complete, TDD green).** The M1 surface is
+**M1 — Flags & definitions core / system of record (baseline complete, TDD green; capability-matrix follow-ups open).** The M1 surface is
 implemented and verified end to end: `@fms/shared` canonical types plus all-at-once validation
 (flag key, env, variants, default variant, rules); the management API (Fastify + Prisma/MariaDB)
 with session auth (JWT + bootstrap admin, invited users with argon2id temp passwords), projects,
-flags, per-environment definitions with version semantics (create=1, per-env update +1, idempotent
-put no-op), append-only audit log, API keys with scopes, RFC 9457 problem+json errors, and the
-hand-maintained OpenAPI document served at `GET /api/v1/openapi.json`. Integration-tested against
-a testcontainers MariaDB; unit tier green.
+flags, per-environment definitions with one global flag version (create=1, any-env update +1,
+idempotent put no-op), append-only audit log, API keys with scopes, RFC 9457 problem+json errors,
+and the hand-maintained OpenAPI document served at `GET /api/v1/openapi.json`. Integration-tested
+against a testcontainers MariaDB; unit tier green.
 
 **M2 — Model compilation & sync endpoint (complete, TDD green).** FMS now compiles stored flag
 state into the flagd flag-set document (JSONLogic targeting, terminal `fractional`, byte-stable

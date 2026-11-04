@@ -64,9 +64,10 @@ directly into tests (see [05-testing.md](05-testing.md)).
 
 ### 4.2 Environments
 
-- **FR-6** — v1 has a fixed set of environments: `dev`, `staging`, `prod`. The list is a
-  compile-time constant (configurable in code for tests) — not user-managed; each new project
-  seeds this default set (FR-55).
+- **FR-6** — Every project starts with the default environment set `dev`, `staging`, `prod`.
+  The default set is a compile-time constant (configurable in code/tests via `ENVS`) and is
+  seeded on project creation; additional per-project environments may be added (FR-55). There
+  is no global user-managed environment list.
 - **FR-7** — Each flag has at most one *definition* per environment.
 - **FR-8** — A definition may be updated independently in each environment; environments are
   isolated (changing `staging` never affects `prod`).
@@ -112,8 +113,10 @@ applies. v1 rule types:
   ADR-0005). A flag may have at most one percentage rule.
 - **FR-19** — Percentage rollouts are **sticky per targeting key**: the same `targetingKey`
   (and flag) always resolves to the same variant, independently of time and independently of
-  other flags. Percentage rollouts require a `targetingKey` at evaluation time; without one,
-  behavior is undefined-by-design (documented) — the dashboard playground enforces it.
+  other flags. Percentage rollouts are intended to be evaluated with a `targetingKey`; without
+  one, flagd's default bucketing places every such evaluation in the same deterministic bucket
+  for that flag (no distribution). This is documented, and the dashboard playground requires a
+  targeting key before evaluating a flag that contains a percentage rule (FR-44).
 - **FR-20** — Rules may reference any context attribute the client supplies
   (e.g. `email`, `plan`, `tenantId`) in addition to the OpenFeature `targetingKey`.
 
@@ -219,15 +222,41 @@ multi-user, multi-project scope:
   project, while the state of each flag is unique per environment (FR-7/FR-8 isolation semantics
   applied per project). The flag is linked to its owning project (`flags.project_id`) and its
   environment (`flag_definitions.env`); the flag key is unique per project (requirement 4).
-- **FR-57** — Admin has full access and can invite another user, assigning a role and one or more
-  projects (requirement 5). The invite creates the user if absent and issues a temporary
-  password shown **once** (only its hash is stored); the user signs in with it through the
-  normal session flow (FR-31). Re-inviting an existing user updates the assignment and
-  reissues a temporary password.
+- **FR-57** — Admin has full access and can invite another user, assigning a global role and
+  independent per-project roles (requirement 5). The invite creates the user if absent and
+  issues a temporary password shown **once** (only its hash is stored); the user signs in with
+  it through the normal session flow (FR-31). Re-inviting an existing user updates the global
+  role and the listed memberships and reissues a temporary password.
 - **FR-58** — Developer can create environments and flags for the projects they are assigned to,
   and toggle the state of the flags within those projects (requirement 6).
 - **FR-59** — Product owner can view and toggle the state of the flags of the projects they are
   assigned to (requirement 7).
+
+Capability matrix (FR-54, FR-58, FR-59). "Admin" below means the global admin role (bootstrap
+admin or an invited user with global role `admin`). Effective permissions are the union of the
+global role and project memberships (FR-54); membership roles are independent per project and
+may differ from the global role, so a membership can elevate a user on that project but never
+reduce the global role. A project membership with role `admin` grants the project-scoped admin
+capabilities for that project only. Developer and product-owner capabilities are limited to
+assigned projects; any unassigned project is `403`.
+
+| Capability | Scope | Admin | Developer | Product owner |
+| --- | --- | --- | --- | --- |
+| Create projects | global | Yes | No | No |
+| Invite members / assign projects | global | Yes | No | No |
+| Manage API keys | global | Yes | No | No |
+| Read audit | global | Yes | No | No |
+| Create project environments | project | Yes | Yes | No |
+| Create flags, edit description | project | Yes | Yes | No |
+| Delete flags | project | Yes | No | No |
+| Create / edit / copy definitions (variants, rules, default) | project | Yes | Yes | No |
+| Toggle a flag's `enabled` state | project | Yes | Yes | Yes |
+| View flags and definitions | project | Yes | Yes | Yes |
+| Evaluate flags (playground/API) | project | Yes | Yes | Yes |
+
+A product-owner toggle changes only `enabled`; every other definition field must be unchanged,
+otherwise the request is rejected with `403` (FR-59). Project creation, member/key management,
+and audit reads remain global-admin-only in v1.
 
 ### 4.10 Change events
 
@@ -236,11 +265,13 @@ multi-user, multi-project scope:
   flagd applies a new model. Notification latency is bounded by one sync interval (FR-29).
   FMS documents this pattern (client guide, FR-25) and proves it with an e2e test.
 - **FR-51** — FMS exposes `GET /api/v1/events` (SSE, `text/event-stream`), authenticated with
-  an `evaluate`-scoped key or a session, with an optional `?envs=` filter. Events:
-  - `flag-changed` — `{"env", "flagKey", "version", "at"}`, emitted **only after** FMS's own
-    per-(project, env) provider observes the change in flagd (semantics: "flagd in env is
-    now serving flagKey at version ≥ N") (ADR-0008);
-  - `provider-ready` / `provider-error` — per-(project, env) provider state transitions.
+  an `evaluate`-scoped key or a session, with an optional `?envs=` filter (comma-separated
+  flag-set IDs `<projectKey>:<env>`; unknown value → `400`). Events:
+  - `flag-changed` — `{"projectKey", "env", "flagSetId", "flagKey", "version", "at"}`,
+    emitted **only after** FMS's own per-(project, env) provider observes the change in flagd
+    (semantics: "flagd in that flag set is now serving flagKey at version ≥ N") (ADR-0008);
+  - `provider-ready` / `provider-error` — `{"projectKey", "env", "flagSetId", "at"}` on
+    per-(project, env) provider state transitions.
   Keepalive comment every 15 s; no replay — reconnecting clients reconcile by re-fetching
   state.
 - **FR-52** — The dashboard subscribes to `GET /api/v1/events` and live-updates the flag list
@@ -250,8 +281,8 @@ multi-user, multi-project scope:
 
 | ID | Requirement |
 | --- | --- |
-| NFR-1 | **Latency**: `/evaluate` p99 < 25 ms locally (flagd co-located), excluding first-call provider warmup. Sync endpoint p99 < 50 ms with ETag, < 200 ms full body for 1,000 flags. |
-| NFR-2 | **Scale (v1)**: 1,000 flags × 3 environments; 100 evaluations/s sustained. Beyond that is out of scope. |
+| NFR-1 | **Latency**: `/evaluate` p99 < 25 ms locally (flagd co-located), excluding first-call provider warmup. Sync endpoint p99 < 50 ms with ETag, < 200 ms full body for 1,000 flags. Repeatable measurement protocol (see [05-testing.md §2.3](05-testing.md)): stack fully ready (flagd `READY`, models synced), discard 100 warmup evaluations, then measure 1,000 sequential `/evaluate` calls, 1,000 conditional sync requests (expecting `304`), and 100 full-body sync fetches; log the p99s. |
+| NFR-2 | **Scale (v1)**: 1,000 flags × 3 environments; 100 evaluations/s sustained for 60 s (6,000 evaluations, no errors) with p99 staying within the NFR-1 bound. Beyond that is out of scope. |
 | NFR-3 | **Availability**: if flagd is down, management operations (CRUD, audit, keys) keep working; evaluations fail with 503 (FR-24). If FMS is down, flagd keeps serving its last synced model (stale, but functional). |
 | NFR-4 | **Durability**: flag state survives restart (MariaDB, named volume — ADR-0007). No in-memory-only state for definitions. |
 | NFR-5 | **Security**: no secrets in the repo; JWT secret and admin credentials from environment; API keys and user passwords (argon2id) hashed at rest; sync endpoint never open; no PII in audit log by design (state snapshots may contain what users configured — accepted in v1). |

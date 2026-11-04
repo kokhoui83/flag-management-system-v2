@@ -81,8 +81,8 @@ server/src/
 ├── app.ts                 # Fastify app factory (routes, plugins, static)
 ├── config.ts              # env parsing/defaults (pure, testable)
 ├── db/
-│   ├── index.ts           # Prisma client factory, migrations applied at boot (prisma migrate deploy)
-│   └── migrations/        # Prisma migration files (prisma/migrations/, ADR-0007)
+│   └── index.ts           # Prisma client factory, migrations applied at boot (prisma migrate deploy)
+│                          # migration files live at repo-root prisma/migrations/ (ADR-0007)
 ├── domain/
 │   ├── flags.ts           # flag/definition validation (pure; uses @fms/shared)
 │   ├── rules.ts           # rule model + validation (pure; uses @fms/shared)
@@ -127,9 +127,9 @@ sources:
     authHeader: "Bearer fms_<SYNC_KEY>"
 ```
 
-Initial layout: one source per environment of a single project. With per-project
-environments (FR-55) there is one source per (project, environment) — URI and `flagSetId`
-naming follow OQ-6 (see [06-roadmap.md](06-roadmap.md) M2).
+Layout: one source per (project, environment). With per-project environments (FR-55) the
+source count grows with projects × environments; URI and `flagSetId` naming follow the OQ-6
+resolution (`<projectKey>:<env>`, see [06-roadmap.md](06-roadmap.md) M2).
 
 **Compose topology note:** In the v1 local deployment the management API runs as a host Node process and flagd runs in a Docker container (the API container image is a v1.1 candidate; see [06-roadmap.md](06-roadmap.md) M0). Inside a container, `localhost` refers to the container itself, so the flagd sync source URIs must point at the host: `http://host.docker.internal:3000/api/v1/sync/checkout/<env>` (Docker Desktop) or the compose service name (e.g. `http://api:3000/api/v1/sync/checkout/<env>`) once the API runs in a container.
 
@@ -184,7 +184,7 @@ import { OpenFeature } from '@openfeature/server-sdk';
 import { FlagdProvider } from '@openfeature/flagd-provider';
 
 await OpenFeature.setProviderAndWait(
-  new FlagdProvider({ host: 'localhost', port: 8013, selector: 'flagSetId=production' }),
+  new FlagdProvider({ host: 'localhost', port: 8013, selector: 'flagSetId=checkout:production' }),
 );
 
 const client = OpenFeature.getClient();
@@ -297,13 +297,13 @@ sequenceDiagram
     participant P as FMS per (project, env) provider
     participant F as flagd
 
-    C->>API: GET /api/v1/events (Bearer / session, ?envs=…)
+    C->>API: GET /api/v1/events (Bearer / session, ?envs=<projectKey>:<env>)
     API-->>C: 200 text/event-stream (keepalive comment every 15 s)
-    Note over API: committed change queued per env {flagKey, version, at, auditId}
+    Note over API: committed change queued per (project, env) {flagKey, version, at, auditId}
     F->>F: syncs the new model (≤ one interval)
     F-->>P: new model
     P-->>API: PROVIDER_CONFIGURATION_CHANGED
-    API-->>C: event: flag-changed {"env","flagKey","version","at"}
+    API-->>C: event: flag-changed {"projectKey","env","flagSetId","flagKey","version","at"}
     Note over C,API: event is true when sent — flagd serves the new version now
 ```
 
@@ -315,12 +315,12 @@ sequenceDiagram
 
 ## 4. Environments as flag sets (ADR-0004)
 
-- Environments (`dev`/`staging`/`prod`) map 1:1 to flagd **flag sets**: the sync document for
-  environment carries set-level `"metadata": { "flagSetId": "<projectKey>:<env>" }`. With per-project
-  environments (FR-55), set IDs may become project-namespaced (`<projectKey>:<env>`) — open
-  question OQ-6 in [01-requirements.md](01-requirements.md).
-- flagd's selector mechanism (`flagSetId=<env>`) isolates environments: a provider configured
-  with a selector only sees and evaluates that set's flags.
+- Each project's default environments (`dev`/`staging`/`prod`, FR-6) and any added per-project
+  environments (FR-55) map 1:1 to flagd **flag sets**: the sync document for (project,
+  environment) carries set-level `"metadata": { "flagSetId": "<projectKey>:<env>" }`. This is
+  the OQ-6 resolution (settled in M2; ADR-0004).
+- flagd's selector mechanism (`flagSetId=<projectKey>:<env>`) isolates flag sets: a provider
+  configured with a selector only sees and evaluates that set's flags.
 - One flagd instance serves all environments (simpler ops than N containers; isolation is
   logical, enforced by the selector).
 - FMS keeps per-environment definitions in one table (unique per flag+env) — storage is
@@ -357,7 +357,7 @@ The compiled document must validate against the official JSON schema
 | Events stream | `GET /api/v1/events` requires `evaluate` scope or a session (ADR-0008); the payload carries only flag keys + versions — nothing beyond what the management API exposes to the same credential. |
 | Audit | Append-only table, no update/delete API (FR-37); audit write participates in the mutation transaction (FR-39). |
 | HTTP hardening | `HttpOnly` + `SameSite=Lax` session cookie; `application/problem+json` errors leak no internals; no CORS (same-origin dashboard); JSON body size limit (1 MB). |
-| Secrets in repo | None. `docker-compose.yml` reads the sync key from the environment. |
+| Secrets in repo | No production secrets. The local `flagd/config.yaml` carries a generated development sync key only; M5 replaces it with an env-driven key (roadmap M5). |
 
 Threats explicitly out of scope for v1: transport encryption (assume trusted network / TLS
 terminating proxy), rate limiting, PII redaction in audit.

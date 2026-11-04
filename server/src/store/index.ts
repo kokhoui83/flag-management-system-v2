@@ -6,6 +6,8 @@ import { nextFlagVersion } from '../domain/flags';
 import { DEFAULT_ENVIRONMENTS } from '../config';
 import type { ActorType, Role } from '../domain/types';
 import type { FlagRule } from '@fms/shared';
+import type { FlagdFlagInput } from '../domain/flagd-model';
+import type { FlagdModelMemo } from '../sync/model-memo';
 
 export interface UserRecord {
   userName: string;
@@ -175,6 +177,10 @@ export interface Store {
     fromEnv: string;
     actor: string;
   }): Promise<'copied' | 'not_found'>;
+  /** Resolves a project by its globally unique key (FR-55/FR-56) → environments. */
+  getProject(key: string): Promise<{ id: string; key: string; name: string; environments: string[] } | null>;
+  /** All flag inputs of one (project, env) for the flagd sync model (M2). */
+  listFlagdModelInputs(projectId: string, env: string): Promise<FlagdFlagInput[]>;
   listAudit(query: AuditQuery): Promise<AuditPage>;
   createApiKey(input: { name: string; scope: string; createdBy: string }): Promise<CreateApiKeyResult>;
   listApiKeys(): Promise<ApiKeyRecord[]>;
@@ -218,7 +224,7 @@ async function writeAudit(
   });
 }
 
-export function createStore(prisma: PrismaClient): Store {
+export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo } = {}): Store {
   return {
     // ---------- auth resolution ----------
 
@@ -315,6 +321,16 @@ export function createStore(prisma: PrismaClient): Store {
         where: { userName },
         select: { projectId: true, role: true },
       }),
+
+    getProject: async (key) => {
+      const project = await prisma.project.findUnique({ where: { key } });
+      if (!project) return null;
+      const environments = await prisma.projectEnvironment.findMany({
+        where: { projectId: project.id },
+        orderBy: { env: 'asc' },
+      });
+      return { id: project.id, key: project.key, name: project.name, environments: environments.map((e) => e.env) };
+    },
 
     createEnvironment: async (projectId, env, actor) => {
       const existing = await prisma.projectEnvironment.findUnique({
@@ -427,6 +443,24 @@ export function createStore(prisma: PrismaClient): Store {
         return result;
       }),
 
+    listFlagdModelInputs: async (projectId, env) => {
+      const flags = await prisma.flag.findMany({ where: { projectId }, include: { definitions: true } });
+      const inputs: FlagdFlagInput[] = [];
+      for (const flag of flags) {
+        const definition = flag.definitions.find((candidate) => candidate.env === env);
+        if (!definition) continue;
+        inputs.push({
+          key: flag.key,
+          enabled: definition.enabled,
+          variants: definition.variants as Record<string, boolean | number | string>,
+          defaultVariant: definition.defaultVariant,
+          rules: definition.rules as unknown as FlagRule[],
+          version: flag.version,
+        });
+      }
+      return inputs;
+    },
+
     getFlag: async (projectId, key) => {
       const flag = await prisma.flag.findFirst({
         where: { projectId, key },
@@ -500,6 +534,7 @@ export function createStore(prisma: PrismaClient): Store {
           actorName: actor,
         });
       });
+      deps.memo?.invalidateByProject(projectId);
       return 'deleted';
     },
 
@@ -584,6 +619,7 @@ export function createStore(prisma: PrismaClient): Store {
           });
         });
       }
+      deps.memo?.invalidate(projectId, env);
       return { found: true, flagKey, env, version: nextVersion, unchanged };
     },
 
@@ -643,6 +679,7 @@ export function createStore(prisma: PrismaClient): Store {
           actorName: actor,
         });
       });
+      deps.memo?.invalidate(projectId, env);
       return 'copied';
     },
 

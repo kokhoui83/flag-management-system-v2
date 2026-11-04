@@ -36,6 +36,8 @@ export interface AuthService {
   isAdmin(principal: Principal): Promise<boolean>;
   /** Effective role of the caller on a project (FR-53/FR-54); throws 403 when none. */
   requireProjectRole(principal: Principal, projectId: string): Promise<EffectiveRole>;
+  /** True when the principal may fetch a project's flagd model (FR-27). */
+  canSync(principal: Principal, projectId?: string): Promise<boolean>;
 }
 
 export function createAuthService(deps: {
@@ -184,6 +186,23 @@ export function createAuthService(deps: {
     return role;
   }
 
+  async function canSync(principal: Principal, projectId?: string): Promise<boolean> {
+    if (principal.type === 'api_key') {
+      const scope = principal.apiKey.scope.toUpperCase();
+      return scope === 'SYNC' || scope === 'ALL';
+    }
+    if (principal.session.isBootstrapAdmin) return true;
+    const user = await store.findUserByName(principal.session.username);
+    const globalRole = user?.globalRole?.toUpperCase();
+    if (globalRole === 'ADMIN') return true;
+    if (projectId) {
+      const membership = await store.findMembership(principal.session.username, projectId);
+      return membership?.role.toUpperCase() === 'ADMIN';
+    }
+    const assignments = await store.listMemberAssignments(principal.session.username);
+    return assignments.some((membership) => membership.role.toUpperCase() === 'ADMIN');
+  }
+
   return {
     resolve,
     verifyBootstrap,
@@ -191,5 +210,6 @@ export function createAuthService(deps: {
     issue,
     isAdmin,
     requireProjectRole,
+    canSync,
   };
 }

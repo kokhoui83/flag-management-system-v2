@@ -13,10 +13,12 @@ import {
   type FlagDefinitionInput,
 } from '@fms/shared';
 import { FmsError, validationError } from './problem';
+import { FlagdModelMemo } from '../sync/model-memo';
 
 export interface RouteServices {
   auth: AuthService;
   store: Store;
+  memo: FlagdModelMemo;
 }
 
 function actorName(principal: { type: string; session?: { username: string }; apiKey?: ApiKeyRecord }): string {
@@ -41,8 +43,21 @@ function paramValue(source: Record<string, string>, key: string): string {
   return value;
 }
 
+function ifNoneMatchMatches(header: string | string[] | undefined, etag: string): boolean {
+  const values = Array.isArray(header) ? header : header ? [header] : [];
+  return values.some((value) => {
+    const candidates = value.matchAll(/(?:^|,)\s*((?:W\/)?"[^"]*"|\*)(?=\s*(?:,|$))/g);
+    for (const [, candidate] of candidates) {
+      if (!candidate) continue;
+      if (candidate === '*') return true;
+      if ((candidate.startsWith('W/') ? candidate.slice(2) : candidate) === etag) return true;
+    }
+    return false;
+  });
+}
+
 export async function registerRoutes(app: FastifyInstance, services: RouteServices): Promise<void> {
-  const { auth, store } = services;
+  const { auth, store, memo } = services;
 
   app.get('/healthz', async () => ({ status: 'ok' }));
   app.get('/readyz', async (_request, reply) => {
@@ -341,6 +356,39 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     }
     const flag = await store.getFlag(projectId, key);
     return { flagKey: key, env, version: flag?.version ?? 0 };
+  });
+
+  // ---------------------------------------------------------------- sync (flagd source)
+
+  app.get('/api/v1/sync/:projectKey/:env', async (request, reply) => {
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    if (principal.type === 'api_key' && !(await auth.canSync(principal))) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Sync scope required');
+    }
+    const params = paramsOf(request);
+    const projectKey = paramValue(params, 'projectKey');
+    const env = paramValue(params, 'env');
+    const project = await store.getProject(projectKey);
+    if (!project) {
+      throw new FmsError(404, 'https://fms.local/errors/not-found', `Project '${projectKey}' not found`);
+    }
+    if (principal.type === 'session' && !(await auth.canSync(principal, project.id))) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Sync access required for this project');
+    }
+    if (!project.environments.includes(env)) {
+      throw new FmsError(404, 'https://fms.local/errors/not-found', `Environment '${env}' not found in project '${projectKey}'`);
+    }
+    const flags = await store.listFlagdModelInputs(project.id, env);
+    const compiled = memo.get({ projectId: project.id, env, flagSetId: `${project.key}:${env}`, flags });
+    if (ifNoneMatchMatches(request.headers['if-none-match'], compiled.etag)) {
+      reply.header('ETag', compiled.etag);
+      return reply.code(304).send();
+    }
+    reply.header('ETag', compiled.etag);
+    return reply.code(200).type('application/json').send(compiled.body);
   });
 
   // ---------------------------------------------------------------- audit / keys / openapi

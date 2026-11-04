@@ -13,6 +13,8 @@ import {
   type FlagDefinitionInput,
 } from '@fms/shared';
 import { FmsError, validationError } from './problem';
+import { isFullAccess } from '../domain/types';
+import { productOwnerPutAllowed } from '../domain/flags';
 import { FlagdModelMemo } from '../sync/model-memo';
 
 export interface RouteServices {
@@ -76,6 +78,8 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     if (!session) {
       throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Invalid credentials');
     }
+    // FR-36 / FR-39: a successful login is audited as `auth.login` before the token issues.
+    await store.recordAuthLogin({ username: session.username, actorName: session.username, actorType: 'session' });
     const token = auth.issue(session, 'jwt');
     reply
       .setCookie('fms_token', token, {
@@ -139,24 +143,27 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     return reply.code(201).send(result.project);
   });
 
-  app.post('/api/v1/projects/:projectId/environments', async (request) => {
+  app.post('/api/v1/projects/:projectId/environments', async (request, reply) => {
     const projectId = paramValue(paramsOf(request), 'projectId');
     const principal = request.principal;
     if (!principal) {
       throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
     }
-    const session = await auth.requireProjectRole(principal, projectId);
-    void session;
+    const role = await auth.requireProjectRole(principal, projectId);
+    if (role === 'product-owner') {
+      // Capability matrix (FR-59): product owners may not create environments.
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Product owners cannot create environments');
+    }
     const body = request.body as { env?: string };
     const problems = validateEnvName(body.env);
     if (problems.length > 0) {
       throw validationError('Invalid environment name', problems);
     }
-    const outcome = await store.createEnvironment(projectId, body.env ?? '', 'admin');
+    const outcome = await store.createEnvironment(projectId, body.env ?? '', actorName(principal));
     if (outcome === 'conflict') {
       throw new FmsError(409, 'https://fms.local/errors/conflict', `Environment '${body.env}' already exists in this project`);
     }
-    return { projectId, env: body.env };
+    return reply.code(201).send({ projectId, env: body.env });
   });
 
   app.get('/api/v1/projects/:projectId/members', async (request) => {
@@ -181,20 +188,30 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     if (!admin) {
       throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Admin capability required');
     }
-    const body = request.body as { username?: string; role?: string; projectIds?: string[] };
-    if (!body.username || !body.role || !body.projectIds) {
-      throw new FmsError(400, 'https://fms.local/errors/validation', 'username, role and projectIds are required');
+    const body = request.body as {
+      username?: string;
+      role?: string;
+      projects?: Array<{ projectId?: string; role?: string }>;
+    };
+    const assignments = (body.projects ?? [])
+      .map((assignment) => ({ projectId: assignment.projectId ?? '', role: assignment.role ?? '' }))
+      .filter((assignment) => assignment.projectId.length > 0 && assignment.role.length > 0)
+      .map((assignment) => ({ projectId: assignment.projectId, role: assignment.role as 'admin' | 'developer' | 'product-owner' }));
+    const validRoles: Array<'admin' | 'developer' | 'product-owner'> = ['admin', 'developer', 'product-owner'];
+    const invalidAssignment = assignments.find((assignment) => !validRoles.includes(assignment.role));
+    if (!body.username || !body.role || assignments.length === 0 || invalidAssignment) {
+      throw new FmsError(400, 'https://fms.local/errors/validation', 'username, role and projects[] (projectId + role) with a valid role are required');
     }
     const invited = await store.inviteMember({
       username: body.username,
-      role: body.role as 'admin' | 'developer' | 'product-owner',
-      projectIds: body.projectIds,
+      globalRole: body.role as 'admin' | 'developer' | 'product-owner',
+      assignments,
       actor: actorName(principal),
     });
     return reply.code(201).send({
       user: invited.user,
       role: body.role,
-      projects: invited.memberships.map((m) => m.projectId),
+      projects: invited.memberships.map((m) => ({ projectId: m.projectId, role: m.role as 'admin' | 'developer' | 'product-owner' })),
       password: invited.tempPassword,
     });
   });
@@ -219,7 +236,10 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
       throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
     }
     const role = await auth.requireProjectRole(principal, projectId);
-    void role;
+    if (role === 'product-owner') {
+      // Capability matrix (FR-59): product owners cannot create flags.
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Product owners cannot create flags');
+    }
     const body = request.body as { key?: string; description?: string };
     const keyProblems = validateFlagKey(body.key);
     if (keyProblems.length > 0) {
@@ -261,7 +281,10 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
       throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
     }
     const role = await auth.requireProjectRole(principal, projectId);
-    void role;
+    if (role === 'product-owner') {
+      // Capability matrix (FR-59): product owners cannot edit descriptions.
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Product owners cannot edit flag descriptions');
+    }
     const body = request.body as { description?: string };
     const outcome = await store.updateFlagDescription(
       projectId,
@@ -283,8 +306,9 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     if (!principal) {
       throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
     }
-    const admin = await auth.isAdmin(principal);
-    if (!admin) {
+    const role = await auth.requireProjectRole(principal, projectId);
+    if (!isFullAccess(role)) {
+      // Capability matrix (FR-54/FR-59): only a (project-scoped) admin may delete flags.
       throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Admin capability required');
     }
     const outcome = await store.deleteFlag(projectId, key, actorName(principal));
@@ -303,11 +327,20 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
       throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
     }
     const role = await auth.requireProjectRole(principal, projectId);
-    void role;
     const body = request.body as FlagDefinitionInput;
     const problems = validateDefinition(body);
     if (problems.length > 0) {
       throw validationError('Invalid definition', problems);
+    }
+    if (role === 'product-owner') {
+      // Capability matrix (FR-59): product owners may only toggle `enabled`.
+      const storedFlag = await store.getFlag(projectId, key);
+      if (!storedFlag) {
+        throw new FmsError(404, 'https://fms.local/errors/not-found', `Flag '${key}' not found`);
+      }
+      if (!productOwnerPutAllowed(storedFlag.definitions[env], body)) {
+        throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Product owners may only change enabled');
+      }
     }
     const result: PutDefinitionResult = await store.putDefinition({
       projectId,
@@ -336,7 +369,10 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
       throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
     }
     const role = await auth.requireProjectRole(principal, projectId);
-    void role;
+    if (role === 'product-owner') {
+      // Capability matrix (FR-59): product owners cannot copy definitions.
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Product owners cannot copy definitions');
+    }
     const body = request.body as { fromEnv?: string };
     if (!body.fromEnv) {
       throw new FmsError(400, 'https://fms.local/errors/validation', 'fromEnv is required');
@@ -462,7 +498,7 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     if (!admin) {
       throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Admin capability required');
     }
-    const outcome = await store.revokeApiKey(String(paramValue(paramsOf(request), 'id')));
+    const outcome = await store.revokeApiKey(String(paramValue(paramsOf(request), 'id')), actorName(principal));
     if (outcome === 'not_found') {
       throw new FmsError(404, 'https://fms.local/errors/not-found', 'API key not found');
     }

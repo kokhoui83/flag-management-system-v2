@@ -38,7 +38,7 @@ Milestone map (used by [06-roadmap.md](06-roadmap.md) acceptance criteria):
 | §2.1 Validation | M1 |
 | §2.2 Compilation | M2 |
 | §2.3 flagd E2E | M2 (ETag/304), M3 (evaluate, propagation, SSE, readiness, NFR-3) |
-| §2.4 Auth & audit | M1 (auth/audit/keys/revocation; capability-matrix scenarios pending the M1 follow-up), M2 (sync scope), M3 (events scope) |
+| §2.4 Auth & audit | M1 (auth/audit/keys/revocation; capability-matrix scenarios implemented via the M1 follow-up), M2 (sync scope), M3 (events scope) |
 | §2.5 API surface | M1 (flags/audit), M2 (sync/ETag/admin-sync/memo), M5 (OpenAPI) |
 | §2.6 Multi-user | M1 (API), M4 (UI) |
 

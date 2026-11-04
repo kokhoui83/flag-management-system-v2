@@ -149,8 +149,10 @@ export interface Store {
   listMembers(projectId: string): Promise<Array<{ user: string; role: string }>>;
   inviteMember(input: {
     username: string;
-    role: Role;
-    projectIds: string[];
+    /** Global role applied to the invited user (FR-54/FR-57). */
+    globalRole: Role;
+    /** Independent per-project assignments (FR-54/FR-57); a membership may elevate, never reduce. */
+    assignments: Array<{ projectId: string; role: Role }>;
     actor: string;
   }): Promise<{ user: string; tempPassword: string; memberships: Array<{ projectId: string; role: string }> }>;
   createFlag(input: { projectId: string; key: string; description: string; actor: string }): Promise<'created' | 'conflict'>;
@@ -184,7 +186,9 @@ export interface Store {
   listAudit(query: AuditQuery): Promise<AuditPage>;
   createApiKey(input: { name: string; scope: string; createdBy: string }): Promise<CreateApiKeyResult>;
   listApiKeys(): Promise<ApiKeyRecord[]>;
-  revokeApiKey(id: string): Promise<'revoked' | 'not_found'>;
+  revokeApiKey(id: string, actor: string): Promise<'revoked' | 'not_found'>;
+  /** FR-36 / docs/03-data-model.md §5: append-only `auth.login` audit (success only). */
+  recordAuthLogin(input: { username: string; actorName: string; actorType: ActorType }): Promise<void>;
 }
 
 function variantTypeOf(variants: unknown): string {
@@ -222,6 +226,15 @@ async function writeAudit(
       after: (input.after ?? null) as Prisma.InputJsonValue,
     },
   });
+}
+
+/** Normalizes a capability/role name (`product-owner`) to the Prisma enum spelling (`PRODUCT_OWNER`). */
+function toPrismaRole(role: string): 'ADMIN' | 'DEVELOPER' | 'PRODUCT_OWNER' {
+  const normalized = (role ?? '').trim().toUpperCase().replace(/-/g, '_');
+  if (normalized !== 'ADMIN' && normalized !== 'DEVELOPER' && normalized !== 'PRODUCT_OWNER') {
+    throw new Error(`Invalid role for membership: ${role}`);
+  }
+  return normalized as 'ADMIN' | 'DEVELOPER' | 'PRODUCT_OWNER';
 }
 
 export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo } = {}): Store {
@@ -360,32 +373,33 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
         orderBy: { userName: 'asc' },
       }).then((rows) => rows.map((r) => ({ user: r.user.userName, role: r.role }))),
 
-    inviteMember: async ({ username, role, projectIds, actor }) => {
+    inviteMember: async ({ username, globalRole, assignments, actor }) => {
       const tempPassword = `temp-${randomBytes(9).toString('base64url')}`;
       const passwordHash = await argon2Hash(tempPassword);
       const memberships: Array<{ projectId: string; role: string }> = [];
-      const globalRole = role.toUpperCase() as 'ADMIN' | 'DEVELOPER' | 'PRODUCT_OWNER';
+      const globalRoleUpper = toPrismaRole(globalRole);
       await prisma.$transaction(async (tx) => {
         await tx.user.upsert({
           where: { userName: username },
-          update: { passwordHash, globalRole },
-          create: { userName: username, passwordHash, globalRole },
+          update: { passwordHash, globalRole: globalRoleUpper },
+          create: { userName: username, passwordHash, globalRole: globalRoleUpper },
         });
-        for (const projectId of projectIds) {
+        for (const assignment of assignments) {
+          const assignmentRole = toPrismaRole(assignment.role);
           await tx.projectMembership.upsert({
-            where: { userName_projectId: { userName: username, projectId } },
-            update: { role: globalRole },
-            create: { userName: username, projectId, role: globalRole },
+            where: { userName_projectId: { userName: username, projectId: assignment.projectId } },
+            update: { role: assignmentRole },
+            create: { userName: username, projectId: assignment.projectId, role: assignmentRole },
           });
-          memberships.push({ projectId, role });
+          memberships.push({ projectId: assignment.projectId, role: assignment.role });
         }
         await writeAudit(tx, {
           action: 'project.member.invite',
           entity: 'project',
-          entityId: projectIds[0] ?? username,
+          entityId: assignments[0]?.projectId ?? username,
           env: null,
           before: null,
-          after: { user: username, role, projects: projectIds },
+          after: { user: username, role: globalRoleUpper, projects: assignments },
           actorType: 'session',
           actorName: actor,
         });
@@ -705,20 +719,67 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
       const plaintext = `fms_${keyBody}`;
       const keyHash = createHash('sha256').update(plaintext).digest('hex');
       const apiKeyScope = scope.toUpperCase() as 'MANAGE' | 'EVALUATE' | 'SYNC' | 'ALL';
-      const key = await prisma.apiKey.create({
-        data: { id: generateUlid(), name, keyHash, keyPrefix: plaintext.slice(0, 8), scope: apiKeyScope, createdBy },
+      const key = await prisma.$transaction(async (tx) => {
+        const created = await tx.apiKey.create({
+          data: { id: generateUlid(), name, keyHash, keyPrefix: plaintext.slice(0, 8), scope: apiKeyScope, createdBy },
+        });
+        // FR-34 / FR-36 / docs/03-data-model.md §5: key creation is audited; key material never enters the audit trail.
+        // The create and its audit share one transaction so an audit failure aborts the mutation (FR-39).
+        await writeAudit(tx, {
+          action: 'api_key.create',
+          entity: 'api_key',
+          entityId: created.id,
+          env: null,
+          before: null,
+          after: { id: created.id, name, scope: apiKeyScope, createdBy },
+          actorType: 'session',
+          actorName: createdBy,
+        });
+        return created;
       });
       return { key, plaintext };
     },
 
     listApiKeys: async () => prisma.apiKey.findMany({ orderBy: { createdAt: 'desc' } }),
 
-    revokeApiKey: async (id) => {
-      const key = await prisma.apiKey.update({
-        where: { id },
-        data: { revokedAt: new Date() },
+    revokeApiKey: async (id, actor) => {
+      const key = await prisma.apiKey.findUnique({ where: { id } });
+      // FR-34: revoking a key that does not exist is a clean not_found (no Prisma update error).
+      if (!key) return 'not_found';
+      const revokedAt = new Date();
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.apiKey.update({ where: { id }, data: { revokedAt } });
+        // FR-34 / FR-36 / docs/03-data-model.md §5: key revocation is audited; key material never enters the audit trail.
+        // The revoke and its audit share one transaction so an audit failure aborts the mutation (FR-39).
+        await writeAudit(tx, {
+          action: 'api_key.revoke',
+          entity: 'api_key',
+          entityId: id,
+          env: null,
+          before: { id: key.id, name: key.name, revokedAt: null },
+          after: { id: key.id, name: key.name, revokedAt: revokedAt.toISOString() },
+          actorType: 'session',
+          actorName: actor,
+        });
+        return result;
       });
-      return key.revokedAt !== null ? 'revoked' : 'not_found';
+      return updated.revokedAt !== null ? 'revoked' : 'not_found';
+    },
+
+    recordAuthLogin: async ({ username, actorName: actor, actorType }) => {
+      // FR-36 / FR-39 / docs/03-data-model.md §5: successful logins only are audited as `auth.login`.
+      await prisma.$transaction(async (tx) => {
+        await writeAudit(tx, {
+          action: 'auth.login',
+          entity: 'auth',
+          entityId: username,
+          env: null,
+          before: null,
+          after: { username },
+          actorType,
+          actorName: actor,
+        });
+      });
     },
   };
 }

@@ -13,7 +13,7 @@ Requirement coverage by milestone (details in [01-requirements.md](01-requiremen
 | Milestone | Functional requirements | Non-functional requirements |
 | --- | --- | --- |
 | M0 | — (tooling) | NFR-6 (portability baseline), NFR-7 (health endpoints), NFR-8 (test seams) |
-| M1 | FR-1–FR-20, FR-30–FR-39, FR-53–FR-59 (API; partial — see M1 follow-up) | NFR-5 (password/key hashing), NFR-8 |
+| M1 | FR-1–FR-20, FR-30–FR-39, FR-53–FR-59 (API; capability-matrix follow-up implemented — see M1 follow-up) | NFR-5 (password/key hashing), NFR-8 |
 | M2 | FR-26–FR-29 | NFR-1 (sync latency), NFR-9 |
 | M3 | FR-21–FR-25, FR-50–FR-51 | NFR-1 (evaluate latency), NFR-3, NFR-7 (readiness) |
 | M4 | FR-40–FR-47, FR-52, FR-53–FR-59 (UI) | NFR-7 (sync-health badge) |
@@ -59,8 +59,9 @@ Requirement coverage by milestone (details in [01-requirements.md](01-requiremen
 
 **Goal:** flags/definitions CRUD + versioning + audit, fully tested without flagd.
 
-**Status:** baseline complete (2026-11-03); the capability-matrix and audit-actor items in the
-M1 follow-up below are still open, so M1 is not fully closed.
+**Status:** baseline complete (2026-11-03); the M1 follow-up items below (capability matrix,
+audit actor, effective-permission union, per-project invite roles) were implemented on
+2026-11-05, so M1 is now fully closed at the API level (dashboard UI scope remains in M4).
 
 - Domain: flag key validation (FR-1), definition validation all-at-once (FR-10–FR-18),
   rule model per [03-data-model.md §2](03-data-model.md), plus the §1 invariants
@@ -96,10 +97,10 @@ M1 follow-up below are still open, so M1 is not fully closed.
       assertions land in M4. (Flagd-facing scenarios — sync
       `GET /api/v1/sync/:projectKey/:env` FR-26/FR-27, events SSE FR-51, evaluate
       FR-21–FR-25 — are M2/M3 scope and land with those endpoints.)
-- [ ] Capability-matrix scenarios in [05-testing.md §2.4](05-testing.md) green
+- [x] Capability-matrix scenarios in [05-testing.md §2.4](05-testing.md) green
       (product-owner `enabled`-only toggle, developer blocked from admin-only surfaces,
-      effective permissions as the global+project union, mixed per-project roles) — pending
-      the M1 follow-up items below.
+      effective permissions as the global+project union, mixed per-project roles) — implemented
+      via the M1 follow-up items below and verified in `server/test/m1.integration.test.ts`.
 - [x] Version bump semantics verified: create=1, any-environment definition update +1 on the
       single flag-level version, idempotent put no-op (FR-5).
 - [x] `npm test` + `typecheck` + `lint` green (unit tier, no Docker);
@@ -117,24 +118,26 @@ M1 follow-up below are still open, so M1 is not fully closed.
 ### M1 follow-up (2026-11-04 alignment review)
 
 The 2026-11-04 cross-document review found API-level gaps between the implemented M1 routes and
-the FR-54/FR-58/FR-59 capability matrix and invite contract. The baseline is done, but these
-items keep the capability-matrix acceptance open:
+the FR-54/FR-58/FR-59 capability matrix and invite contract. The baseline is done; all four
+follow-up items below are now implemented and the capability-matrix acceptance is closed:
 
-- [ ] Enforce the product-owner capability matrix (FR-59): the current flag-create,
-      description-update, definition `PUT`/`copy`, and environment-create routes accept any
-      project member. Product owners must be limited to `enabled`-only definition updates;
-      everything else is `403`. Add the guards + API tests.
-- [ ] Record the authenticated actor (not a hardcoded `admin`) on the
-      `project.environment.create` audit entry (FR-36).
-- [ ] Compute effective permissions as the union of the global role and project membership
-      (FR-54); the current guard uses the membership role unless the global role is `admin`,
-      and flag deletion checks only the global admin/manage key (so a project admin cannot
-      delete).
-- [ ] Implement per-project membership roles in the invite API (FR-54/FR-57): the new
-      contract (global `role` + `projects: [{ projectId, role }]`) is already specified in
-      [04-api.md §13](04-api.md) and `server/openapi.json`, but the route and store still
-      expect the old `{ role, projectIds }` shape. Implement the new shape and the §2.4
-      mixed-role tests so the mixed-role acceptance is verified end-to-end.
+- [x] Enforce the product-owner capability matrix (FR-59): the flag-create,
+      description-update, definition `PUT`/`copy`, and environment-create routes now reject
+      product owners with `403` (product owners are limited to `enabled`-only definition updates;
+      everything else is `403`); flag delete requires the effective (project-scoped) admin
+      capability. Guards + API tests added in `server/src/http/routes.ts` and
+      `server/src/domain/flags.ts`.
+- [x] Record the authenticated actor (not a hardcoded `admin`) on the
+      `project.environment.create` audit entry (FR-36): the route passes the resolved actor
+      (`actorName(principal)`) into the store.
+- [x] Compute effective permissions as the union of the global role and project membership
+      (FR-54); the guard now resolves the union via `effectiveCapability` in
+      `server/src/domain/types.ts` (membership may elevate, never reduce; unassigned → no access),
+      and flag deletion checks the effective project capability instead of the global admin key.
+- [x] Implement per-project membership roles in the invite API (FR-54/FR-57): the new
+      contract (global `role` + `projects: [{ projectId, role }]`) is implemented in the
+      invite route (`server/src/http/routes.ts`) and store (`server/src/store/index.ts`); the
+      §2.4 mixed-role tests pass end-to-end in `server/test/m1.integration.test.ts`.
 
 ---
 

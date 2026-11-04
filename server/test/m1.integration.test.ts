@@ -84,6 +84,19 @@ describe('M1 — Flags & definitions core (integration: MariaDB via testcontaine
       payload: { username: 'admin', password: 'wrong' },
     });
     expect(bad.statusCode).toBe(401);
+
+    // FR-36 / docs/03-data-model.md §5: successful logins are audited as `auth.login`
+    // (entity `auth`, success only); failed logins add no entry.
+    const loginAudit = await app.inject({
+      method: 'GET',
+      url: '/api/v1/audit?action=auth.login&actor=admin&limit=10',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(loginAudit.statusCode).toBe(200);
+    const loginAuditEntries = loginAudit.json().entries as Array<{ action: string; actorName: string }>;
+    expect(loginAuditEntries.length).toBeGreaterThan(0);
+    expect(loginAuditEntries[0].action).toBe('auth.login');
+    expect(loginAuditEntries[0].actorName).toBe('admin');
   });
 
   it('creates projects, flags, definitions with version semantics, audit, and deletes', async () => {
@@ -306,6 +319,37 @@ describe('M1 — Flags & definitions core (integration: MariaDB via testcontaine
       headers: { authorization: `Bearer ${plaintext}` },
     });
     expect(revokedUse.statusCode).toBe(401);
+
+    // FR-34 / FR-36 / docs/03-data-model.md §5: API-key creation and revocation are audited.
+    const keyCreateAudit = await app.inject({
+      method: 'GET',
+      url: '/api/v1/audit?action=api_key.create&actor=admin&limit=10',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(keyCreateAudit.statusCode).toBe(200);
+    const keyCreateAuditEntries = keyCreateAudit.json().entries as Array<{ action: string; entity: string }>;
+    expect(keyCreateAuditEntries.length).toBeGreaterThan(0);
+    expect(keyCreateAuditEntries[0].action).toBe('api_key.create');
+    expect(keyCreateAuditEntries[0].entity).toBe('api_key');
+
+    const keyRevokeAudit = await app.inject({
+      method: 'GET',
+      url: '/api/v1/audit?action=api_key.revoke&actor=admin&limit=10',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(keyRevokeAudit.statusCode).toBe(200);
+    const keyRevokeAuditEntries = keyRevokeAudit.json().entries as Array<{ action: string; entity: string }>;
+    expect(keyRevokeAuditEntries.length).toBeGreaterThan(0);
+    expect(keyRevokeAuditEntries[0].action).toBe('api_key.revoke');
+    expect(keyRevokeAuditEntries[0].entity).toBe('api_key');
+
+    // FR-34: revoking a nonexistent API key is a clean 404, not a 500 from the Prisma update.
+    const revokeMissing = await app.inject({
+      method: 'DELETE',
+      url: '/api/v1/api-keys/does-not-exist',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(revokeMissing.statusCode).toBe(404);
   });
 
   it('invite flow: invited developer gets temp password, scoped access, and 403 off-assignment', async () => {
@@ -317,7 +361,7 @@ describe('M1 — Flags & definitions core (integration: MariaDB via testcontaine
       method: 'POST',
       url: `/api/v1/projects/${projectId}/members`,
       headers: { authorization: `Bearer ${token}` },
-      payload: { username: 'brian', role: 'developer', projectIds: [projectId] },
+      payload: { username: 'brian', role: 'developer', projects: [{ projectId, role: 'developer' }] },
     });
     expect(invite.statusCode).toBe(201);
     const tempPassword: string = invite.json().password;
@@ -344,5 +388,296 @@ describe('M1 — Flags & definitions core (integration: MariaDB via testcontaine
       payload: { key: 'nope' },
     });
     expect(brianOther.statusCode).toBe(403);
+  });
+
+  it('enforces the product-owner capability matrix: enabled-only toggle allowed, create/edit/copy/delete/environment blocked (FR-59/FR-54/FR-58/FR-57)', async () => {
+    const token = await adminToken();
+    const created = await createProject(token, 'po-matrix', 'Po Matrix');
+    expect(created.status).toBe(201);
+    const projectId = created.body.id;
+
+    const flagCreate = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/flags`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { key: 'new-thing', description: 'Po matrix flag' },
+    });
+    expect(flagCreate.statusCode).toBe(201);
+
+    const putDef = await app.inject({
+      method: 'PUT',
+      url: `/api/v1/projects/${projectId}/flags/new-thing/definitions/dev`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { enabled: true, variants: { on: true, off: false }, defaultVariant: 'off', rules: [] },
+    });
+    expect(putDef.statusCode).toBe(200);
+    expect(putDef.json().version).toBe(2);
+
+    const invite = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/members`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { username: 'po-tester', role: 'product-owner', projects: [{ projectId, role: 'product-owner' }] },
+    });
+    expect(invite.statusCode).toBe(201);
+    const poToken = await login('po-tester', invite.json().password);
+
+    // A product owner may not change variants/rules/defaults (FR-59) → 403, version must not bump.
+    const poVariantPut = await app.inject({
+      method: 'PUT',
+      url: `/api/v1/projects/${projectId}/flags/new-thing/definitions/dev`,
+      headers: { authorization: `Bearer ${poToken}` },
+      payload: { enabled: true, variants: { on: true, off: false }, defaultVariant: 'on', rules: [] },
+    });
+    expect(poVariantPut.statusCode).toBe(403);
+
+    // A product owner may toggle `enabled` only → 200, version bumps, audited as definition.update.
+    const poToggle = await app.inject({
+      method: 'PUT',
+      url: `/api/v1/projects/${projectId}/flags/new-thing/definitions/dev`,
+      headers: { authorization: `Bearer ${poToken}` },
+      payload: { enabled: false, variants: { on: true, off: false }, defaultVariant: 'off', rules: [] },
+    });
+    expect(poToggle.statusCode).toBe(200);
+    expect(poToggle.json().version).toBe(3);
+
+    // A product owner may not create flags, edit descriptions, copy, delete, or create environments.
+    const poFlagCreate = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/flags`,
+      headers: { authorization: `Bearer ${poToken}` },
+      payload: { key: 'nope', description: 'nope' },
+    });
+    expect(poFlagCreate.statusCode).toBe(403);
+
+    const poDescUpdate = await app.inject({
+      method: 'PUT',
+      url: `/api/v1/projects/${projectId}/flags/new-thing`,
+      headers: { authorization: `Bearer ${poToken}` },
+      payload: { description: 'hacked' },
+    });
+    expect(poDescUpdate.statusCode).toBe(403);
+
+    const poCopy = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/flags/new-thing/definitions/dev/copy`,
+      headers: { authorization: `Bearer ${poToken}` },
+      payload: { fromEnv: 'staging' },
+    });
+    expect(poCopy.statusCode).toBe(403);
+
+    const poDelete = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/projects/${projectId}/flags/new-thing`,
+      headers: { authorization: `Bearer ${poToken}` },
+    });
+    expect(poDelete.statusCode).toBe(403);
+
+    const poEnvCreate = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/environments`,
+      headers: { authorization: `Bearer ${poToken}` },
+      payload: { env: 'qa' },
+    });
+    expect(poEnvCreate.statusCode).toBe(403);
+  });
+
+  it('lets an assigned developer create flags/environments and put definitions, but not delete (FR-54/FR-58/FR-57)', async () => {
+    const token = await adminToken();
+    const created = await createProject(token, 'dev-matrix', 'Dev Matrix');
+    expect(created.status).toBe(201);
+    const projectId = created.body.id;
+
+    const devInvite = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/members`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { username: 'dev-tester', role: 'developer', projects: [{ projectId, role: 'developer' }] },
+    });
+    expect(devInvite.statusCode).toBe(201);
+    const devToken = await login('dev-tester', devInvite.json().password);
+
+    const devFlag = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/flags`,
+      headers: { authorization: `Bearer ${devToken}` },
+      payload: { key: 'dev-thing', description: 'Dev matrix flag' },
+    });
+    expect(devFlag.statusCode).toBe(201);
+
+    const devEnv = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/environments`,
+      headers: { authorization: `Bearer ${devToken}` },
+      payload: { env: 'qa' },
+    });
+    expect(devEnv.statusCode).toBe(201);
+
+    const devPut = await app.inject({
+      method: 'PUT',
+      url: `/api/v1/projects/${projectId}/flags/dev-thing/definitions/dev`,
+      headers: { authorization: `Bearer ${devToken}` },
+      payload: { enabled: true, variants: { on: true, off: false }, defaultVariant: 'off', rules: [] },
+    });
+    expect(devPut.statusCode).toBe(200);
+
+    const devDelete = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/projects/${projectId}/flags/dev-thing`,
+      headers: { authorization: `Bearer ${devToken}` },
+    });
+    expect(devDelete.statusCode).toBe(403);
+  });
+
+  it('resolves effective permissions as the union of global and per-project roles (FR-54) — project-scoped admin elevation', async () => {
+    const token = await adminToken();
+    const unionA = await createProject(token, 'union-a', 'Union A');
+    expect(unionA.status).toBe(201);
+    const unionB = await createProject(token, 'union-b', 'Union B');
+    expect(unionB.status).toBe(201);
+    const aId = unionA.body.id;
+    const bId = unionB.body.id;
+
+    const invite = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${aId}/members`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        username: 'elevator',
+        role: 'developer',
+        projects: [
+          { projectId: aId, role: 'admin' },
+          { projectId: bId, role: 'developer' },
+        ],
+      },
+    });
+    expect(invite.statusCode).toBe(201);
+    const elevatorToken = await login('elevator', invite.json().password);
+
+    const flagA = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${aId}/flags`,
+      headers: { authorization: `Bearer ${elevatorToken}` },
+      payload: { key: 'elev-flag', description: 'Elev flag' },
+    });
+    expect(flagA.statusCode).toBe(201);
+    const delA = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/projects/${aId}/flags/elev-flag`,
+      headers: { authorization: `Bearer ${elevatorToken}` },
+    });
+    expect(delA.statusCode).toBe(204);
+
+    const flagB = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${bId}/flags`,
+      headers: { authorization: `Bearer ${elevatorToken}` },
+      payload: { key: 'elev-flag-b', description: 'Elev flag B' },
+    });
+    expect(flagB.statusCode).toBe(201);
+    const delB = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/projects/${bId}/flags/elev-flag-b`,
+      headers: { authorization: `Bearer ${elevatorToken}` },
+    });
+    expect(delB.statusCode).toBe(403);
+  });
+
+  it('records the authenticated actor on the project.environment.create audit entry (FR-36)', async () => {
+    const token = await adminToken();
+    const created = await createProject(token, 'audit-actor', 'Audit Actor');
+    expect(created.status).toBe(201);
+    const projectId = created.body.id;
+
+    const devInvite = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/members`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { username: 'audit-dev', role: 'developer', projects: [{ projectId, role: 'developer' }] },
+    });
+    expect(devInvite.statusCode).toBe(201);
+    const devToken = await login('audit-dev', devInvite.json().password);
+
+    const envCreate = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/environments`,
+      headers: { authorization: `Bearer ${devToken}` },
+      payload: { env: 'qa' },
+    });
+    expect(envCreate.statusCode).toBe(201);
+
+    const audit = await app.inject({
+      method: 'GET',
+      url: `/api/v1/audit?action=project.environment.create&actor=audit-dev&limit=10`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(audit.statusCode).toBe(200);
+    const entries = audit.json().entries as Array<{ action: string; actorName: string }>;
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries[0].action).toBe('project.environment.create');
+    expect(entries[0].actorName).toBe('audit-dev');
+  });
+
+  it('aborts API-key creation when the audit write fails (FR-39: no untracked mutation)', async () => {
+    const token = await adminToken();
+
+    // FR-39: an audit write failure aborts the mutation (BEFORE INSERT trigger seam).
+    await prisma.$executeRawUnsafe(
+      'CREATE TRIGGER audit_write_fail BEFORE INSERT ON audit_logs FOR EACH ROW BEGIN SET NEW.entity_id = NULL; END;',
+    );
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/api-keys',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { name: 'audit-fail-create', scope: 'manage' },
+    });
+    expect(created.statusCode).toBe(500);
+
+    await prisma.$executeRawUnsafe('DROP TRIGGER audit_write_fail');
+
+    // The failed creation was rolled back — nothing was created un-audited.
+    const keys = await app.inject({
+      method: 'GET',
+      url: '/api/v1/api-keys',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const keyNames = (keys.json().keys as Array<{ name: string }>).map((k) => k.name);
+    expect(keyNames).not.toContain('audit-fail-create');
+  });
+
+  it('aborts API-key revocation when the audit write fails (FR-39: no untracked mutation)', async () => {
+    const token = await adminToken();
+
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/api-keys',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { name: 'audit-fail-revoke', scope: 'manage' },
+    });
+    expect(created.statusCode).toBe(201);
+    const keyId: string = created.json().id;
+
+    await prisma.$executeRawUnsafe(
+      'CREATE TRIGGER audit_write_fail BEFORE INSERT ON audit_logs FOR EACH ROW BEGIN SET NEW.entity_id = NULL; END;',
+    );
+    const revoked = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/api-keys/${keyId}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(revoked.statusCode).toBe(500);
+
+    await prisma.$executeRawUnsafe('DROP TRIGGER audit_write_fail');
+
+    // The failed revocation was rolled back — the key stays active.
+    const keys = await app.inject({
+      method: 'GET',
+      url: '/api/v1/api-keys',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const entry = (keys.json().keys as Array<{ id: string; name: string; revokedAt: unknown }>).find(
+      (k) => k.name === 'audit-fail-revoke',
+    );
+    expect(entry?.revokedAt).toBeNull();
   });
 });

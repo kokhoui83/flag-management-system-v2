@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual, createHash } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
 import { type ApiKeyRecord, type Store } from '../store';
 import { FmsError, unauthorizedError } from './problem';
-import type { EffectiveRole } from '../domain/types';
+import { effectiveCapability, hasProjectAccess, isFullAccess, type EffectiveRole } from '../domain/types';
 
 export const COOKIE_NAME = 'fms_token';
 const JWT_TTL_SECONDS = 12 * 60 * 60;
@@ -177,10 +177,10 @@ export function createAuthService(deps: {
     if (session.isBootstrapAdmin) return 'admin';
     const user = await store.findUserByName(session.username);
     const membership = user ? await store.findMembership(session.username, projectId) : null;
-    const globalRole = user?.globalRole?.toUpperCase();
-    const membershipRole = membership?.role ? (membership.role.toLowerCase() as EffectiveRole) : null;
-    const role: EffectiveRole = globalRole === 'ADMIN' ? 'admin' : membershipRole;
-    if (!role) {
+    // Effective permissions are the union of the global role and the per-project
+    // membership (FR-54): a membership may elevate on this project, never below global.
+    const role = effectiveCapability(user?.globalRole, membership?.role);
+    if (!hasProjectAccess(role)) {
       throw new FmsError(403, 'https://fms.local/errors/forbidden', 'No access to this project');
     }
     return role;
@@ -193,14 +193,14 @@ export function createAuthService(deps: {
     }
     if (principal.session.isBootstrapAdmin) return true;
     const user = await store.findUserByName(principal.session.username);
-    const globalRole = user?.globalRole?.toUpperCase();
-    if (globalRole === 'ADMIN') return true;
+    if (user?.globalRole?.toUpperCase() === 'ADMIN') return true;
     if (projectId) {
       const membership = await store.findMembership(principal.session.username, projectId);
-      return membership?.role.toUpperCase() === 'ADMIN';
+      // The flagd sync source is admin-gated: global admin or a project-scoped admin via elevation.
+      return isFullAccess(effectiveCapability(user?.globalRole, membership?.role));
     }
     const assignments = await store.listMemberAssignments(principal.session.username);
-    return assignments.some((membership) => membership.role.toUpperCase() === 'ADMIN');
+    return assignments.some((assignment) => assignment.role?.toUpperCase() === 'ADMIN');
   }
 
   return {

@@ -174,10 +174,17 @@ Milestone map (used by [06-roadmap.md](06-roadmap.md) acceptance criteria):
   **W** the stream is opened
   **T** `400` problem+json (FR-51).
 
-- **G** the local stack is warm
-  **W** 1,000 `/evaluate` calls are issued and a 1,000-flag sync document is fetched
-  **T** `/evaluate` p99 < 25 ms; sync p99 < 50 ms with ETag/304 and < 200 ms for the full
-  body (NFR-1; logged, not a flaky hard gate).
+- **G** the local stack is fully ready (flagd `READY`, models synced) and a 100-call
+  `/evaluate` warmup has been issued and discarded
+  **W** 1,000 sequential `/evaluate` calls, 1,000 conditional sync requests (with
+  `If-None-Match`, expecting `304`), and 100 full-body sync fetches are measured
+  **T** `/evaluate` p99 < 25 ms; sync p99 < 50 ms for conditional/304 and < 200 ms for the
+  full body (NFR-1; p99s logged, not a flaky hard gate).
+
+- **G** the warm stack from the scenario above (1,000 flags × 3 environments, the NFR-2 shape)
+  **W** evaluations are issued at 100/s for 60 s (6,000 total)
+  **T** all 6,000 evaluations succeed and the steady-state p99 stays within the NFR-1 bound
+  (NFR-2; logged).
 
 ### 2.4 Auth & audit
 

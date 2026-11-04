@@ -130,9 +130,11 @@ items keep the capability-matrix acceptance open:
       (FR-54); the current guard uses the membership role unless the global role is `admin`,
       and flag deletion checks only the global admin/manage key (so a project admin cannot
       delete).
-- [ ] Support per-project membership roles in the invite API (FR-54/FR-57): the current
-      contract accepts one `role` for all `projectIds`, so mixed-role users cannot be created.
-      Implement the `projects: [{ projectId, role }]` contract and the mixed-role tests.
+- [ ] Implement per-project membership roles in the invite API (FR-54/FR-57): the new
+      contract (global `role` + `projects: [{ projectId, role }]`) is already specified in
+      [04-api.md §13](04-api.md) and `server/openapi.json`, but the route and store still
+      expect the old `{ role, projectIds }` shape. Implement the new shape and the §2.4
+      mixed-role tests so the mixed-role acceptance is verified end-to-end.
 
 ---
 
@@ -178,8 +180,10 @@ selectors all follow the resolution.
 
 ### M2 follow-up (2026-11-04 alignment review)
 
-- [ ] Measure and log NFR-1 sync latency: p99 < 50 ms with `ETag`/`304`, and < 200 ms for a
-      full 1,000-flag body (1,000 flags × 3 environments is the NFR-2 shape).
+- [ ] Measure and log NFR-1 sync latency per the [05-testing.md §2.3](05-testing.md) protocol
+      (100-call warmup discarded; 1,000 conditional requests, 100 full-body fetches):
+      p99 < 50 ms with `ETag`/`304`, and < 200 ms for a full 1,000-flag body (1,000 flags ×
+      3 environments is the NFR-2 shape).
 
 ---
 
@@ -213,7 +217,9 @@ provider state.
 **Acceptance**
 - [ ] All [05-testing.md §2.3](05-testing.md) E2E scenarios green via `npm run test:e2e`
       (Vitest + compose).
-- [ ] NFR-1 latency: local `/evaluate` p99 < 25 ms measured in E2E (1,000 calls, logged).
+- [ ] NFR-1 latency: local `/evaluate` p99 < 25 ms measured in E2E per the
+      [05-testing.md §2.3](05-testing.md) protocol (100-call warmup discarded, 1,000
+      measured calls, logged).
 - [ ] `readyz` transitions observed: READY → (flagd stopped) ERROR → (flagd restarted) READY;
       `readyz` keys are project-namespaced flag-set IDs (`<projectKey>:<env>`).
 - [ ] SSE: change → `flag-changed` arrives after flagd serves the new value and within ~2×
@@ -255,7 +261,7 @@ provider state.
   + sync-health badge refresh on `flag-changed` / `provider-ready` (FR-52).
 
 **Acceptance**
-- [ ] Every UI-scoped requirement (FR-40–FR-49, FR-52–FR-59) exercisable in the UI; manual
+- [ ] Every UI-scoped requirement (FR-40–FR-47, FR-52–FR-59) exercisable in the UI; manual
       checklist committed to the M4 note. FR-50 (client-side OpenFeature events) and FR-51
       (SSE API) are API/provider requirements verified in M3, not UI acceptance criteria.
 - [ ] UI-level [05-testing.md §2.6](05-testing.md) scenarios green (login gate, assigned-project
@@ -298,8 +304,9 @@ provider state.
 - [ ] `npm test` + `npm run test:e2e` green; `typecheck`/`lint` green.
 - [ ] Runbook steps executed once on a clean machine (documented evidence in M5 note):
       backup/restore, key rotation, flagd upgrade, compose walkthrough (NFR-4/NFR-6).
-- [ ] NFR-1/NFR-2 measured and logged: `/evaluate` p99 < 25 ms; sync p99 < 50 ms and
-      < 200 ms full body at 1,000 flags × 3 environments; 100 evaluations/s sustained.
+- [ ] NFR-1/NFR-2 measured and logged per the [05-testing.md §2.3](05-testing.md) protocol:
+      `/evaluate` p99 < 25 ms; sync p99 < 50 ms and < 200 ms full body at 1,000 flags ×
+      3 environments; 100 evaluations/s sustained for 60 s (6,000 calls, no errors).
 - [ ] NFR-3 verified: flagd-down leaves management operations working and evaluation at `503`;
       NFR-5 security audit (no secrets in repo, hashes only, production defaults refused);
       NFR-7 structured logs/health verified.

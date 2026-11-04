@@ -281,8 +281,8 @@ and audit reads remain global-admin-only in v1.
 
 | ID | Requirement |
 | --- | --- |
-| NFR-1 | **Latency**: `/evaluate` p99 < 25 ms locally (flagd co-located), excluding first-call provider warmup. Sync endpoint p99 < 50 ms with ETag, < 200 ms full body for 1,000 flags. |
-| NFR-2 | **Scale (v1)**: 1,000 flags × 3 environments; 100 evaluations/s sustained. Beyond that is out of scope. |
+| NFR-1 | **Latency**: `/evaluate` p99 < 25 ms locally (flagd co-located), excluding first-call provider warmup. Sync endpoint p99 < 50 ms with ETag, < 200 ms full body for 1,000 flags. Repeatable measurement protocol (see [05-testing.md §2.3](05-testing.md)): stack fully ready (flagd `READY`, models synced), discard 100 warmup evaluations, then measure 1,000 sequential `/evaluate` calls, 1,000 conditional sync requests (expecting `304`), and 100 full-body sync fetches; log the p99s. |
+| NFR-2 | **Scale (v1)**: 1,000 flags × 3 environments; 100 evaluations/s sustained for 60 s (6,000 evaluations, no errors) with p99 staying within the NFR-1 bound. Beyond that is out of scope. |
 | NFR-3 | **Availability**: if flagd is down, management operations (CRUD, audit, keys) keep working; evaluations fail with 503 (FR-24). If FMS is down, flagd keeps serving its last synced model (stale, but functional). |
 | NFR-4 | **Durability**: flag state survives restart (MariaDB, named volume — ADR-0007). No in-memory-only state for definitions. |
 | NFR-5 | **Security**: no secrets in the repo; JWT secret and admin credentials from environment; API keys and user passwords (argon2id) hashed at rest; sync endpoint never open; no PII in audit log by design (state snapshots may contain what users configured — accepted in v1). |

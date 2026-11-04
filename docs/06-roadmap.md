@@ -32,8 +32,8 @@ Requirement coverage by milestone (details in [01-requirements.md](01-requiremen
   volume, `healthcheck.sh --connect` healthcheck, localhost-only 3306), `flagd/config.yaml`
   (HTTP sources pointing at `http://host.docker.internal:3000/api/v1/sync/…`, development
   `authHeader` placeholder, `interval: 5`). The source layout (one per env vs. one per
-  project+env) and the sync URL shape are provisional at M0 and settle with OQ-6 before M2
-  (see the M2 prerequisite).
+  project+env) and the sync URL shape were provisional at M0 and settled with OQ-6 before M2
+  (see the resolved M2 prerequisite).
 - Fastify app with `/healthz`; `/readyz` returning `503 {"status":"not_ready"}` until
   provider wiring exists (M3) — declared not-ready by default in M0.
 - `config.ts` env parsing with defaults (architecture §9), incl. `DATABASE_URL`.
@@ -142,9 +142,9 @@ items keep the capability-matrix acceptance open:
 
 **Goal:** FMS becomes a valid flagd HTTP source (with no client consuming it yet).
 
-**Prerequisite:** resolve OQ-6 (project-namespaced flag-set IDs, e.g. `<projectKey>:<env>`)
-and update ADR-0004 *before* M2 work lands — the sync URL shape, the flagd config source
-layout (M0's provisional `flagd/config.yaml`), set-level `flagSetId`, and provider
+**Prerequisite (resolved before M2):** OQ-6 (project-namespaced flag-set IDs, e.g.
+`<projectKey>:<env>`); ADR-0004 was updated accordingly. The sync URL shape, the flagd config
+source layout (M0's provisional `flagd/config.yaml`), set-level `flagSetId`, and provider
 selectors all follow the resolution.
 
 - `domain/flagd-model.ts`: compiler per [03-data-model.md §3](03-data-model.md) —

@@ -113,10 +113,12 @@ Invariants (enforced in application code, transactionally):
   (`flag_definitions.env`) — the flag ↔ project ↔ env linkage the user requirements ask for;
   the (flag, env) pair stays unique within the project (FR-7).
 - Effective permissions of a user = union of the user's global type (`users.global_role`)
-  and per-project grants (`project_memberships.role`) (FR-54); `admin` holds full access on
-  assigned projects (FR-57). Developers and product owners only operate on projects they
-  are assigned to (FR-58/FR-59); other assignments fail with `403`. The bootstrap admin
-  (FR-30, env-configured) has full access and is not a `users` row.
+  and per-project grants (`project_memberships.role`) (FR-54); membership roles are independent
+  per project and may differ from `global_role`, so a membership can elevate a user on that
+  project but never reduce the global role. `admin` holds full access on assigned projects
+  (FR-57). Developers and product owners only operate on projects they are assigned to
+  (FR-58/FR-59); other assignments fail with `403`. The bootstrap admin (FR-30, env-configured)
+  has full access and is not a `users` row.
 - Invited users exist only as `users` rows created by an invite (FR-57): the temporary
   password is shown once and only its argon2id hash is stored; login verifies against
   `users` (or the env-configured bootstrap admin) (FR-31).
@@ -367,7 +369,7 @@ in tests (property-based golden tests, §[05-testing](05-testing.md)).
 | `definition.copy` | `definition` | env = target; after includes `copiedFrom` env |
 | `project.create` | `project` | after = project (FR-55) |
 | `project.environment.create` | `project` | env set; after = { env } (FR-55) |
-| `project.member.invite` | `project` | after = { user, role, projects }; never includes the temporary password (FR-57) |
+| `project.member.invite` | `project` | after = `{ user, globalRole, memberships: [{ projectId, role }] }`; never includes the temporary password (FR-57) |
 | `api_key.create` / `api_key.revoke` | `api_key` | never includes key material |
 | `auth.login` | `auth` | success only |
 

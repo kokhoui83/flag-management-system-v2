@@ -33,7 +33,38 @@
     },
     "/api/v1/projects/{projectId}/members": {
       "get": { "summary": "List project members (admin)", "operationId": "listMembers", "tags": ["Projects"], "responses": { "200": { "description": "OK" } } },
-      "post": { "summary": "Invite member (admin)", "operationId": "inviteMember", "tags": ["Projects"], "responses": { "201": { "description": "Created" } } }
+      "post": {
+        "summary": "Invite member with a global role and per-project roles (admin)",
+        "operationId": "inviteMember",
+        "tags": ["Projects"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "role", "projects"],
+                "properties": {
+                  "username": { "type": "string" },
+                  "role": { "type": "string", "enum": ["admin", "developer", "product-owner"] },
+                  "projects": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["projectId", "role"],
+                      "properties": {
+                        "projectId": { "type": "string" },
+                        "role": { "type": "string", "enum": ["admin", "developer", "product-owner"] }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Created" }, "400": { "description": "Validation" }, "403": { "description": "Forbidden" } }
+      }
     },
     "/api/v1/projects/{projectId}/flags": {
       "get": { "summary": "List flags of a project", "operationId": "listFlags", "tags": ["Flags"], "responses": { "200": { "description": "OK" } } },

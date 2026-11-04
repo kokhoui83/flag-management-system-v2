@@ -13,7 +13,7 @@ Requirement coverage by milestone (details in [01-requirements.md](01-requiremen
 | Milestone | Functional requirements | Non-functional requirements |
 | --- | --- | --- |
 | M0 | — (tooling) | NFR-6 (portability baseline), NFR-7 (health endpoints), NFR-8 (test seams) |
-| M1 | FR-1–FR-20, FR-30–FR-39, FR-53–FR-59 (API) | NFR-5 (password/key hashing), NFR-8 |
+| M1 | FR-1–FR-20, FR-30–FR-39, FR-53–FR-59 (API; partial — see M1 follow-up) | NFR-5 (password/key hashing), NFR-8 |
 | M2 | FR-26–FR-29 | NFR-1 (sync latency), NFR-9 |
 | M3 | FR-21–FR-25, FR-50–FR-51 | NFR-1 (evaluate latency), NFR-3, NFR-7 (readiness) |
 | M4 | FR-40–FR-47, FR-52, FR-53–FR-59 (UI) | NFR-7 (sync-health badge) |
@@ -59,6 +59,9 @@ Requirement coverage by milestone (details in [01-requirements.md](01-requiremen
 
 **Goal:** flags/definitions CRUD + versioning + audit, fully tested without flagd.
 
+**Status:** baseline complete (2026-11-03); the capability-matrix and audit-actor items in the
+M1 follow-up below are still open, so M1 is not fully closed.
+
 - Domain: flag key validation (FR-1), definition validation all-at-once (FR-10–FR-18),
   rule model per [03-data-model.md §2](03-data-model.md), plus the §1 invariants
   (project name/key uniqueness FR-55, per-project flag-key uniqueness FR-56, per-project
@@ -83,17 +86,22 @@ Requirement coverage by milestone (details in [01-requirements.md](01-requiremen
 - Audit actions per [03-data-model.md §5](03-data-model.md).
 
 **Acceptance**
-- [x] All M1 scenarios in [05-testing.md §2.1, §2.4, §2.5](05-testing.md) green (written
+- [x] Baseline M1 scenarios in [05-testing.md §2.1, §2.4, §2.5](05-testing.md) green (written
       first): validation (§2.1); auth/audit/API-key/revocation/invite (§2.4, excluding the
-      sync- and events-scope scenarios that land in M2/M3); project/flag/definition/audit
-      surface (§2.5, excluding the sync/ETag/admin-sync/memo scenarios that land in M2).
-      The API-level [§2.6](05-testing.md) multi-user scenarios (invite flow, role/project
-      403s, project-scoped flag create/toggle, environment create + 409, 409 duplicate
-      project) are green; the UI-level §2.6 assertions land in M4. (Flagd-facing scenarios —
-      sync `GET /api/v1/sync/:projectKey/:env` FR-26/FR-27, events SSE FR-51, evaluate
+      capability-matrix scenarios below and the sync-/events-scope scenarios that land in
+      M2/M3); project/flag/definition/audit surface (§2.5, excluding the
+      sync/ETag/admin-sync/memo scenarios that land in M2). The baseline API-level
+      [§2.6](05-testing.md) scenarios (invite flow, project-scoped flag create/toggle,
+      environment create + 409, 409 duplicate project) are green; the UI-level §2.6
+      assertions land in M4. (Flagd-facing scenarios — sync
+      `GET /api/v1/sync/:projectKey/:env` FR-26/FR-27, events SSE FR-51, evaluate
       FR-21–FR-25 — are M2/M3 scope and land with those endpoints.)
-- [x] Version bump semantics verified: create=1, per-env update +1, idempotent put no-op
-      (FR-5).
+- [ ] Capability-matrix scenarios in [05-testing.md §2.4](05-testing.md) green
+      (product-owner `enabled`-only toggle, developer blocked from admin-only surfaces,
+      effective permissions as the global+project union, mixed per-project roles) — pending
+      the M1 follow-up items below.
+- [x] Version bump semantics verified: create=1, any-environment definition update +1 on the
+      single flag-level version, idempotent put no-op (FR-5).
 - [x] `npm test` + `typecheck` + `lint` green (unit tier, no Docker);
       `npm run test:integration` green against testcontainers MariaDB.
 
@@ -108,9 +116,9 @@ Requirement coverage by milestone (details in [01-requirements.md](01-requiremen
 
 ### M1 follow-up (2026-11-04 alignment review)
 
-The 2026-11-04 cross-document review found API-level gaps between the completed M1 routes and
-the FR-54/FR-58/FR-59 capability matrix. These are tracked here rather than retroactively
-changing the M1 "done" claim:
+The 2026-11-04 cross-document review found API-level gaps between the implemented M1 routes and
+the FR-54/FR-58/FR-59 capability matrix and invite contract. The baseline is done, but these
+items keep the capability-matrix acceptance open:
 
 - [ ] Enforce the product-owner capability matrix (FR-59): the current flag-create,
       description-update, definition `PUT`/`copy`, and environment-create routes accept any
@@ -122,6 +130,9 @@ changing the M1 "done" claim:
       (FR-54); the current guard uses the membership role unless the global role is `admin`,
       and flag deletion checks only the global admin/manage key (so a project admin cannot
       delete).
+- [ ] Support per-project membership roles in the invite API (FR-54/FR-57): the current
+      contract accepts one `role` for all `projectIds`, so mixed-role users cannot be created.
+      Implement the `projects: [{ projectId, role }]` contract and the mixed-role tests.
 
 ---
 
@@ -192,16 +203,16 @@ provider state.
   `provider-ready` / `provider-error` with `projectKey`/`env`/`flagSetId`, `?envs=` filter over
   flag-set IDs, 15 s keepalive, no replay, `evaluate`-scope/session auth (FR-51).
 - OpenAPI document updated with evaluate, events, and observed routes (API §11).
-- E2E harness: Playwright (Gherkin feature files + step definitions) + compose (flagd + mariadb),
-  ready-wait helper, deterministic scenarios per [05-testing.md §2.3](05-testing.md) (stickiness,
-  propagation, 304, flagd-down 503, flagd-restart recovery, SSE ordering + no-replay, OpenFeature
-  provider event (FR-50)); scenario wording stays Gherkin-based per the §2 behavior specs.
+- E2E harness: Vitest + compose (flagd + mariadb), ready-wait helper, deterministic scenarios
+  per [05-testing.md §2.3](05-testing.md) (stickiness, propagation, 304, flagd-down 503,
+  flagd-restart recovery, SSE ordering + no-replay, OpenFeature provider event (FR-50));
+  scenarios are written as Given/When/Then specs in the testing strategy, not a Gherkin parser.
 - Seed: on first boot with an empty DB, log the `SYNC_KEY` once (architecture §9) so the
   operator can wire `flagd/config.yaml` (source URIs per the OQ-6 resolution).
 
 **Acceptance**
-- [ ] All [05-testing.md §2.3](05-testing.md) E2E scenarios green via `npm run test:e2e` (Playwright
-      + Gherkin harness).
+- [ ] All [05-testing.md §2.3](05-testing.md) E2E scenarios green via `npm run test:e2e`
+      (Vitest + compose).
 - [ ] NFR-1 latency: local `/evaluate` p99 < 25 ms measured in E2E (1,000 calls, logged).
 - [ ] `readyz` transitions observed: READY → (flagd stopped) ERROR → (flagd restarted) READY;
       `readyz` keys are project-namespaced flag-set IDs (`<projectKey>:<env>`).
@@ -244,10 +255,13 @@ provider state.
   + sync-health badge refresh on `flag-changed` / `provider-ready` (FR-52).
 
 **Acceptance**
-- [ ] Every FR-40–FR-59 exercisable in the UI; manual checklist committed to the M4 note.
+- [ ] Every UI-scoped requirement (FR-40–FR-49, FR-52–FR-59) exercisable in the UI; manual
+      checklist committed to the M4 note. FR-50 (client-side OpenFeature events) and FR-51
+      (SSE API) are API/provider requirements verified in M3, not UI acceptance criteria.
 - [ ] UI-level [05-testing.md §2.6](05-testing.md) scenarios green (login gate, assigned-project
       visibility, developer create env/flag, 409 duplicate env, unassigned 403, product-owner
-      toggle, per-environment isolation, duplicate project name).
+      toggle, per-environment isolation, duplicate project name) via Vitest +
+      `@vue/test-utils` with the API client mocked.
 - [ ] Capability matrix enforced in the UI and API: product-owner `enabled`-only toggle;
       developer cannot manage members/keys/projects; admin-only audit/keys/member views
       (FR-54/FR-58/FR-59).

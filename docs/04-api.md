@@ -205,7 +205,9 @@ Full replace of one environment's definition (create or update).
 flag version and is audited as `definition.update`. A product owner assigned to the project may
 submit a definition update **only** when every field except `enabled` is byte-for-byte equal to
 the stored definition; any variant/rule/default change is `403` (FR-59). An identical `PUT`
-(idempotent no-op) is accepted and does not bump the version (FR-5).
+(idempotent no-op) is accepted and does not bump the version (FR-5). `version` in the response
+is the single flag-level version (FR-5): it is shared across the flag's environments and
+increments for a change in any of them.
 
 Constraints (rejected with `400`): variant name rules and type homogeneity (FR-11);
 `defaultVariant` ∈ variants (FR-12); rule shape per [03-data-model.md §2](03-data-model.md);
@@ -498,21 +500,32 @@ cannot add environments (`403`, FR-59):
 
 ### `POST /api/v1/projects/:projectId/members` — invite
 
-Admin (`manage` scope) invites a user with a role and assigns one or more projects
-(`FR-57`):
+Admin (`manage` scope) invites a user with a global role and independent per-project roles
+(`FR-54`, `FR-57`):
 
 ```json
 // request
-{ "username": "brian", "role": "developer", "projectIds": ["01J…"] }
-// 201 → { "user": "brian", "role": "developer", "projects": ["01J…"],
+{ "username": "brian", "role": "developer",
+  "projects": [
+    { "projectId": "01J…", "role": "admin" },
+    { "projectId": "01K…", "role": "product-owner" }
+  ] }
+// 201 → { "user": "brian", "role": "developer",
+//          "projects": [
+//            { "projectId": "01J…", "role": "admin" },
+//            { "projectId": "01K…", "role": "product-owner" }
+//          ],
 //          "password": "temp-…(generated, shown once — FR-57)" }
 // 403 without `manage`
 ```
 
-The invite creates the user if absent (temporary password, FR-57), sets the global role,
-and upserts the memberships — one audited operation (`project.member.invite`; the
-after-state never includes the password). Re-inviting an existing user updates the
-assignment and reissues a temporary password.
+The invite creates the user if absent (temporary password, FR-57), sets the global role, and
+upserts each listed membership with its own role — one audited operation
+(`project.member.invite`; the after-state never includes the password). A membership role may
+differ from the global role; effective permissions are their union (FR-54), so a membership
+can elevate a user on one project but never reduce the global role. Re-inviting an existing
+user updates the global role and the listed memberships (unlisted memberships are unchanged)
+and reissues a temporary password.
 
 ### `GET /api/v1/projects/:projectId/members`
 
@@ -525,7 +538,10 @@ to exactly one project, is available in all environments of that project, and ca
 unique per environment (FR-56). There are no unscoped flag routes: every flag row has a
 `project_id` (03 §1), so every flag operation names its project.
 
-Authorization (capability matrix in [01-requirements.md §4.9.1](01-requirements.md)):
+Authorization (capability matrix in [01-requirements.md §4.9.1](01-requirements.md)).
+Effective permissions are the union of the user's global role and the role on each project
+membership (FR-54); a membership can elevate a user on that project but never reduce the
+global role:
 
 - Global admin session / `manage`/`all` key: any project — full access, including flag
   delete, member invites, environment creation, and audit/key management (FR-57).

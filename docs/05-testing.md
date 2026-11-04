@@ -7,7 +7,9 @@ describe exists.
 
 Runner: **vitest**. Node ≥ 22. No test that requires Docker runs in the default `npm test`
 (unit tier); Docker-dependent tests live behind `npm run test:integration` (testcontainers)
-and `npm run test:e2e` (compose: flagd + mariadb).
+and `npm run test:e2e` (compose: flagd + mariadb). v1 uses Vitest for every tier, including
+E2E and the dashboard's component/UI scenarios; there is no Playwright or Gherkin runner. The
+Given/When/Then specs below are prose specifications, not `.feature` files.
 
 ## 1. Test pyramid
 
@@ -36,7 +38,7 @@ Milestone map (used by [06-roadmap.md](06-roadmap.md) acceptance criteria):
 | §2.1 Validation | M1 |
 | §2.2 Compilation | M2 |
 | §2.3 flagd E2E | M2 (ETag/304), M3 (evaluate, propagation, SSE, readiness, NFR-3) |
-| §2.4 Auth & audit | M1 (auth/audit/keys/revocation), M2 (sync scope), M3 (events scope) |
+| §2.4 Auth & audit | M1 (auth/audit/keys/revocation; capability-matrix scenarios pending the M1 follow-up), M2 (sync scope), M3 (events scope) |
 | §2.5 API surface | M1 (flags/audit), M2 (sync/ETag/admin-sync/memo), M5 (OpenAPI) |
 | §2.6 Multi-user | M1 (API), M4 (UI) |
 
@@ -200,6 +202,18 @@ Milestone map (used by [06-roadmap.md](06-roadmap.md) acceptance criteria):
   the audit log
   **T** each is `403` (FR-54/FR-58; admin-only operations).
 
+- **G** a user with global role `product-owner`, membership `developer` on `checkout`, and
+  membership `product-owner` on `billing`
+  **W** they create a flag on `checkout`, then attempt the same on `billing`
+  **T** `checkout` succeeds and `billing` is `403`; toggling is allowed on both (effective
+  permissions are the union of global and per-project roles, FR-54).
+
+- **G** a user with global role `developer` and project membership `admin` on `checkout`
+  **W** they delete a flag on `checkout` and on another assigned project where their
+  membership is `developer`
+  **T** `checkout` is `204` and the other project is `403` (project-scoped admin grant,
+  FR-54).
+
 - **G** a sync request with an `evaluate`-scoped key
   **W** issued
   **T** `403`; with the `sync` key → `200` (FR-27).
@@ -311,8 +325,8 @@ Covers the multi-user dashboard requirements FR-53–FR-59 (see [01-requirements
 
 - **G** an admin toggles a flag in the `dev` environment of a project
   **W** the toggle is saved
-  **T** sibling environments of the same flag keep their prior state and versions bump only for
-  the changed environment's definition (FR-5, FR-56).
+  **T** sibling environments of the same flag keep their prior state, while the flag-level
+  version increments by 1 (one global version across all environments; FR-5, FR-56).
 
 - **G** an admin creates a project whose name is already taken by another project
   **W** the create request is submitted

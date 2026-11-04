@@ -222,11 +222,11 @@ multi-user, multi-project scope:
   project, while the state of each flag is unique per environment (FR-7/FR-8 isolation semantics
   applied per project). The flag is linked to its owning project (`flags.project_id`) and its
   environment (`flag_definitions.env`); the flag key is unique per project (requirement 4).
-- **FR-57** — Admin has full access and can invite another user, assigning a role and one or more
-  projects (requirement 5). The invite creates the user if absent and issues a temporary
-  password shown **once** (only its hash is stored); the user signs in with it through the
-  normal session flow (FR-31). Re-inviting an existing user updates the assignment and
-  reissues a temporary password.
+- **FR-57** — Admin has full access and can invite another user, assigning a global role and
+  independent per-project roles (requirement 5). The invite creates the user if absent and
+  issues a temporary password shown **once** (only its hash is stored); the user signs in with
+  it through the normal session flow (FR-31). Re-inviting an existing user updates the global
+  role and the listed memberships and reissues a temporary password.
 - **FR-58** — Developer can create environments and flags for the projects they are assigned to,
   and toggle the state of the flags within those projects (requirement 6).
 - **FR-59** — Product owner can view and toggle the state of the flags of the projects they are
@@ -234,9 +234,11 @@ multi-user, multi-project scope:
 
 Capability matrix (FR-54, FR-58, FR-59). "Admin" below means the global admin role (bootstrap
 admin or an invited user with global role `admin`). Effective permissions are the union of the
-global role and project memberships (FR-54): a project membership with role `admin` grants the
-project-scoped admin capabilities for that project only. Developer and product-owner
-capabilities are limited to assigned projects; any unassigned project is `403`.
+global role and project memberships (FR-54); membership roles are independent per project and
+may differ from the global role, so a membership can elevate a user on that project but never
+reduce the global role. A project membership with role `admin` grants the project-scoped admin
+capabilities for that project only. Developer and product-owner capabilities are limited to
+assigned projects; any unassigned project is `403`.
 
 | Capability | Scope | Admin | Developer | Product owner |
 | --- | --- | --- | --- | --- |

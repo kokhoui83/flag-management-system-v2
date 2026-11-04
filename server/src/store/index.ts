@@ -186,7 +186,9 @@ export interface Store {
   listAudit(query: AuditQuery): Promise<AuditPage>;
   createApiKey(input: { name: string; scope: string; createdBy: string }): Promise<CreateApiKeyResult>;
   listApiKeys(): Promise<ApiKeyRecord[]>;
-  revokeApiKey(id: string): Promise<'revoked' | 'not_found'>;
+  revokeApiKey(id: string, actor: string): Promise<'revoked' | 'not_found'>;
+  /** FR-36 / docs/03-data-model.md §5: append-only `auth.login` audit (success only). */
+  recordAuthLogin(input: { username: string; actorName: string; actorType: ActorType }): Promise<void>;
 }
 
 function variantTypeOf(variants: unknown): string {
@@ -720,17 +722,60 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
       const key = await prisma.apiKey.create({
         data: { id: generateUlid(), name, keyHash, keyPrefix: plaintext.slice(0, 8), scope: apiKeyScope, createdBy },
       });
+      // FR-34 / FR-36 / docs/03-data-model.md §5: key creation is audited; key material never enters the audit trail.
+      await prisma.$transaction(async (tx) => {
+        await writeAudit(tx, {
+          action: 'api_key.create',
+          entity: 'api_key',
+          entityId: key.id,
+          env: null,
+          before: null,
+          after: { id: key.id, name, scope: apiKeyScope, createdBy },
+          actorType: 'session',
+          actorName: createdBy,
+        });
+      });
       return { key, plaintext };
     },
 
     listApiKeys: async () => prisma.apiKey.findMany({ orderBy: { createdAt: 'desc' } }),
 
-    revokeApiKey: async (id) => {
-      const key = await prisma.apiKey.update({
-        where: { id },
-        data: { revokedAt: new Date() },
+    revokeApiKey: async (id, actor) => {
+      const key = await prisma.apiKey.findUnique({ where: { id } });
+      // FR-34: revoking a key that does not exist is a clean not_found (no Prisma update error).
+      if (!key) return 'not_found';
+      const revokedAt = new Date();
+      const updated = await prisma.apiKey.update({ where: { id }, data: { revokedAt } });
+      // FR-34 / FR-36 / docs/03-data-model.md §5: key revocation is audited; key material never enters the audit trail.
+      await prisma.$transaction(async (tx) => {
+        await writeAudit(tx, {
+          action: 'api_key.revoke',
+          entity: 'api_key',
+          entityId: id,
+          env: null,
+          before: { id: key.id, name: key.name, revokedAt: null },
+          after: { id: key.id, name: key.name, revokedAt: revokedAt.toISOString() },
+          actorType: 'session',
+          actorName: actor,
+        });
       });
-      return key.revokedAt !== null ? 'revoked' : 'not_found';
+      return updated.revokedAt !== null ? 'revoked' : 'not_found';
+    },
+
+    recordAuthLogin: async ({ username, actorName: actor, actorType }) => {
+      // FR-36 / FR-39 / docs/03-data-model.md §5: successful logins only are audited as `auth.login`.
+      await prisma.$transaction(async (tx) => {
+        await writeAudit(tx, {
+          action: 'auth.login',
+          entity: 'auth',
+          entityId: username,
+          env: null,
+          before: null,
+          after: { username },
+          actorType,
+          actorName: actor,
+        });
+      });
     },
   };
 }

@@ -78,6 +78,8 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     if (!session) {
       throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Invalid credentials');
     }
+    // FR-36 / FR-39: a successful login is audited as `auth.login` before the token issues.
+    await store.recordAuthLogin({ username: session.username, actorName: session.username, actorType: 'session' });
     const token = auth.issue(session, 'jwt');
     reply
       .setCookie('fms_token', token, {
@@ -496,7 +498,7 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     if (!admin) {
       throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Admin capability required');
     }
-    const outcome = await store.revokeApiKey(String(paramValue(paramsOf(request), 'id')));
+    const outcome = await store.revokeApiKey(String(paramValue(paramsOf(request), 'id')), actorName(principal));
     if (outcome === 'not_found') {
       throw new FmsError(404, 'https://fms.local/errors/not-found', 'API key not found');
     }

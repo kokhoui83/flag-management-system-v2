@@ -84,6 +84,19 @@ describe('M1 — Flags & definitions core (integration: MariaDB via testcontaine
       payload: { username: 'admin', password: 'wrong' },
     });
     expect(bad.statusCode).toBe(401);
+
+    // FR-36 / docs/03-data-model.md §5: successful logins are audited as `auth.login`
+    // (entity `auth`, success only); failed logins add no entry.
+    const loginAudit = await app.inject({
+      method: 'GET',
+      url: '/api/v1/audit?action=auth.login&actor=admin&limit=10',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(loginAudit.statusCode).toBe(200);
+    const loginAuditEntries = loginAudit.json().entries as Array<{ action: string; actorName: string }>;
+    expect(loginAuditEntries.length).toBeGreaterThan(0);
+    expect(loginAuditEntries[0].action).toBe('auth.login');
+    expect(loginAuditEntries[0].actorName).toBe('admin');
   });
 
   it('creates projects, flags, definitions with version semantics, audit, and deletes', async () => {
@@ -306,6 +319,37 @@ describe('M1 — Flags & definitions core (integration: MariaDB via testcontaine
       headers: { authorization: `Bearer ${plaintext}` },
     });
     expect(revokedUse.statusCode).toBe(401);
+
+    // FR-34 / FR-36 / docs/03-data-model.md §5: API-key creation and revocation are audited.
+    const keyCreateAudit = await app.inject({
+      method: 'GET',
+      url: '/api/v1/audit?action=api_key.create&actor=admin&limit=10',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(keyCreateAudit.statusCode).toBe(200);
+    const keyCreateAuditEntries = keyCreateAudit.json().entries as Array<{ action: string; entity: string }>;
+    expect(keyCreateAuditEntries.length).toBeGreaterThan(0);
+    expect(keyCreateAuditEntries[0].action).toBe('api_key.create');
+    expect(keyCreateAuditEntries[0].entity).toBe('api_key');
+
+    const keyRevokeAudit = await app.inject({
+      method: 'GET',
+      url: '/api/v1/audit?action=api_key.revoke&actor=admin&limit=10',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(keyRevokeAudit.statusCode).toBe(200);
+    const keyRevokeAuditEntries = keyRevokeAudit.json().entries as Array<{ action: string; entity: string }>;
+    expect(keyRevokeAuditEntries.length).toBeGreaterThan(0);
+    expect(keyRevokeAuditEntries[0].action).toBe('api_key.revoke');
+    expect(keyRevokeAuditEntries[0].entity).toBe('api_key');
+
+    // FR-34: revoking a nonexistent API key is a clean 404, not a 500 from the Prisma update.
+    const revokeMissing = await app.inject({
+      method: 'DELETE',
+      url: '/api/v1/api-keys/does-not-exist',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(revokeMissing.statusCode).toBe(404);
   });
 
   it('invite flow: invited developer gets temp password, scoped access, and 403 off-assignment', async () => {

@@ -183,6 +183,12 @@ export interface Store {
   getProject(key: string): Promise<{ id: string; key: string; name: string; environments: string[] } | null>;
   /** All flag inputs of one (project, env) for the flagd sync model (M2). */
   listFlagdModelInputs(projectId: string, env: string): Promise<FlagdFlagInput[]>;
+  /** Database reachability probe for `/readyz` (M3 readiness). */
+  pingDatabase(): Promise<'OK' | 'DOWN'>;
+  /** All (project, environment) flag sets known to the system, as `<projectKey>:<env>` (M3 readyz). */
+  listFlagSets(): Promise<Array<{ flagSetId: string; projectKey: string; env: string }>>;
+  /** Owning project key of a project ID, for change-event routing after mutations (M3). */
+  getProjectKeyById(projectId: string): Promise<string | null>;
   listAudit(query: AuditQuery): Promise<AuditPage>;
   createApiKey(input: { name: string; scope: string; createdBy: string }): Promise<CreateApiKeyResult>;
   listApiKeys(): Promise<ApiKeyRecord[]>;
@@ -473,6 +479,31 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
         });
       }
       return inputs;
+    },
+
+    pingDatabase: async () => {
+      try {
+        await prisma.$queryRaw`SELECT 1`;
+        return 'OK';
+      } catch {
+        return 'DOWN';
+      }
+    },
+
+    listFlagSets: async () => {
+      const projects = await prisma.project.findMany({ include: { environments: true } });
+      const result: Array<{ flagSetId: string; projectKey: string; env: string }> = [];
+      for (const project of projects) {
+        for (const environment of project.environments) {
+          result.push({ flagSetId: `${project.key}:${environment.env}`, projectKey: project.key, env: environment.env });
+        }
+      }
+      return result;
+    },
+
+    getProjectKeyById: async (projectId) => {
+      const project = await prisma.project.findUnique({ where: { id: projectId }, select: { key: true } });
+      return project?.key ?? null;
     },
 
     getFlag: async (projectId, key) => {

@@ -3,20 +3,111 @@
   "info": {
     "title": "Flag Management System Management API",
     "version": "0.0.0",
-    "description": "Management API of the Flag Management System (M1/M2 surface: auth, projects, flags, definitions, audit, API keys, sync). Full contract: docs/04-api.md."
+    "description": "Management API of the Flag Management System (M1/M2/M3 surface: auth, projects, flags, definitions, audit, API keys, sync, evaluate, events, readiness). Full contract: docs/04-api.md."
   },
   "servers": [
     { "url": "http://localhost:3000" }
   ],
   "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Liveness probe",
+        "operationId": "healthz",
+        "tags": ["Health"],
+        "responses": {
+          "200": {
+            "description": "Alive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["status"],
+                  "properties": {
+                    "status": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "summary": "Readiness probe: DB reachable and every flagd provider READY (M3)",
+        "operationId": "readyz",
+        "tags": ["Health"],
+        "responses": {
+          "200": {
+            "description": "Alive + DB OK + all flag sets READY",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["status", "db", "flagd"],
+                  "properties": {
+                    "status": { "type": "string", "enum": ["ok", "not_ready"] },
+                    "db": { "type": "string", "enum": ["OK", "DOWN"] },
+                    "flagd": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Not ready (DB DOWN or a flagd provider not READY)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["status", "db", "flagd"],
+                  "properties": {
+                    "status": { "type": "string", "enum": ["ok", "not_ready"] },
+                    "db": { "type": "string", "enum": ["OK", "DOWN"] },
+                    "flagd": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "summary": "Issue session token (bootstrap admin or invited user)",
         "operationId": "login",
         "tags": ["Auth"],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["username", "password"], "properties": { "username": { "type": "string" }, "password": { "type": "string" } } } } } },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": {
+                  "username": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
         "responses": {
-          "200": { "description": "Session issued", "content": { "application/json": { "schema": { "type": "object", "properties": { "token": { "type": "string" }, "expiresAt": { "type": "string", "format": "date-time" } } } } } },
+          "200": {
+            "description": "Session issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string" },
+                    "expiresAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
           "401": { "description": "Invalid credentials" }
         }
       }
@@ -97,6 +188,91 @@
           "401": { "description": "Unauthenticated" },
           "403": { "description": "Missing sync scope or project access" },
           "404": { "description": "Unknown project or environment" }
+        }
+      }
+    },
+    "/api/v1/evaluate": {
+      "post": {
+        "summary": "Evaluate one flag through the OpenFeature flagd provider (M3; FR-19..FR-25)",
+        "operationId": "evaluate",
+        "tags": ["Evaluate"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["projectKey", "flagKey", "environment"],
+                "properties": {
+                  "projectKey": { "type": "string", "description": "Project key (unique per FMS, FR-55)" },
+                  "flagKey": { "type": "string", "description": "Flag key within the project (FR-56)" },
+                  "environment": { "type": "string", "description": "Environment of the flag set (<projectKey>:<env>, OQ-6)" },
+                  "targetingKey": { "type": "string", "description": "Optional targeting key; required for percentage rules (FR-19)" },
+                  "context": { "type": "object", "description": "OpenFeature evaluation context" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Evaluation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["value", "variant", "reason", "flagVersion"],
+                  "properties": {
+                    "value": { "description": "Resolved value (null when disabled)" },
+                    "variant": { "type": "string" },
+                    "reason": { "type": "string", "enum": ["STATIC", "DEFAULT", "TARGETING_MATCH", "SPLIT", "CACHED", "DISABLED", "ERROR"] },
+                    "flagVersion": { "type": "integer", "description": "Flagd-observed version from flag metadata" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Validation problem (unknown env/flag, malformed context) — problem+json" },
+          "401": { "description": "Unauthenticated" },
+          "403": { "description": "Missing evaluate scope or project access" },
+          "404": { "description": "Unknown project/flag/env" },
+          "502": { "description": "flagd evaluation error" },
+          "503": { "description": "flagd provider not READY — never a defaulted value (FR-24)" }
+        }
+      }
+    },
+    "/api/v1/events": {
+      "get": {
+        "summary": "SSE change-event stream over the flagd provider events (M3; FR-50/FR-51, ADR-0008)",
+        "operationId": "events",
+        "tags": ["Events"],
+        "parameters": [
+          { "name": "envs", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Comma-separated flag-set IDs (<projectKey>:<env>) to filter on" }
+        ],
+        "responses": {
+          "200": { "description": "text/event-stream", "content": { "text/event-stream": { "schema": { "type": "string" } } } },
+          "400": { "description": "Unknown ?envs= flag set id" },
+          "401": { "description": "Unauthenticated" },
+          "403": { "description": "Missing evaluate scope" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/flags/{key}/observed": {
+      "get": {
+        "summary": "Probe endpoint: flagd-observed version/enablement per environment (M3; FR-47)",
+        "operationId": "observed",
+        "tags": ["Flags"],
+        "parameters": [
+          { "name": "projectId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "key", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Observed state per environment", "content": { "application/json": { "schema": { "type": "object", "required": ["key", "observed"], "properties": { "key": { "type": "string" }, "observed": { "type": "object" } } } } } },
+          "400": { "description": "flagd provider not READY" },
+          "401": { "description": "Unauthenticated" },
+          "403": { "description": "Missing evaluate scope" },
+          "404": { "description": "Unknown flag" },
+          "503": { "description": "flagd provider not READY — never a defaulted value (FR-24)" }
         }
       }
     },

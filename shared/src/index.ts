@@ -96,6 +96,14 @@ function variantTypeOf(value: VariantValue): VariantType | null {
   return null;
 }
 
+/**
+ * FR-11: JSON type of a variant map (boolean | number | string). All values of one flag
+ * share a single type; the first variant decides (validation guarantees homogeneity).
+ */
+export function variantTypeOfVariants(variants: Record<string, VariantValue>): VariantType {
+  return variantTypeOf((Object.values(variants)[0] as VariantValue)) ?? 'boolean';
+}
+
 /** FR-1: flag key pattern `^[a-zA-Z][a-zA-Z0-9-_]{0,127}$`. */
 export function validateFlagKey(key: unknown): ValidationProblem[] {
   if (typeof key !== 'string') {

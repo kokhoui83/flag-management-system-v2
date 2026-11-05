@@ -9,12 +9,22 @@ import { createStore, type Store } from './store';
 import { createPrismaClient } from './db';
 import { type AppConfig } from './config';
 import { FlagdModelMemo } from './sync/model-memo';
+import { OpenFeature } from '@openfeature/server-sdk';
+import { OpenFeatureFlagEvaluator, type FlagEvaluator } from './evaluate/evaluator';
+import { FlagdProviderRegistry } from './evaluate/providers';
+import { InMemoryFlagChangeBroadcaster, type FlagChangeBroadcaster } from './events/broadcaster';
 
 export interface AppOptions {
   /** Overrides the Prisma-backed store (tests inject one bound to a test DB). */
   store?: Store;
   /** Shared memo for the store and sync route (tests inject one with their store). */
   memo?: FlagdModelMemo;
+  /** Overrides the OpenFeature-backed flag evaluator (tests inject a fake). */
+  evaluator?: FlagEvaluator;
+  /** Overrides the flagd provider registry (tests inject a fake). */
+  registry?: FlagdProviderRegistry;
+  /** Overrides the change-event broadcaster (tests inject a fake). */
+  broadcaster?: FlagChangeBroadcaster;
 }
 
 const PUBLIC_PATHS = new Set(['/healthz', '/readyz', '/api/v1/auth/login', '/api/v1/auth/logout']);
@@ -28,6 +38,9 @@ export async function createApp(config: AppConfig, options: AppOptions = {}): Pr
   const app = Fastify({ logger: true });
   const memo = options.memo ?? new FlagdModelMemo();
   const store = options.store ?? createStore(createPrismaClient(config.databaseUrl), { memo });
+  const registry = options.registry ?? new FlagdProviderRegistry({ openFeature: () => OpenFeature });
+  const broadcaster = options.broadcaster ?? new InMemoryFlagChangeBroadcaster();
+  const evaluator = options.evaluator ?? new OpenFeatureFlagEvaluator({ openFeature: () => OpenFeature, registry });
   const auth = createAuthService({
     store,
     adminUsername: config.adminUsername,
@@ -59,7 +72,7 @@ export async function createApp(config: AppConfig, options: AppOptions = {}): Pr
 
   app.register(fastifyCookie);
 
-  const services: RouteServices = { auth, store, memo };
+  const services: RouteServices = { auth, store, memo, evaluator, registry, broadcaster };
   await registerRoutes(app, services);
 
   if (existsSync(config.webDist)) {

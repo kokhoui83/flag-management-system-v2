@@ -37,7 +37,16 @@ resolution). Sync-scoped API keys or project-authorized admin sessions can acces
 memoized per (project, env) and invalidated after definition copies and flag deletions as well as
 definition writes.
 
-Flag/store/evaluation work continues in M3–M4 per [docs/06-roadmap.md](docs/06-roadmap.md).
+**M3 — Evaluation path (implemented; E2E pending).** The runtime evaluation path landed: the
+`FlagEvaluator` interface with the OpenFeature server-SDK implementation (flagd gRPC provider,
+per-(project, env) flag-set selector), the `FlagdProviderRegistry` tracking provider state,
+the `GET /readyz` readiness probe (DB + all flag sets READY, else `503 not_ready`), the
+`POST /api/v1/evaluate` proxy, the `GET /api/v1/projects/:projectId/flags/:key/observed` probe,
+and the `GET /api/v1/events` SSE stream over flagd provider events (ADR-0008). The NFR-1 latency
+measurement helpers landed in `server/src/evaluate/latency.ts`; measured numbers come from the M3
+E2E scenario.
+
+Flag/store/evaluation work continues in M4 (dashboard) per [docs/06-roadmap.md](docs/06-roadmap.md).
 
 The multi-user dashboard requirements are captured: login (FR-40/FR-53), per-user roles with
 different access levels (FR-54), per-project environments (FR-55), per-project flags with
@@ -86,7 +95,7 @@ percentage rollouts.
 
 ## Getting started
 
-Current state (M2 — model compilation & sync endpoint landed):
+Current state (M2 — model compilation & sync endpoint landed; M3 evaluation path landed):
 
 ```bash
 docker compose up -d   # flagd (pinned image) + mariadb (pinned mariadb:11.8, healthcheck) — see docker-compose.yml
@@ -99,4 +108,6 @@ npm run test:integration  # integration tier (testcontainers MariaDB) — M1 fla
 
 The full milestone plan lives in [docs/06-roadmap.md](docs/06-roadmap.md); the M2 acceptance
 checks are green per [05-testing.md](docs/05-testing.md) §2.2 (compiler/ETag) and the sync-scope
-scenarios, plus the integration tier against testcontainers MariaDB (FR-26/FR-27/FR-28).
+scenarios, plus the integration tier against testcontainers MariaDB (FR-26/FR-27/FR-28). The M3
+backend (evaluate, readiness, SSE, latency) is implemented and integration-tested; its E2E
+scenarios (`npm run test:e2e`) are pending.

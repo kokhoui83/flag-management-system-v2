@@ -1,4 +1,5 @@
 import { OpenFeature, ServerProviderEvents, type Logger } from '@openfeature/server-sdk';
+import { FlagdProvider } from '@openfeature/flagd-provider';
 import type { ProviderRuntimeState } from './types';
 
 /**
@@ -52,13 +53,27 @@ function flagSetIdOf(details: { domain?: string; clientName?: string } | undefin
   return typeof flagSetId === 'string' && flagSetId.length > 0 ? flagSetId : undefined;
 }
 
+/**
+ * Connection inputs of the flagd provider behind one (project, environment) flag set
+ * (ADR-0004/0008). Defaults mirror the FMS operator configuration (`FLAGD_*`); tests inject
+ * their own values.
+ */
+export interface FlagdProviderBinding {
+  host?: string;
+  port?: number;
+  resolverType?: 'rpc' | 'in-process';
+}
+
 export class FlagdProviderRegistry {
   private readonly states = new Map<string, ProviderRuntimeState>();
   private readonly listeners = new Set<FlagdEventListener>();
   private readonly openFeature: () => typeof OpenFeature;
+  private readonly materialized = new Set<string>();
+  private readonly flagd: FlagdProviderBinding;
 
-  constructor(deps: { openFeature?: () => typeof OpenFeature; logger?: Logger } = {}) {
+  constructor(deps: { openFeature?: () => typeof OpenFeature; logger?: Logger; flagd?: FlagdProviderBinding } = {}) {
     this.openFeature = deps.openFeature ?? (() => OpenFeature);
+    this.flagd = deps.flagd ?? {};
     void this.openFeature().addHandler(ServerProviderEvents.Ready, async (details) => {
       this.handleEvent('PROVIDER_READY', details);
     });
@@ -90,11 +105,24 @@ export class FlagdProviderRegistry {
   }
 
   /** Materializes the flag-set provider binding; starts in the NOT_READY state until the provider reports READY (FR-24). */
-  getOrCreate(flagSetId: string): Promise<void> {
-    if (!this.states.has(flagSetId)) {
-      void this.states.set(flagSetId, 'NOT_READY');
+  async getOrCreate(flagSetId: string): Promise<void> {
+    if (this.materialized.has(flagSetId)) {
+      return;
     }
-    return Promise.resolve();
+    this.materialized.add(flagSetId);
+    // One flagd provider per flag set: bound through the OpenFeature domain of the
+    // `<projectKey>:<env>` flag set ID and scoped with the flagd selector
+    // (`flagSetId=<projectKey>:<env>`, ADR-0004). Without this registration no provider
+    // ever reports READY, so `/readyz` stays not_ready and evaluation returns 503.
+    const provider = new FlagdProvider({
+      host: this.flagd.host ?? 'localhost',
+      port: this.flagd.port ?? 8013,
+      resolverType: this.flagd.resolverType ?? 'rpc',
+      selector: `flagSetId=${flagSetId}`,
+    });
+    // Fire-and-forget: the SDK folds lifecycle events into the provider state, so readiness
+    // surfaces through the registry event handlers instead of blocking the caller on the dial.
+    this.openFeature().setProvider(flagSetId, provider);
   }
 
   onEvent(listener: FlagdEventListener): () => void {

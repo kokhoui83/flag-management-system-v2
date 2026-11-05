@@ -38,7 +38,7 @@ export async function createApp(config: AppConfig, options: AppOptions = {}): Pr
   const app = Fastify({ logger: true });
   const memo = options.memo ?? new FlagdModelMemo();
   const store = options.store ?? createStore(createPrismaClient(config.databaseUrl), { memo });
-  const registry = options.registry ?? new FlagdProviderRegistry({ openFeature: () => OpenFeature });
+  const registry = options.registry ?? new FlagdProviderRegistry({ openFeature: () => OpenFeature, flagd: { host: config.flagdHost, port: config.flagdPort } });
   const broadcaster = options.broadcaster ?? new InMemoryFlagChangeBroadcaster();
   const evaluator = options.evaluator ?? new OpenFeatureFlagEvaluator({ openFeature: () => OpenFeature, registry });
   const auth = createAuthService({

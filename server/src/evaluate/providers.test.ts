@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { OpenFeature, InMemoryProvider, ServerProviderStatus, ServerProviderEvents } from '@openfeature/server-sdk';
 import { FlagdProviderRegistry } from './providers';
 
@@ -8,9 +8,21 @@ interface OpenFeatureLike {
   setProviderAndWait: (domain: string, provider?: unknown) => Promise<unknown>;
   clearProviders: () => Promise<unknown>;
   getProviderStatus: (domain: string) => ServerProviderStatus;
+  addHandler: (eventType: string, handler: (details: unknown) => void) => void;
 }
 
 const openFeature = OpenFeature as unknown as OpenFeatureLike;
+
+/** Minimal stand-in for the OpenFeature server API so the registry can be tested without a live flagd. */
+function fakeOpenFeature(): OpenFeatureLike {
+  return {
+    setProvider: vi.fn(),
+    setProviderAndWait: vi.fn().mockResolvedValue(undefined),
+    clearProviders: vi.fn().mockResolvedValue(undefined),
+    getProviderStatus: vi.fn().mockReturnValue(ServerProviderStatus.NOT_READY),
+    addHandler: vi.fn(),
+  };
+}
 
 describe('FlagdProviderRegistry (OpenFeature-backed, ADR-0004/0008)', () => {
   afterEach(async () => {
@@ -42,9 +54,20 @@ describe('FlagdProviderRegistry (OpenFeature-backed, ADR-0004/0008)', () => {
     unsubscribe();
   });
 
-  it('materializes flag sets lazily and keeps their state', async () => {
-    const registry = new FlagdProviderRegistry({ openFeature: () => OpenFeature });
+  it('registers a flagd provider bound to the flag set and stays NOT_READY until it reports ready', async () => {
+    const fake = fakeOpenFeature();
+    const registry = new FlagdProviderRegistry({ openFeature: () => fake as unknown as typeof OpenFeature, flagd: { host: 'flagd.internal', port: 8013 } });
     await registry.getOrCreate('billing:prod');
+    expect(fake.setProvider).toHaveBeenCalledTimes(1);
+    expect(fake.setProvider).toHaveBeenCalledWith('billing:prod', expect.anything());
     expect(registry.getState('billing:prod')).toBe('NOT_READY');
+  });
+
+  it('does not re-register a flag set that is already materialized', async () => {
+    const fake = fakeOpenFeature();
+    const registry = new FlagdProviderRegistry({ openFeature: () => fake as unknown as typeof OpenFeature, flagd: { host: 'flagd.internal', port: 8013 } });
+    await registry.getOrCreate('billing:prod');
+    await registry.getOrCreate('billing:prod');
+    expect(fake.setProvider).toHaveBeenCalledTimes(1);
   });
 });

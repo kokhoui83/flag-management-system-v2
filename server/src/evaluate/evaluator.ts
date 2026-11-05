@@ -13,6 +13,20 @@ export interface FlagEvaluator {
 }
 
 /**
+ * Flagd-observed version of a resolution (FR-47): the version field of the flag metadata the
+ * flagd provider compiled from the flag-set document, falling back to the stored flag version
+ * when the provider did not report one (e.g. before the first sync).
+ */
+export function observedFlagVersion(
+  details: ResolutionDetails<boolean | number | string>,
+  fallback: number,
+): number {
+  const raw = details.flagMetadata?.version;
+  const version = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isFinite(version) && version > 0 ? version : fallback;
+}
+
+/**
  * Evaluates flags through the OpenFeature server SDK bound to the per-flag-set
  * `FlagdProvider` (flagd gRPC; ADR-0004/0008). The provider is expected to be READY
  * (registry state) before a resolution is attempted; otherwise the call fails with the
@@ -40,7 +54,7 @@ export class OpenFeatureFlagEvaluator implements FlagEvaluator {
       return { value: null, variant: null, reason: 'DISABLED', flagVersion: input.version };
     }
     const details = await this.resolveViaOpenFeature(input);
-    const flagVersion = this.observedVersion(details, input.flagKey, input.version);
+    const flagVersion = observedFlagVersion(details, input.version);
     return {
       value: details.value,
       variant: details.variant ?? input.defaultVariant,
@@ -76,13 +90,4 @@ export class OpenFeatureFlagEvaluator implements FlagEvaluator {
     throw new Error(`Unsupported variant type: ${String(input.variantType)}`);
   }
 
-  private observedVersion(
-    details: ResolutionDetails<boolean | number | string>,
-    flagKey: string,
-    fallback: number,
-  ): number {
-    const raw = details.flagMetadata?.[flagKey];
-    const version = typeof raw === 'number' ? raw : Number(raw);
-    return Number.isFinite(version) && version > 0 ? version : fallback;
-  }
 }

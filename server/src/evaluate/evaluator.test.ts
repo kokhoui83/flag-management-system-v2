@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { OpenFeature, InMemoryProvider, ServerProviderStatus } from '@openfeature/server-sdk';
-import { OpenFeatureFlagEvaluator } from './evaluator';
+import { OpenFeatureFlagEvaluator, observedFlagVersion } from './evaluator';
 import { FlagdProviderRegistry } from './providers';
 
 /** Local, loosely-typed view of the OpenFeature server API surface used by the evaluator. */
@@ -75,5 +75,15 @@ describe('OpenFeatureFlagEvaluator (FR-21..FR-25, FR-24)', () => {
     expect(result.variant).toBe('off');
     expect(result.reason).toBeDefined();
     expect(result.flagVersion).toBe(2);
+  });
+});
+
+describe('observedFlagVersion (FR-47 — flagd-observed flag version)', () => {
+  it('reads the version from the flagd-compiled flag metadata', () => {
+    expect(observedFlagVersion({ value: false, reason: 'STATIC', flagMetadata: { version: 8 } }, 3)).toBe(8);
+  });
+
+  it('falls back to the stored flag version when the provider reported no version', () => {
+    expect(observedFlagVersion({ value: false, reason: 'STATIC' }, 3)).toBe(3);
   });
 });

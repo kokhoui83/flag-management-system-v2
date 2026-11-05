@@ -404,7 +404,8 @@ here in §12; OpenAPI represents it as a `text/event-stream` response.)
 ### `GET /api/v1/events`
 
 Requires `evaluate` scope or a session. Optional filter `?envs=` (comma-separated
-flag-set IDs `<projectKey>:<env>`; unknown value → `400`).
+flag-set IDs `<projectKey>:<env>`; unknown value → `400`). Multiple IDs subscribe the stream
+to those flag sets only; with no `?envs=` the stream covers all known flag sets.
 
 ```
 GET /api/v1/events?envs=checkout:staging

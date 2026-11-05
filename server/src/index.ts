@@ -16,7 +16,7 @@ const config = loadConfig();
 const prisma = createPrismaClient(config.databaseUrl);
 const memo = new FlagdModelMemo();
 const store: Store = createStore(prisma, { memo });
-const registry = new FlagdProviderRegistry({ openFeature: () => OpenFeature });
+const registry = new FlagdProviderRegistry({ openFeature: () => OpenFeature, flagd: { host: config.flagdHost, port: config.flagdPort } });
 const broadcaster = new InMemoryFlagChangeBroadcaster();
 const evaluator = new OpenFeatureFlagEvaluator({ openFeature: () => OpenFeature, registry });
 
@@ -27,6 +27,11 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 execSync('npx prisma migrate deploy', { cwd: repoRoot, stdio: 'inherit', env: process.env });
 
 const app = await createApp(config, { store, evaluator, registry, broadcaster });
+// Materialize one flagd provider per known flag set at boot (FR-24): `/readyz` and evaluation
+// resolve through these bindings; with an empty database there is nothing to bind yet.
+for (const flagSet of await store.listFlagSets()) {
+  await registry.getOrCreate(flagSet.flagSetId);
+}
 await app.listen({ port: config.port });
 
 // Architecture §9: on first boot with an empty DB, log the sync key once so the operator can

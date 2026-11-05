@@ -13,8 +13,8 @@ export interface StartFlagChangeStreamInput {
   broadcaster: FlagChangeBroadcaster;
   registry: FlagdProviderRegistry;
   reply: Pick<FastifyReply, 'raw'>;
-  /** Restrict the stream to one flag set (the `?envs=` selected one); omit for all. */
-  flagSetId?: string;
+  /** Restrict the stream to the `?envs=` selected flag sets; omit for all. */
+  flagSetIds?: string[];
 }
 
 function flagSetParts(flagSetId: string): { projectKey: string; env: string } {
@@ -34,7 +34,7 @@ function sseFrame(event: string, payload: Record<string, unknown>): string {
  * changes (ADR-0008; FR-51).
  */
 export function startFlagChangeStream(input: StartFlagChangeStreamInput): FlagChangeStreamHandle {
-  const { broadcaster, registry, reply, flagSetId } = input;
+  const { broadcaster, registry, reply, flagSetIds } = input;
   const raw = reply.raw;
   let closed = false;
 
@@ -43,7 +43,7 @@ export function startFlagChangeStream(input: StartFlagChangeStreamInput): FlagCh
   };
 
   const onProviderEvent = (event: FlagdProviderEvent): void => {
-    if (flagSetId && event.flagSetId !== flagSetId) {
+    if (flagSetIds && flagSetIds.length > 0 && !flagSetIds.includes(event.flagSetId)) {
       return;
     }
     if (event.type === 'provider-configuration-changed') {

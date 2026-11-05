@@ -58,17 +58,11 @@ function paramValue(source: Record<string, string>, key: string): string {
 /**
  * Queue a committed flag change for the (project, environment) flag set (ADR-0008; FR-51).
  * The SSE stream drains this queue once the bound flagd provider reports a configuration change.
+ * Invoked synchronously right after the committing write (no intervening await), so a provider
+ * sync cannot drain an empty queue and drop the change.
  */
-async function enqueueFlagChange(
-  store: Store,
-  broadcaster: FlagChangeBroadcaster,
-  projectId: string,
-  env: string,
-  flagKey: string,
-  version: number,
-): Promise<void> {
-  const projectKey = await store.getProjectKeyById(projectId);
-  await broadcaster.enqueue(`${projectKey ?? ''}:${env}`, { flagKey, version, at: new Date().toISOString() });
+function enqueueFlagChange(broadcaster: FlagChangeBroadcaster, flagSetId: string, flagKey: string, version: number): void {
+  broadcaster.enqueue(flagSetId, { flagKey, version, at: new Date().toISOString() });
 }
 
 function ifNoneMatchMatches(header: string | string[] | undefined, etag: string): boolean {
@@ -346,13 +340,14 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
       throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Admin capability required');
     }
     const existing = await store.getFlag(projectId, key);
+    const projectKey = await store.getProjectKeyById(projectId);
     const outcome = await store.deleteFlag(projectId, key, actorName(principal));
     if (outcome === 'not_found') {
       throw new FmsError(404, 'https://fms.local/errors/not-found', `Flag '${key}' not found`);
     }
     if (existing) {
       for (const env of Object.keys(existing.definitions)) {
-        await enqueueFlagChange(store, broadcaster, projectId, env, key, existing.version);
+        enqueueFlagChange(broadcaster, `${projectKey ?? ''}:${env}`, key, existing.version);
       }
     }
     return reply.code(204).send();
@@ -382,6 +377,7 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
         throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Product owners may only change enabled');
       }
     }
+    const projectKey = await store.getProjectKeyById(projectId);
     const result: PutDefinitionResult = await store.putDefinition({
       projectId,
       flagKey: key,
@@ -397,7 +393,7 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     if (!result.found) {
       throw new FmsError(404, 'https://fms.local/errors/not-found', `Flag '${key}' not found`);
     }
-    await enqueueFlagChange(store, broadcaster, projectId, env, key, result.version);
+    enqueueFlagChange(broadcaster, `${projectKey ?? ''}:${env}`, key, result.version);
     return { flagKey: result.flagKey, env: result.env, version: result.version };
   });
 
@@ -421,6 +417,8 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     if (body.fromEnv === env) {
       throw new FmsError(400, 'https://fms.local/errors/validation', 'fromEnv must differ from env');
     }
+    const projectKey = await store.getProjectKeyById(projectId);
+    const flag = await store.getFlag(projectId, key);
     const outcome = await store.copyDefinition({
       projectId,
       flagKey: key,
@@ -431,9 +429,10 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     if (outcome === 'not_found') {
       throw new FmsError(404, 'https://fms.local/errors/not-found', `Source environment '${body.fromEnv}' has no definition for flag '${key}'`);
     }
-    const flag = await store.getFlag(projectId, key);
-    await enqueueFlagChange(store, broadcaster, projectId, env, key, flag?.version ?? 0);
-    return { flagKey: key, env, version: flag?.version ?? 0 };
+    // copyDefinition bumps the flag version; the change is queued synchronously (no await between write and queue).
+    const version = (flag?.version ?? 0) + 1;
+    enqueueFlagChange(broadcaster, `${projectKey ?? ''}:${env}`, key, version);
+    return { flagKey: key, env, version };
   });
 
   // ---------------------------------------------------------------- sync (flagd source)
@@ -491,13 +490,15 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
         throw new FmsError(400, 'https://fms.local/errors/validation', `Unknown flag set id '${env}'`);
       }
     }
-    const flagSetId = envs.length === 1 ? (envs[0] ?? undefined) : undefined;
+    // `?envs=` selects one or more flag sets (comma-separated); without a selection the
+    // stream covers every known flag set.
+    const flagSetIds = envs.length > 0 ? envs : undefined;
     reply.header('Content-Type', 'text/event-stream');
     reply.header('Cache-Control', 'no-cache');
     reply.header('Connection', 'keep-alive');
     reply.header('X-Accel-Buffering', 'no');
     await reply.hijack();
-    const stream = startFlagChangeStream({ broadcaster, registry, reply, flagSetId });
+    const stream = startFlagChangeStream({ broadcaster, registry, reply, flagSetIds });
     reply.raw.once('close', stream.close);
     return reply;
   });

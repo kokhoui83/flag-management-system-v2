@@ -70,4 +70,11 @@ describe('FlagdProviderRegistry (OpenFeature-backed, ADR-0004/0008)', () => {
     await registry.getOrCreate('billing:prod');
     expect(fake.setProvider).toHaveBeenCalledTimes(1);
   });
+
+  it('closes registered providers on registry close', async () => {
+    const fake = fakeOpenFeature();
+    const registry = new FlagdProviderRegistry({ openFeature: () => fake as unknown as typeof OpenFeature, flagd: { host: 'flagd.internal', port: 8013 } });
+    await registry.close();
+    expect(fake.clearProviders).toHaveBeenCalledTimes(1);
+  });
 });

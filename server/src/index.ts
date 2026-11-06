@@ -51,6 +51,8 @@ async function shutdown(signal: string): Promise<void> {
   shuttingDown = true;
   app.log.info({ signal }, 'shutdown: close connections');
   await app.close();
+  // Close the per-flag-set flagd providers (ADR-0004/0008) so shutdown releases their streams.
+  await registry.close();
   await closePrismaClient(prisma);
 }
 

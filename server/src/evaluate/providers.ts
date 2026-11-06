@@ -134,7 +134,9 @@ export class FlagdProviderRegistry {
 
   async close(): Promise<void> {
     this.listeners.clear();
-    return Promise.resolve();
+    // Release the OpenFeature provider connections (per flag set, ADR-0004/0008) so shutdown
+    // does not leave gRPC streams open.
+    await this.openFeature().clearProviders();
   }
 
   private handleEvent(eventType: string, details: { domain?: string; clientName?: string } | undefined): void {

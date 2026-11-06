@@ -186,14 +186,16 @@ selectors all follow the resolution.
 
 ### M2 follow-up (2026-11-04 alignment review; measurement protocol landed 2026-11-05)
 
-- [ ] Measure and log NFR-1 sync latency per the [05-testing.md §2.3](05-testing.md) protocol
+- [x] Measure and log NFR-1 sync latency per the [05-testing.md §2.3](05-testing.md) protocol
       (100-call warmup discarded; 1,000 conditional requests, 100 full-body fetches):
       p99 < 50 ms with `ETag`/`304`, and < 200 ms for a full 1,000-flag body (1,000 flags ×
       3 environments is the NFR-2 shape).
 
   The measurement protocol landed in code first (`server/src/evaluate/latency.ts`:
   `percentile99`/`mean`, warmup discard, sequential samples); the measured numbers are produced
-  by the M3 E2E latency scenario (`npm run test:e2e`).
+  by the M3 E2E latency scenario (`npm run test:e2e`) and the M2 follow-up sync-latency
+  measurement scenario (`measures the NFR-1 sync latency (M2 follow-up: conditional requests +
+full body)` in `server/test/m3.evaluate.e2e.test.ts`) — green in the final E2E run (8/8).
 
 ---
 

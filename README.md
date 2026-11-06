@@ -44,7 +44,8 @@ the `GET /readyz` readiness probe (DB + all flag sets READY, else `503 not_ready
 `POST /api/v1/evaluate` proxy, the `GET /api/v1/projects/:projectId/flags/:key/observed` probe,
 and the `GET /api/v1/events` SSE stream over flagd provider events (ADR-0008). The NFR-1 latency
 measurement helpers landed in `server/src/evaluate/latency.ts`; measured numbers come from the M3
-E2E scenario.
+E2E scenario — including the M2 follow-up sync-latency measurement (conditional requests → p99
+< 50 ms, full body → p99 < 200 ms).
 
 Flag/store/evaluation work continues in M4 (dashboard) per [docs/06-roadmap.md](docs/06-roadmap.md).
 

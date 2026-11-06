@@ -525,6 +525,66 @@ describe('M3 — flagd E2E (real flagd engine via testcontainers)', () => {
     expect(p99!).toBeLessThan(25);
   }, 60_000);
 
+  it('measures the NFR-1 sync latency (M2 follow-up: conditional requests + full body)', async () => {
+    await waitUntilReady();
+    latency.reset();
+
+    const syncUrl = `http://127.0.0.1:${FMS_PORT}/api/v1/sync/checkout/staging`;
+    const authHeaders = { authorization: `Bearer ${token}` };
+
+    const syncOnce = async (
+      ifNoneMatch?: string,
+    ): Promise<{ status: number; latencyMs: number; etag?: string }> => {
+      const startedAt = Date.now();
+      const response = await fetch(syncUrl, {
+        headers: ifNoneMatch
+          ? { ...authHeaders, 'if-none-match': ifNoneMatch }
+          : authHeaders,
+      });
+      const latencyMs = Date.now() - startedAt;
+      return {
+        status: response.status,
+        latencyMs,
+        etag: response.headers.get('etag') ?? undefined,
+      };
+    };
+
+    // Prime the measurement with a full-body fetch to obtain the current ETag.
+    const primed = await syncOnce();
+    expect(primed.status).toBe(200);
+    expect(primed.etag).toBeTruthy();
+
+    // M2 follow-up protocol: discard the 100-call warm-up on conditional requests, then
+    // measure 1,000 conditional (If-None-Match -> 304) sync round-trips.
+    for (let i = 0; i < 100; i += 1) {
+      const warmup = await syncOnce(primed.etag);
+      expect(warmup.status).toBe(304);
+      latency.record(warmup.latencyMs);
+    }
+    for (let i = 0; i < 1_000; i += 1) {
+      const measured = await syncOnce(primed.etag);
+      expect(measured.status).toBe(304);
+      latency.record(measured.latencyMs);
+    }
+    const conditionalP99 = latency.percentile99();
+    app.log.info(
+      { latencyMs: conditionalP99, samples: latency.getSampleCount() },
+      'M2 E2E: NFR-1 sync latency measured',
+    );
+    expect(conditionalP99).not.toBeNull();
+    expect(conditionalP99!).toBeLessThan(50);
+
+    // Full-body fetches: p99 < 200 ms for the complete flagd document.
+    for (let i = 0; i < 100; i += 1) {
+      const fullBody = await syncOnce();
+      expect(fullBody.status).toBe(200);
+      latency.record(fullBody.latencyMs);
+    }
+    const fullBodyP99 = latency.percentile99();
+    expect(fullBodyP99).not.toBeNull();
+    expect(fullBodyP99!).toBeLessThan(200);
+  }, 60_000);
+
   it('serves the SSE flag-changed stream from real flagd provider configuration changes (FR-50/FR-51)', async () => {
     const response = await fetch(
       `http://127.0.0.1:${FMS_PORT}/api/v1/events?envs=checkout:staging`,

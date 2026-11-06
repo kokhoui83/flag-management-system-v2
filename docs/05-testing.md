@@ -2,23 +2,23 @@
 
 This project follows strict TDD (per `AGENTS.md`): for every behavior, a failing test is
 written first; the smallest production change makes it pass; then refactor with the suite
-green. The tests below are the *specification* — they are written before the feature they
+green. The tests below are the _specification_ — they are written before the feature they
 describe exists.
 
 Runner: **vitest**. Node ≥ 22. No test that requires Docker runs in the default `npm test`
-(unit tier); Docker-dependent tests live behind `npm run test:integration` (testcontainers)
-and `npm run test:e2e` (compose: flagd + mariadb). v1 uses Vitest for every tier, including
-E2E and the dashboard's component/UI scenarios; there is no Playwright or Gherkin runner. The
-Given/When/Then specs below are prose specifications, not `.feature` files.
+(unit tier); Docker-dependent tests live behind `npm run test:integration` (testcontainers
+MariaDB) and `npm run test:e2e` (testcontainers: MariaDB + real flagd engine). v1 uses Vitest for
+every tier, including E2E and the dashboard's component/UI scenarios; there is no Playwright or
+Gherkin runner. The Given/When/Then specs below are prose specifications, not `.feature` files.
 
 ## 1. Test pyramid
 
-| Layer | What | How | Docker? |
-| --- | --- | --- | --- |
-| **Unit** | Domain: validation, rule→flagd compiler, ETag/serialization, config parsing, key hashing, ULID/version logic, event-broadcaster queue | pure functions, no DB, no network | No |
-| **Integration (API)** | Routes + middleware + MariaDB + model compilation, with the `FlagEvaluator` seam injected | supertest-style calls against the Fastify app; **testcontainers** MariaDB; evaluator mocked at the `FlagEvaluator` interface | Yes (testcontainers) |
-| **Contract** | Published sync documents conform to the official flagd JSON schema; golden-file outputs of the compiler | JSON Schema (draft-07) validation + golden files committed to `test/fixtures` | No |
-| **E2E** | Real flagd in Docker: sync poll, real evaluation incl. `fractional` stickiness, ETag/304 | vitest + `docker compose` (flagd profile), retry-until-ready helper, deterministic assertions | Yes |
+| Layer                 | What                                                                                                                                  | How                                                                                                                          | Docker?              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| **Unit**              | Domain: validation, rule→flagd compiler, ETag/serialization, config parsing, key hashing, ULID/version logic, event-broadcaster queue | pure functions, no DB, no network                                                                                            | No                   |
+| **Integration (API)** | Routes + middleware + MariaDB + model compilation, with the `FlagEvaluator` seam injected                                             | supertest-style calls against the Fastify app; **testcontainers** MariaDB; evaluator mocked at the `FlagEvaluator` interface | Yes (testcontainers) |
+| **Contract**          | Published sync documents conform to the official flagd JSON schema; golden-file outputs of the compiler                               | JSON Schema (draft-07) validation + golden files committed to `test/fixtures`                                                | No                   |
+| **E2E**               | Real flagd in Docker: sync poll, real evaluation incl. `fractional` stickiness, ETag/304                                              | vitest + testcontainers (MariaDB + real flagd engine), retry-until-ready helper, deterministic assertions                    | Yes                  |
 
 The `FlagEvaluator` seam (architecture §2.1) is what keeps the evaluation path testable without
 flagd: unit/integration tests inject a stub; only E2E uses the real OpenFeature provider.
@@ -33,20 +33,20 @@ Each scenario maps to at least one test. `…` abbreviates context.
 
 Milestone map (used by [06-roadmap.md](06-roadmap.md) acceptance criteria):
 
-| Spec area | Milestone(s) |
-| --- | --- |
-| §2.1 Validation | M1 |
-| §2.2 Compilation | M2 |
-| §2.3 flagd E2E | M2 (ETag/304), M3 (evaluate, propagation, SSE, readiness, NFR-3) |
+| Spec area         | Milestone(s)                                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| §2.1 Validation   | M1                                                                                                                                |
+| §2.2 Compilation  | M2                                                                                                                                |
+| §2.3 flagd E2E    | M2 (ETag/304), M3 (evaluate, propagation, SSE, readiness, NFR-3)                                                                  |
 | §2.4 Auth & audit | M1 (auth/audit/keys/revocation; capability-matrix scenarios implemented via the M1 follow-up), M2 (sync scope), M3 (events scope) |
-| §2.5 API surface | M1 (flags/audit), M2 (sync/ETag/admin-sync/memo), M5 (OpenAPI) |
-| §2.6 Multi-user | M1 (API), M4 (UI) |
+| §2.5 API surface  | M1 (flags/audit), M2 (sync/ETag/admin-sync/memo), M5 (OpenAPI)                                                                    |
+| §2.6 Multi-user   | M1 (API), M4 (UI)                                                                                                                 |
 
 ### 2.1 Validation
 
 - **G** a definition with variants `{"a": 1, "b": 2, "c": true}`
   **W** it is submitted
-  **T** it is rejected listing *all* problems (e.g. `/variants/c` type mismatch) — never just
+  **T** it is rejected listing _all_ problems (e.g. `/variants/c` type mismatch) — never just
   the first (FR-14, NFR all-at-once).
 
 - **G** a rule referencing variant `"yes"` on a flag whose variants are `on/off`
@@ -123,7 +123,7 @@ Milestone map (used by [06-roadmap.md](06-roadmap.md) acceptance criteria):
 
 - **G** percentage rule on/off 50/50
   **W** evaluate 1,000 synthetic targeting keys
-  **T** every key returns a *stable* variant across 3 repeated evaluations (stickiness,
+  **T** every key returns a _stable_ variant across 3 repeated evaluations (stickiness,
   FR-19) and the observed split is within ±5% of 50/50 (statistical, generous bound to stay
   deterministic-enough).
 

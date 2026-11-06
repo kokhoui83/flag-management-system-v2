@@ -1,6 +1,9 @@
 import type { FastifyReply } from 'fastify';
 import type { FlagChangeBroadcaster } from './broadcaster';
-import type { FlagdProviderEvent, FlagdProviderRegistry } from '../evaluate/providers';
+import type {
+  FlagdProviderEvent,
+  FlagdProviderRegistry,
+} from '../evaluate/providers';
 
 /** SSE keepalive comment interval (ADR-0008: every 15 s). */
 export const SSE_KEEPALIVE_MS = 15_000;
@@ -33,7 +36,9 @@ function sseFrame(event: string, payload: Record<string, unknown>): string {
  * `flag-changed` events drained from the per-flag-set queue on provider configuration
  * changes (ADR-0008; FR-51).
  */
-export function startFlagChangeStream(input: StartFlagChangeStreamInput): FlagChangeStreamHandle {
+export function startFlagChangeStream(
+  input: StartFlagChangeStreamInput,
+): FlagChangeStreamHandle {
   const { broadcaster, registry, reply, flagSetIds } = input;
   const raw = reply.raw;
   let closed = false;
@@ -43,7 +48,11 @@ export function startFlagChangeStream(input: StartFlagChangeStreamInput): FlagCh
   };
 
   const onProviderEvent = (event: FlagdProviderEvent): void => {
-    if (flagSetIds && flagSetIds.length > 0 && !flagSetIds.includes(event.flagSetId)) {
+    if (
+      flagSetIds &&
+      flagSetIds.length > 0 &&
+      !flagSetIds.includes(event.flagSetId)
+    ) {
       return;
     }
     if (event.type === 'provider-configuration-changed') {
@@ -62,7 +71,12 @@ export function startFlagChangeStream(input: StartFlagChangeStreamInput): FlagCh
       return;
     }
     const { projectKey, env } = flagSetParts(event.flagSetId);
-    send(event.type, { projectKey, env, flagSetId: event.flagSetId, at: new Date().toISOString() });
+    send(event.type, {
+      projectKey,
+      env,
+      flagSetId: event.flagSetId,
+      at: new Date().toISOString(),
+    });
   };
 
   const unsubscribe = registry.onEvent(onProviderEvent);

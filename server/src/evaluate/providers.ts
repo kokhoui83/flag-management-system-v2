@@ -1,4 +1,8 @@
-import { OpenFeature, ServerProviderEvents, type Logger } from '@openfeature/server-sdk';
+import {
+  OpenFeature,
+  ServerProviderEvents,
+  type Logger,
+} from '@openfeature/server-sdk';
 import { FlagdProvider } from '@openfeature/flagd-provider';
 import type { ProviderRuntimeState } from './types';
 
@@ -48,9 +52,13 @@ function eventTypeOf(eventType: string): FlagdProviderEvent['type'] {
 }
 
 /** Derives the flag-set ID an OpenFeature provider event belongs to (ADR-0004 naming). */
-function flagSetIdOf(details: { domain?: string; clientName?: string } | undefined): string | undefined {
+function flagSetIdOf(
+  details: { domain?: string; clientName?: string } | undefined,
+): string | undefined {
   const flagSetId = details?.domain ?? details?.clientName;
-  return typeof flagSetId === 'string' && flagSetId.length > 0 ? flagSetId : undefined;
+  return typeof flagSetId === 'string' && flagSetId.length > 0
+    ? flagSetId
+    : undefined;
 }
 
 /**
@@ -71,25 +79,43 @@ export class FlagdProviderRegistry {
   private readonly materialized = new Set<string>();
   private readonly flagd: FlagdProviderBinding;
 
-  constructor(deps: { openFeature?: () => typeof OpenFeature; logger?: Logger; flagd?: FlagdProviderBinding } = {}) {
+  constructor(
+    deps: {
+      openFeature?: () => typeof OpenFeature;
+      logger?: Logger;
+      flagd?: FlagdProviderBinding;
+    } = {},
+  ) {
     this.openFeature = deps.openFeature ?? (() => OpenFeature);
     this.flagd = deps.flagd ?? {};
-    void this.openFeature().addHandler(ServerProviderEvents.Ready, async (details) => {
-      this.handleEvent('PROVIDER_READY', details);
-    });
-    void this.openFeature().addHandler(ServerProviderEvents.Error, async (details) => {
-      this.handleEvent('PROVIDER_ERROR', details);
-    });
-    void this.openFeature().addHandler(ServerProviderEvents.Stale, async (details) => {
-      this.handleEvent('PROVIDER_STALE', details);
-    });
-    void this.openFeature().addHandler(ServerProviderEvents.ConfigurationChanged, async (details) => {
-      const flagSetId = flagSetIdOf(details);
-      if (!flagSetId) {
-        return;
-      }
-      this.emit({ type: 'provider-configuration-changed', flagSetId });
-    });
+    void this.openFeature().addHandler(
+      ServerProviderEvents.Ready,
+      async (details) => {
+        this.handleEvent('PROVIDER_READY', details);
+      },
+    );
+    void this.openFeature().addHandler(
+      ServerProviderEvents.Error,
+      async (details) => {
+        this.handleEvent('PROVIDER_ERROR', details);
+      },
+    );
+    void this.openFeature().addHandler(
+      ServerProviderEvents.Stale,
+      async (details) => {
+        this.handleEvent('PROVIDER_STALE', details);
+      },
+    );
+    void this.openFeature().addHandler(
+      ServerProviderEvents.ConfigurationChanged,
+      async (details) => {
+        const flagSetId = flagSetIdOf(details);
+        if (!flagSetId) {
+          return;
+        }
+        this.emit({ type: 'provider-configuration-changed', flagSetId });
+      },
+    );
   }
 
   getState(flagSetId: string): ProviderRuntimeState {
@@ -139,7 +165,10 @@ export class FlagdProviderRegistry {
     await this.openFeature().clearProviders();
   }
 
-  private handleEvent(eventType: string, details: { domain?: string; clientName?: string } | undefined): void {
+  private handleEvent(
+    eventType: string,
+    details: { domain?: string; clientName?: string } | undefined,
+  ): void {
     const flagSetId = flagSetIdOf(details);
     const state = flagSetId ? stateForEvent(eventType) : null;
     if (!flagSetId || !state) {

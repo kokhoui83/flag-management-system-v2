@@ -37,7 +37,7 @@ resolution). Sync-scoped API keys or project-authorized admin sessions can acces
 memoized per (project, env) and invalidated after definition copies and flag deletions as well as
 definition writes.
 
-**M3 — Evaluation path (implemented; E2E pending).** The runtime evaluation path landed: the
+**M3 — Evaluation path (implemented; E2E green).** The runtime evaluation path landed: the
 `FlagEvaluator` interface with the OpenFeature server-SDK implementation (flagd gRPC provider,
 per-(project, env) flag-set selector), the `FlagdProviderRegistry` tracking provider state,
 the `GET /readyz` readiness probe (DB + all flag sets READY, else `503 not_ready`), the
@@ -56,15 +56,15 @@ M4 per [docs/06-roadmap.md](docs/06-roadmap.md).
 
 ## Documentation
 
-| Document | Contents |
-| --- | --- |
-| [docs/01-requirements.md](docs/01-requirements.md) | Goals, personas, functional & non-functional requirements, out of scope |
+| Document                                           | Contents                                                                      |
+| -------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [docs/01-requirements.md](docs/01-requirements.md) | Goals, personas, functional & non-functional requirements, out of scope       |
 | [docs/02-architecture.md](docs/02-architecture.md) | System design, components, data flows, security, observability, failure modes |
-| [docs/03-data-model.md](docs/03-data-model.md) | Database schema, rule format, compilation to the flagd model (with examples) |
-| [docs/04-api.md](docs/04-api.md) | REST API contract, sync endpoint, evaluation endpoint, error model |
-| [docs/05-testing.md](docs/05-testing.md) | TDD strategy, behavior specs (Given/When/Then), test pyramid |
-| [docs/06-roadmap.md](docs/06-roadmap.md) | Milestones with acceptance criteria |
-| [docs/adr/](docs/adr/) | Architecture decision records |
+| [docs/03-data-model.md](docs/03-data-model.md)     | Database schema, rule format, compilation to the flagd model (with examples)  |
+| [docs/04-api.md](docs/04-api.md)                   | REST API contract, sync endpoint, evaluation endpoint, error model            |
+| [docs/05-testing.md](docs/05-testing.md)           | TDD strategy, behavior specs (Given/When/Then), test pyramid                  |
+| [docs/06-roadmap.md](docs/06-roadmap.md)           | Milestones with acceptance criteria                                           |
+| [docs/adr/](docs/adr/)                             | Architecture decision records                                                 |
 
 ## Architecture in one paragraph
 
@@ -72,7 +72,7 @@ A TypeScript management API (Fastify + MariaDB) is the system of record for flag
 per-environment definitions, targeting rules, API keys, and an audit log. It exposes a REST
 API for the Vue 3 web dashboard, a pull-based sync endpoint (with ETag/304 caching) that
 [flagd](https://flagd.dev) polls — one sync source per (project, environment), each carried
-in its own flagd *flag set* — and an SSE stream (`GET /api/v1/events`) that relays
+in its own flagd _flag set_ — and an SSE stream (`GET /api/v1/events`) that relays
 flag-change notifications once flagd serves them. Runtime evaluation happens inside flagd:
 server-side clients use the OpenFeature server SDK with the official
 `@openfeature/flagd-provider` (gRPC, one provider instance per (project, environment),
@@ -85,13 +85,13 @@ percentage rollouts.
 
 ## Planned runtime components
 
-| Component | Technology | Role |
-| --- | --- | --- |
-| Management API | Node.js (TypeScript), Fastify, MariaDB (Prisma) | System of record, REST API, sync source, evaluate proxy, SSE change events, hosts dashboard |
-| MariaDB | `mariadb:11.8` (Docker) | Persistent storage (system of record) |
-| flagd | `ghcr.io/open-feature/flagd` (Docker) | Flag evaluation engine; syncs from the management API |
-| Dashboard | Vue 3 + Vite + TypeScript, Naive UI (built assets served by the API) | Flag CRUD, per-environment editor, evaluate playground, API keys, audit log, live change events |
-| Client applications | Any language with an official OpenFeature SDK + flagd provider | Evaluate flags at runtime; subscribe to change events |
+| Component           | Technology                                                           | Role                                                                                            |
+| ------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Management API      | Node.js (TypeScript), Fastify, MariaDB (Prisma)                      | System of record, REST API, sync source, evaluate proxy, SSE change events, hosts dashboard     |
+| MariaDB             | `mariadb:11.8` (Docker)                                              | Persistent storage (system of record)                                                           |
+| flagd               | `ghcr.io/open-feature/flagd` (Docker)                                | Flag evaluation engine; syncs from the management API                                           |
+| Dashboard           | Vue 3 + Vite + TypeScript, Naive UI (built assets served by the API) | Flag CRUD, per-environment editor, evaluate playground, API keys, audit log, live change events |
+| Client applications | Any language with an official OpenFeature SDK + flagd provider       | Evaluate flags at runtime; subscribe to change events                                           |
 
 ## Getting started
 
@@ -110,4 +110,4 @@ The full milestone plan lives in [docs/06-roadmap.md](docs/06-roadmap.md); the M
 checks are green per [05-testing.md](docs/05-testing.md) §2.2 (compiler/ETag) and the sync-scope
 scenarios, plus the integration tier against testcontainers MariaDB (FR-26/FR-27/FR-28). The M3
 backend (evaluate, readiness, SSE, latency) is implemented and integration-tested; its E2E
-scenarios (`npm run test:e2e`) are pending.
+scenarios (`npm run test:e2e`) are green against the real flagd engine via testcontainers.

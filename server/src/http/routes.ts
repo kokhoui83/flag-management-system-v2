@@ -11,16 +11,26 @@ import {
   validateEnvName,
   validateFlagKey,
   type FlagDefinitionInput,
+  type ValidationProblem,
+  variantTypeOfVariants,
 } from '@fms/shared';
 import { FmsError, validationError } from './problem';
 import { isFullAccess } from '../domain/types';
 import { productOwnerPutAllowed } from '../domain/flags';
 import { FlagdModelMemo } from '../sync/model-memo';
+import { FlagdProviderRegistry } from '../evaluate/providers';
+import { type FlagEvaluator } from '../evaluate/evaluator';
+import { FlagChangeBroadcaster } from '../events/broadcaster';
+import { startFlagChangeStream } from '../events/stream';
+import type { ProviderRuntimeState } from '../evaluate/types';
 
 export interface RouteServices {
   auth: AuthService;
   store: Store;
   memo: FlagdModelMemo;
+  evaluator: FlagEvaluator;
+  registry: FlagdProviderRegistry;
+  broadcaster: FlagChangeBroadcaster;
 }
 
 function actorName(principal: { type: string; session?: { username: string }; apiKey?: ApiKeyRecord }): string {
@@ -45,6 +55,16 @@ function paramValue(source: Record<string, string>, key: string): string {
   return value;
 }
 
+/**
+ * Queue a committed flag change for the (project, environment) flag set (ADR-0008; FR-51).
+ * The SSE stream drains this queue once the bound flagd provider reports a configuration change.
+ * Invoked synchronously right after the committing write (no intervening await), so a provider
+ * sync cannot drain an empty queue and drop the change.
+ */
+function enqueueFlagChange(broadcaster: FlagChangeBroadcaster, flagSetId: string, flagKey: string, version: number): void {
+  broadcaster.enqueue(flagSetId, { flagKey, version, at: new Date().toISOString() });
+}
+
 function ifNoneMatchMatches(header: string | string[] | undefined, etag: string): boolean {
   const values = Array.isArray(header) ? header : header ? [header] : [];
   return values.some((value) => {
@@ -59,13 +79,21 @@ function ifNoneMatchMatches(header: string | string[] | undefined, etag: string)
 }
 
 export async function registerRoutes(app: FastifyInstance, services: RouteServices): Promise<void> {
-  const { auth, store, memo } = services;
+  const { auth, store, memo, evaluator, registry, broadcaster } = services;
 
   app.get('/healthz', async () => ({ status: 'ok' }));
   app.get('/readyz', async (_request, reply) => {
-    // M0: provider wiring (flagd) does not exist yet — declared not-ready by default.
-    // Returns 503 until the M3 provider registry reports READY (FR-24).
-    return reply.code(503).send({ status: 'not_ready' });
+    // M3 readiness (FR-24/FR-47, architecture §7): alive + DB reachable + every flagd
+    // provider (per project-namespaced flag set) READY → 200; else 503 `not_ready`.
+    const db = await store.pingDatabase();
+    const flagSets = await store.listFlagSets();
+    const flagd: Record<string, ProviderRuntimeState> = {};
+    for (const flagSet of flagSets) {
+      await registry.getOrCreate(flagSet.flagSetId);
+      flagd[flagSet.flagSetId] = registry.getState(flagSet.flagSetId);
+    }
+    const ready = db === 'OK' && flagSets.every((flagSet) => flagd[flagSet.flagSetId] === 'READY');
+    return reply.code(ready ? 200 : 503).send({ status: ready ? 'ok' : 'not_ready', db, flagd });
   });
 
   // ---------------------------------------------------------------- auth
@@ -311,9 +339,16 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
       // Capability matrix (FR-54/FR-59): only a (project-scoped) admin may delete flags.
       throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Admin capability required');
     }
+    const existing = await store.getFlag(projectId, key);
+    const projectKey = await store.getProjectKeyById(projectId);
     const outcome = await store.deleteFlag(projectId, key, actorName(principal));
     if (outcome === 'not_found') {
       throw new FmsError(404, 'https://fms.local/errors/not-found', `Flag '${key}' not found`);
+    }
+    if (existing) {
+      for (const env of Object.keys(existing.definitions)) {
+        enqueueFlagChange(broadcaster, `${projectKey ?? ''}:${env}`, key, existing.version);
+      }
     }
     return reply.code(204).send();
   });
@@ -342,6 +377,7 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
         throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Product owners may only change enabled');
       }
     }
+    const projectKey = await store.getProjectKeyById(projectId);
     const result: PutDefinitionResult = await store.putDefinition({
       projectId,
       flagKey: key,
@@ -356,6 +392,10 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     });
     if (!result.found) {
       throw new FmsError(404, 'https://fms.local/errors/not-found', `Flag '${key}' not found`);
+    }
+    if (!result.unchanged) {
+      // Only a genuinely changed definition queues a change event (idempotent puts are no-ops).
+      enqueueFlagChange(broadcaster, `${projectKey ?? ''}:${env}`, key, result.version);
     }
     return { flagKey: result.flagKey, env: result.env, version: result.version };
   });
@@ -380,6 +420,8 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     if (body.fromEnv === env) {
       throw new FmsError(400, 'https://fms.local/errors/validation', 'fromEnv must differ from env');
     }
+    const projectKey = await store.getProjectKeyById(projectId);
+    const flag = await store.getFlag(projectId, key);
     const outcome = await store.copyDefinition({
       projectId,
       flagKey: key,
@@ -390,8 +432,10 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     if (outcome === 'not_found') {
       throw new FmsError(404, 'https://fms.local/errors/not-found', `Source environment '${body.fromEnv}' has no definition for flag '${key}'`);
     }
-    const flag = await store.getFlag(projectId, key);
-    return { flagKey: key, env, version: flag?.version ?? 0 };
+    // copyDefinition bumps the flag version; the change is queued synchronously (no await between write and queue).
+    const version = (flag?.version ?? 0) + 1;
+    enqueueFlagChange(broadcaster, `${projectKey ?? ''}:${env}`, key, version);
+    return { flagKey: key, env, version };
   });
 
   // ---------------------------------------------------------------- sync (flagd source)
@@ -425,6 +469,143 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     }
     reply.header('ETag', compiled.etag);
     return reply.code(200).type('application/json').send(compiled.body);
+  });
+
+  // ---------------------------------------------------------------- events (SSE, ADR-0008)
+
+  app.get('/api/v1/events', async (request, reply) => {
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    if (!(await auth.canEvaluate(principal))) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Evaluate scope required');
+    }
+    const query = queryOf(request);
+    const envs = String(query.envs ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+    const flagSets = await store.listFlagSets();
+    const knownFlagSetIds = new Set(flagSets.map((flagSet) => flagSet.flagSetId));
+    for (const env of envs) {
+      if (!knownFlagSetIds.has(env)) {
+        throw new FmsError(400, 'https://fms.local/errors/validation', `Unknown flag set id '${env}'`);
+      }
+    }
+    // `?envs=` selects one or more flag sets (comma-separated); without a selection the
+    // stream covers every known flag set.
+    const flagSetIds = envs.length > 0 ? envs : undefined;
+    reply.header('Content-Type', 'text/event-stream');
+    reply.header('Cache-Control', 'no-cache');
+    reply.header('Connection', 'keep-alive');
+    reply.header('X-Accel-Buffering', 'no');
+    await reply.hijack();
+    const stream = startFlagChangeStream({ broadcaster, registry, reply, flagSetIds });
+    reply.raw.once('close', stream.close);
+    return reply;
+  });
+
+  // ---------------------------------------------------------------- evaluate / observed
+
+  app.post('/api/v1/evaluate', async (request) => {
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    if (!(await auth.canEvaluate(principal))) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Evaluate scope required');
+    }
+    const body = request.body as {
+      projectKey?: string;
+      flagKey?: string;
+      environment?: string;
+      targetingKey?: string;
+      context?: unknown;
+    };
+    const problems: ValidationProblem[] = [];
+    if (typeof body.projectKey !== 'string' || body.projectKey.length < 1) {
+      problems.push({ pointer: '/projectKey', message: 'projectKey is required' });
+    }
+    if (typeof body.flagKey !== 'string' || body.flagKey.length < 1) {
+      problems.push({ pointer: '/flagKey', message: 'flagKey is required' });
+    }
+    if (typeof body.environment !== 'string' || body.environment.length < 1) {
+      problems.push({ pointer: '/environment', message: 'environment is required' });
+    }
+    if (body.targetingKey !== undefined && typeof body.targetingKey !== 'string') {
+      problems.push({ pointer: '/targetingKey', message: 'targetingKey must be a string' });
+    }
+    if (body.context !== undefined && (typeof body.context !== 'object' || body.context === null || Array.isArray(body.context))) {
+      problems.push({ pointer: '/context', message: 'context must be an object' });
+    }
+    if (problems.length > 0) {
+      throw validationError('Invalid evaluate request', problems);
+    }
+    const projectKey = body.projectKey as string;
+    const flagKey = body.flagKey as string;
+    const environment = body.environment as string;
+    const project = await store.getProject(projectKey);
+    if (!project) {
+      throw new FmsError(404, 'https://fms.local/errors/not-found', `Project '${projectKey}' not found`);
+    }
+    if (!project.environments.includes(environment)) {
+      throw new FmsError(400, 'https://fms.local/errors/validation', `Environment '${environment}' is not an environment of project '${projectKey}'`);
+    }
+    const flag = await store.getFlag(project.id, flagKey);
+    const definition = flag?.definitions[environment];
+    if (!flag || !definition) {
+      throw new FmsError(404, 'https://fms.local/errors/not-found', `Flag '${flagKey}' not found in environment '${environment}'`);
+    }
+    const result = await evaluator.resolve({
+      flagSetId: `${project.key}:${environment}`,
+      flagKey,
+      enabled: definition.enabled,
+      variants: definition.variants,
+      defaultVariant: definition.defaultVariant,
+      variantType: variantTypeOfVariants(definition.variants),
+      version: flag.version,
+      targetingKey: body.targetingKey,
+      context: body.context as Record<string, unknown> | undefined,
+    });
+    return {
+      value: result.value,
+      variant: result.variant,
+      reason: result.reason,
+      flagVersion: result.flagVersion,
+    };
+  });
+
+  app.get('/api/v1/projects/:projectId/flags/:key/observed', async (request) => {
+    const projectId = paramValue(paramsOf(request), 'projectId');
+    const key = paramValue(paramsOf(request), 'key');
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(401, 'https://fms.local/errors/unauthorized', 'Missing or invalid credential');
+    }
+    if (!(await auth.canEvaluate(principal, projectId))) {
+      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Evaluate scope required');
+    }
+    const flag = await store.getFlag(projectId, key);
+    if (!flag) {
+      throw new FmsError(404, 'https://fms.local/errors/not-found', `Flag '${key}' not found`);
+    }
+    const projectKey = await store.getProjectKeyById(projectId);
+    const observed: Record<string, { version: number; enabled: boolean; variantType: string }> = {};
+    for (const [env, definition] of Object.entries(flag.definitions)) {
+      const result = await evaluator.resolve({
+        flagSetId: `${projectKey ?? ''}:${env}`,
+        flagKey: key,
+        enabled: definition.enabled,
+        variants: definition.variants,
+        defaultVariant: definition.defaultVariant,
+        variantType: variantTypeOfVariants(definition.variants),
+        version: flag.version,
+        context: {},
+      });
+      observed[env] = { version: result.flagVersion, enabled: result.reason !== 'DISABLED', variantType: variantTypeOfVariants(definition.variants) };
+    }
+    return { key, observed };
   });
 
   // ---------------------------------------------------------------- audit / keys / openapi

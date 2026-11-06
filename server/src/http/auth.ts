@@ -38,6 +38,8 @@ export interface AuthService {
   requireProjectRole(principal: Principal, projectId: string): Promise<EffectiveRole>;
   /** True when the principal may fetch a project's flagd model (FR-27). */
   canSync(principal: Principal, projectId?: string): Promise<boolean>;
+  /** True when the principal may evaluate flags / open the events stream (FR-22/FR-51). */
+  canEvaluate(principal: Principal, projectId?: string): Promise<boolean>;
 }
 
 export function createAuthService(deps: {
@@ -203,6 +205,25 @@ export function createAuthService(deps: {
     return assignments.some((assignment) => assignment.role?.toUpperCase() === 'ADMIN');
   }
 
+  async function canEvaluate(principal: Principal, projectId?: string): Promise<boolean> {
+    if (principal.type === 'api_key') {
+      const scope = principal.apiKey.scope.toUpperCase();
+      // The evaluate surface accepts the `evaluate` scope (plus `all`); sessions pass through.
+      return scope === 'EVALUATE' || scope === 'ALL';
+    }
+    if (principal.session.isBootstrapAdmin) return true;
+    const user = await store.findUserByName(principal.session.username);
+    if (user?.globalRole?.toUpperCase() === 'ADMIN') return true;
+    if (projectId) {
+      const membership = await store.findMembership(principal.session.username, projectId);
+      // Any assigned role may evaluate (capability matrix: admin/developer/product-owner all "Yes").
+      return effectiveCapability(user?.globalRole, membership?.role) !== null;
+    }
+    const assignments = await store.listMemberAssignments(principal.session.username);
+    // Without a project scope, any active assignment grants evaluate access.
+    return assignments.length > 0;
+  }
+
   return {
     resolve,
     verifyBootstrap,
@@ -211,5 +232,6 @@ export function createAuthService(deps: {
     isAdmin,
     requireProjectRole,
     canSync,
+    canEvaluate,
   };
 }

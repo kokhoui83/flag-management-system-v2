@@ -181,16 +181,24 @@ selectors all follow the resolution.
 - [x] OpenAPI document at `/api/v1/openapi.json` includes `GET /api/v1/sync/:projectKey/:env`
       and matches [04-api.md §6](04-api.md) (API §11).
 
-### M2 follow-up (2026-11-04 alignment review)
+### M2 follow-up (2026-11-04 alignment review; measurement protocol landed 2026-11-05)
 
 - [ ] Measure and log NFR-1 sync latency per the [05-testing.md §2.3](05-testing.md) protocol
       (100-call warmup discarded; 1,000 conditional requests, 100 full-body fetches):
       p99 < 50 ms with `ETag`/`304`, and < 200 ms for a full 1,000-flag body (1,000 flags ×
       3 environments is the NFR-2 shape).
 
+  The measurement protocol landed in code first (`server/src/evaluate/latency.ts`:
+  `percentile99`/`mean`, warmup discard, sequential samples); the measured numbers are produced
+  by the M3 E2E latency scenario (`npm run test:e2e`).
+
 ---
 
 ## M3 — Evaluation path (OpenFeature + flagd)
+
+**Status:** implementation landed 2026-11-05 (evaluate domain + flagd provider registry +
+SSE broadcaster/stream + readiness, latency helpers, integration suite green); end-to-end
+validation via `npm run test:e2e` and the measured NFR-1 numbers are pending.
 
 **Goal:** `/api/v1/evaluate` works end-to-end against real flagd; readiness reflects
 provider state.

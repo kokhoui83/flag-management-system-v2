@@ -1,6 +1,17 @@
-import { OpenFeature, type EvaluationContext, type Logger, type ResolutionDetails } from '@openfeature/server-sdk';
+import {
+  OpenFeature,
+  type EvaluationContext,
+  type Logger,
+  type ResolutionDetails,
+} from '@openfeature/server-sdk';
+import { performance } from 'node:perf_hooks';
 import { unavailableError } from '../http/problem';
-import type { FlagEvaluationInput, FlagEvaluationResult, ProviderRuntimeState } from './types';
+import { LatencyTracker } from './latency';
+import type {
+  FlagEvaluationInput,
+  FlagEvaluationResult,
+  ProviderRuntimeState,
+} from './types';
 import type { FlagdProviderRegistry } from './providers';
 
 /**
@@ -36,24 +47,45 @@ export class OpenFeatureFlagEvaluator implements FlagEvaluator {
   private readonly openFeature: () => typeof OpenFeature;
   private readonly registry: FlagdProviderRegistry;
   private readonly logger?: Logger;
+  private readonly latency: LatencyTracker;
 
-  constructor(deps: { openFeature?: () => typeof OpenFeature; registry: FlagdProviderRegistry; logger?: Logger }) {
+  constructor(deps: {
+    openFeature?: () => typeof OpenFeature;
+    registry: FlagdProviderRegistry;
+    logger?: Logger;
+    latency?: LatencyTracker;
+  }) {
     this.openFeature = deps.openFeature ?? (() => OpenFeature);
     this.registry = deps.registry;
     this.logger = deps.logger;
+    this.latency = deps.latency ?? new LatencyTracker();
   }
 
   async resolve(input: FlagEvaluationInput): Promise<FlagEvaluationResult> {
+    if (!input.enabled) {
+      // FR-10: disabled → OpenFeature DISABLED, no value — no provider round-trip is needed,
+      // so this short-circuits before the provider-readiness gate (FR-24 only governs evaluations
+      // that would actually hit the provider).
+      return {
+        value: null,
+        variant: null,
+        reason: 'DISABLED',
+        flagVersion: input.version,
+      };
+    }
     const state: ProviderRuntimeState = this.registry.getState(input.flagSetId);
     if (state !== 'READY') {
-      this.logger?.error?.(`flag evaluation skipped: provider ${input.flagSetId} state=${state}`);
-      throw unavailableError(`Flagd provider '${input.flagSetId}' is not ready`);
+      this.logger?.error?.(
+        `flag evaluation skipped: provider ${input.flagSetId} state=${state}`,
+      );
+      throw unavailableError(
+        `Flagd provider '${input.flagSetId}' is not ready`,
+      );
     }
-    if (!input.enabled) {
-      // FR-10: disabled → OpenFeature DISABLED, no value.
-      return { value: null, variant: null, reason: 'DISABLED', flagVersion: input.version };
-    }
+    const startedAt = performance.now();
     const details = await this.resolveViaOpenFeature(input);
+    // NFR-1: measure the flag evaluation latency and feed the sample into the warm-up/protocol tracker.
+    this.latency.record(performance.now() - startedAt);
     const flagVersion = observedFlagVersion(details, input.version);
     return {
       value: details.value,
@@ -63,7 +95,9 @@ export class OpenFeatureFlagEvaluator implements FlagEvaluator {
     };
   }
 
-  private async resolveViaOpenFeature(input: FlagEvaluationInput): Promise<ResolutionDetails<boolean | number | string>> {
+  private async resolveViaOpenFeature(
+    input: FlagEvaluationInput,
+  ): Promise<ResolutionDetails<boolean | number | string>> {
     const client = this.openFeature().getClient(input.flagSetId);
     const context: EvaluationContext = {
       ...(input.context ?? {}),
@@ -73,21 +107,35 @@ export class OpenFeatureFlagEvaluator implements FlagEvaluator {
     switch (input.variantType) {
       case 'boolean': {
         const defaultValue = Boolean(input.variants[input.defaultVariant]);
-        const details = await client.getBooleanDetails(input.flagKey, defaultValue, context, options);
+        const details = await client.getBooleanDetails(
+          input.flagKey,
+          defaultValue,
+          context,
+          options,
+        );
         return details;
       }
       case 'string': {
         const defaultValue = String(input.variants[input.defaultVariant]);
-        const details = await client.getStringDetails(input.flagKey, defaultValue, context, options);
+        const details = await client.getStringDetails(
+          input.flagKey,
+          defaultValue,
+          context,
+          options,
+        );
         return details;
       }
       case 'number': {
         const defaultValue = Number(input.variants[input.defaultVariant]);
-        const details = await client.getNumberDetails(input.flagKey, defaultValue, context, options);
+        const details = await client.getNumberDetails(
+          input.flagKey,
+          defaultValue,
+          context,
+          options,
+        );
         return details;
       }
     }
     throw new Error(`Unsupported variant type: ${String(input.variantType)}`);
   }
-
 }

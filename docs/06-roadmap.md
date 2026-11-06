@@ -5,19 +5,19 @@ milestone is TDD-shaped per [05-testing.md](05-testing.md): the behavior specs f
 are written (failing) before its implementation. Acceptance criteria reference
 [01-requirements.md](01-requirements.md) (`FR-n`, `NFR-n`).
 
-> Scope note: M1–M5 deliver v1 as specified. Items marked *v1.1* are explicitly deferred and
+> Scope note: M1–M5 deliver v1 as specified. Items marked _v1.1_ are explicitly deferred and
 > do not block "done".
 
 Requirement coverage by milestone (details in [01-requirements.md](01-requirements.md)):
 
-| Milestone | Functional requirements | Non-functional requirements |
-| --- | --- | --- |
-| M0 | — (tooling) | NFR-6 (portability baseline), NFR-7 (health endpoints), NFR-8 (test seams) |
-| M1 | FR-1–FR-20, FR-30–FR-39, FR-53–FR-59 (API; capability-matrix follow-up implemented — see M1 follow-up) | NFR-5 (password/key hashing), NFR-8 |
-| M2 | FR-26–FR-29 | NFR-1 (sync latency), NFR-9 |
-| M3 | FR-21–FR-25, FR-50–FR-51 | NFR-1 (evaluate latency), NFR-3, NFR-7 (readiness) |
-| M4 | FR-40–FR-47, FR-52, FR-53–FR-59 (UI) | NFR-7 (sync-health badge) |
-| M5 | FR-25 (client guide) | NFR-1–NFR-9 verification, NFR-9 (OpenAPI completeness) |
+| Milestone | Functional requirements                                                                                | Non-functional requirements                                                |
+| --------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| M0        | — (tooling)                                                                                            | NFR-6 (portability baseline), NFR-7 (health endpoints), NFR-8 (test seams) |
+| M1        | FR-1–FR-20, FR-30–FR-39, FR-53–FR-59 (API; capability-matrix follow-up implemented — see M1 follow-up) | NFR-5 (password/key hashing), NFR-8                                        |
+| M2        | FR-26–FR-29                                                                                            | NFR-1 (sync latency), NFR-9                                                |
+| M3        | FR-21–FR-25, FR-50–FR-51                                                                               | NFR-1 (evaluate latency), NFR-3, NFR-7 (readiness)                         |
+| M4        | FR-40–FR-47, FR-52, FR-53–FR-59 (UI)                                                                   | NFR-7 (sync-health badge)                                                  |
+| M5        | FR-25 (client guide)                                                                                   | NFR-1–NFR-9 verification, NFR-9 (OpenAPI completeness)                     |
 
 ---
 
@@ -45,6 +45,7 @@ Requirement coverage by milestone (details in [01-requirements.md](01-requiremen
   runs the dev server with an `/api` proxy.
 
 **Acceptance**
+
 - [x] `npm test` green (config parsing + health route tests, TDD).
 - [x] `docker compose up -d` starts flagd + mariadb (mariadb healthcheck green; flagd starts
       via `start --config` and serves gRPC on 8013); `docker compose down` clean. (mariadb
@@ -87,6 +88,7 @@ audit actor, effective-permission union, per-project invite roles) were implemen
 - Audit actions per [03-data-model.md §5](03-data-model.md).
 
 **Acceptance**
+
 - [x] Baseline M1 scenarios in [05-testing.md §2.1, §2.4, §2.5](05-testing.md) green (written
       first): validation (§2.1); auth/audit/API-key/revocation/invite (§2.4, excluding the
       capability-matrix scenarios below and the sync-/events-scope scenarios that land in
@@ -168,6 +170,7 @@ selectors all follow the resolution.
 - Golden-file tests for the compiler (fixtures committed).
 
 **Acceptance**
+
 - [x] All [05-testing.md §2.2](05-testing.md) scenarios green.
 - [x] Manual: with flagd from M0 pointed at the endpoint (config finalized per OQ-6),
       `curl` of a flagd evaluation (HTTP on 8013) returns the expected variant for a
@@ -183,14 +186,16 @@ selectors all follow the resolution.
 
 ### M2 follow-up (2026-11-04 alignment review; measurement protocol landed 2026-11-05)
 
-- [ ] Measure and log NFR-1 sync latency per the [05-testing.md §2.3](05-testing.md) protocol
+- [x] Measure and log NFR-1 sync latency per the [05-testing.md §2.3](05-testing.md) protocol
       (100-call warmup discarded; 1,000 conditional requests, 100 full-body fetches):
       p99 < 50 ms with `ETag`/`304`, and < 200 ms for a full 1,000-flag body (1,000 flags ×
       3 environments is the NFR-2 shape).
 
   The measurement protocol landed in code first (`server/src/evaluate/latency.ts`:
   `percentile99`/`mean`, warmup discard, sequential samples); the measured numbers are produced
-  by the M3 E2E latency scenario (`npm run test:e2e`).
+  by the M3 E2E latency scenario (`npm run test:e2e`) and the M2 follow-up sync-latency
+  measurement scenario (`measures the NFR-1 sync latency (M2 follow-up: conditional requests +
+full body)` in `server/test/m3.evaluate.e2e.test.ts`) — green in the final E2E run (8/8).
 
 ---
 
@@ -198,7 +203,9 @@ selectors all follow the resolution.
 
 **Status:** implementation landed 2026-11-05 (evaluate domain + flagd provider registry +
 SSE broadcaster/stream + readiness, latency helpers, integration suite green); end-to-end
-validation via `npm run test:e2e` and the measured NFR-1 numbers are pending.
+validation via `npm run test:e2e` is now green against the real flagd engine (Vitest +
+testcontainers: MariaDB + real flagd, 7/7 scenarios) and the measured NFR-1 numbers are captured.
+The M3 acceptance criteria below are checked as of the final green E2E run.
 
 **Goal:** `/api/v1/evaluate` works end-to-end against real flagd; readiness reflects
 provider state.
@@ -226,19 +233,20 @@ provider state.
   operator can wire `flagd/config.yaml` (source URIs per the OQ-6 resolution).
 
 **Acceptance**
-- [ ] All [05-testing.md §2.3](05-testing.md) E2E scenarios green via `npm run test:e2e`
-      (Vitest + compose).
-- [ ] NFR-1 latency: local `/evaluate` p99 < 25 ms measured in E2E per the
+
+- [x] All [05-testing.md §2.3](05-testing.md) E2E scenarios green via `npm run test:e2e`
+      (Vitest + testcontainers: MariaDB + real flagd engine).
+- [x] NFR-1 latency: local `/evaluate` p99 < 25 ms measured in E2E per the
       [05-testing.md §2.3](05-testing.md) protocol (100-call warmup discarded, 1,000
       measured calls, logged).
-- [ ] `readyz` transitions observed: READY → (flagd stopped) ERROR → (flagd restarted) READY;
+- [x] `readyz` transitions observed: READY → (flagd stopped) ERROR → (flagd restarted) READY;
       `readyz` keys are project-namespaced flag-set IDs (`<projectKey>:<env>`).
-- [ ] SSE: change → `flag-changed` arrives after flagd serves the new value and within ~2×
+- [x] SSE: change → `flag-changed` arrives after flagd serves the new value and within ~2×
       interval; payload includes `projectKey`/`env`/`flagSetId`; no replay after reconnect;
       `provider-error`/`provider-ready` on stop/restart; an unknown `?envs=` flag-set ID → `400`.
-- [ ] `GET /api/v1/projects/:projectId/flags/:key/observed` returns the flagd-observed
+- [x] `GET /api/v1/projects/:projectId/flags/:key/observed` returns the flagd-observed
       version/enablement per environment (FR-47) and omits environments with no definition.
-- [ ] NFR-3: while flagd is stopped, management CRUD/audit/key operations still succeed;
+- [x] NFR-3: while flagd is stopped, management CRUD/audit/key operations still succeed;
       only evaluation returns `503` (FR-24).
 
 ---
@@ -269,9 +277,10 @@ provider state.
 - Audit view (pagination, filters, before/after diff) (FR-46).
 - Sync health badge per project+env: stored version vs. observed `flagVersion` (FR-47).
 - Live updates: subscribe to `GET /api/v1/events` (`EventSource`, session cookie); flag list
-  + sync-health badge refresh on `flag-changed` / `provider-ready` (FR-52).
+  - sync-health badge refresh on `flag-changed` / `provider-ready` (FR-52).
 
 **Acceptance**
+
 - [ ] Every UI-scoped requirement (FR-40–FR-47, FR-52–FR-59) exercisable in the UI; manual
       checklist committed to the M4 note. FR-50 (client-side OpenFeature events) and FR-51
       (SSE API) are API/provider requirements verified in M3, not UI acceptance criteria.
@@ -312,6 +321,7 @@ provider state.
   02/03/04, client guide).
 
 **Acceptance**
+
 - [ ] `npm test` + `npm run test:e2e` green; `typecheck`/`lint` green.
 - [ ] Runbook steps executed once on a clean machine (documented evidence in M5 note):
       backup/restore, key rotation, flagd upgrade, compose walkthrough (NFR-4/NFR-6).

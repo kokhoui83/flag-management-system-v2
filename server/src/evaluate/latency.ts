@@ -29,3 +29,56 @@ export function mean(values: number[]): number | null {
   const sum = values.reduce((acc, value) => acc + value, 0);
   return sum / values.length;
 }
+
+/**
+ * NFR-1 latency measurement (roadmap M3; [05-testing.md §2.3]): records evaluation
+ * durations and exposes the measured samples, applying the measurement protocol —
+ * the first `LATENCY_WARMUP_CALLS` calls are discarded as provider warm-up, then every
+ * subsequent duration is sampled so the p99 can be logged (a logged bound, not a hard gate).
+ */
+export const LATENCY_WARMUP_CALLS = 100;
+
+export class LatencyTracker {
+  private readonly samples: number[] = [];
+  private callsSinceWarmupStart = 0;
+  private warmedUp = false;
+
+  /** Records one measured evaluation duration (ms). */
+  record(durationMs: number): void {
+    if (!this.warmedUp) {
+      this.callsSinceWarmupStart += 1;
+      if (this.callsSinceWarmupStart >= LATENCY_WARMUP_CALLS) {
+        this.warmedUp = true;
+      }
+      return;
+    }
+    this.samples.push(durationMs);
+  }
+
+  /** Number of samples recorded after the warm-up window. */
+  getSampleCount(): number {
+    return this.samples.length;
+  }
+
+  /** All recorded samples (after the warm-up window). */
+  getSamples(): number[] {
+    return [...this.samples];
+  }
+
+  /** p99 of the recorded samples; null while no sample was recorded. */
+  percentile99(): number | null {
+    return percentile99(this.samples);
+  }
+
+  /** Mean of the recorded samples; null while no sample was recorded. */
+  mean(): number | null {
+    return mean(this.samples);
+  }
+
+  /** Clears recorded samples and restarts the warm-up window (e.g. before a measurement run). */
+  reset(): void {
+    this.samples.length = 0;
+    this.callsSinceWarmupStart = 0;
+    this.warmedUp = false;
+  }
+}

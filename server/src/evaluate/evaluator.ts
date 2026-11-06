@@ -62,6 +62,17 @@ export class OpenFeatureFlagEvaluator implements FlagEvaluator {
   }
 
   async resolve(input: FlagEvaluationInput): Promise<FlagEvaluationResult> {
+    if (!input.enabled) {
+      // FR-10: disabled → OpenFeature DISABLED, no value — no provider round-trip is needed,
+      // so this short-circuits before the provider-readiness gate (FR-24 only governs evaluations
+      // that would actually hit the provider).
+      return {
+        value: null,
+        variant: null,
+        reason: 'DISABLED',
+        flagVersion: input.version,
+      };
+    }
     const state: ProviderRuntimeState = this.registry.getState(input.flagSetId);
     if (state !== 'READY') {
       this.logger?.error?.(
@@ -70,15 +81,6 @@ export class OpenFeatureFlagEvaluator implements FlagEvaluator {
       throw unavailableError(
         `Flagd provider '${input.flagSetId}' is not ready`,
       );
-    }
-    if (!input.enabled) {
-      // FR-10: disabled → OpenFeature DISABLED, no value.
-      return {
-        value: null,
-        variant: null,
-        reason: 'DISABLED',
-        flagVersion: input.version,
-      };
     }
     const startedAt = performance.now();
     const details = await this.resolveViaOpenFeature(input);

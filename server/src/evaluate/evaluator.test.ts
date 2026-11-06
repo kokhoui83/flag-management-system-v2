@@ -75,6 +75,28 @@ describe('OpenFeatureFlagEvaluator (FR-21..FR-25, FR-24)', () => {
     });
   });
 
+  it('returns DISABLED without a provider round-trip when the flagd provider is not ready (FR-10 precedes FR-24)', async () => {
+    const evaluator = new OpenFeatureFlagEvaluator({
+      openFeature: () => OpenFeature,
+      registry: new FlagdProviderRegistry({ openFeature: () => OpenFeature }),
+    });
+    const result = await evaluator.resolve({
+      flagSetId: 'checkout:staging',
+      flagKey: 'new-checkout',
+      enabled: false,
+      variants: { on: true, off: false },
+      defaultVariant: 'off',
+      variantType: 'boolean',
+      version: 3,
+    });
+    expect(result).toEqual({
+      value: null,
+      variant: null,
+      reason: 'DISABLED',
+      flagVersion: 3,
+    });
+  });
+
   it('resolves a boolean flag through the OpenFeature layer when the provider is READY', async () => {
     const registry = new FlagdProviderRegistry({
       openFeature: () => OpenFeature,

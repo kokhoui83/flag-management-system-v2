@@ -393,7 +393,10 @@ export async function registerRoutes(app: FastifyInstance, services: RouteServic
     if (!result.found) {
       throw new FmsError(404, 'https://fms.local/errors/not-found', `Flag '${key}' not found`);
     }
-    enqueueFlagChange(broadcaster, `${projectKey ?? ''}:${env}`, key, result.version);
+    if (!result.unchanged) {
+      // Only a genuinely changed definition queues a change event (idempotent puts are no-ops).
+      enqueueFlagChange(broadcaster, `${projectKey ?? ''}:${env}`, key, result.version);
+    }
     return { flagKey: result.flagKey, env: result.env, version: result.version };
   });
 

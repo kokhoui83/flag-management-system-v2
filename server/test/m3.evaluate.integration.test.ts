@@ -136,4 +136,21 @@ describe('M3 — evaluation path & readiness (integration: MariaDB via testconta
     const response = await app.inject({ method: 'GET', url: '/api/v1/events?envs=unknown-flag-set', headers: { authorization: `Bearer ${token}` } });
     expect(response.statusCode).toBe(400);
   });
+
+  it('does not queue a flag-changed change for an idempotent definition put (FR-51)', async () => {
+    const token = await adminToken();
+    const created = await createProject(token, 'm3-events-dedup', 'M3 Events Dedup');
+    const flag = await createFlag(token, created.body.id, 'new-checkout', 'Checkout');
+    expect(flag.statusCode).toBe(201);
+
+    const first = await putDefinition(token, created.body.id, 'new-checkout', 'staging', true);
+    expect(first.statusCode).toBe(200);
+    expect(broadcaster.queued('m3-events-dedup:staging')).toHaveLength(1);
+
+    const second = await putDefinition(token, created.body.id, 'new-checkout', 'staging', true);
+    expect(second.statusCode).toBe(200);
+    // The identical second PUT is an idempotent no-op (version must not bump) and must not
+    // re-queue a change event for the SSE stream to drain.
+    expect(broadcaster.queued('m3-events-dedup:staging')).toHaveLength(1);
+  });
 });

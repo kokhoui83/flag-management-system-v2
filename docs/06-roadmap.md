@@ -319,6 +319,15 @@ auth → projects → flags → evaluate → keys → audit → sync → guide u
 manual E2E checklist on a running stack (docker compose) — adopted as the Playwright browser E2E
 plan (UF-1…UF-9) — and the full §2.6 UI scenario matrix remain as the final acceptance step.
 
+**M4 integration fixes (2026-11-07, via the Playwright browser E2E):** the first green UF-1 run
+surfaced two M4-blocking integration bugs, both fixed:
+- The auth `onRequest` hook ran before the `@fastify/cookie` plugin was registered, so the cookie
+  parsing hook never preceded it — cookie-authenticated session calls (`fms_token`) were rejected
+  with `401` even right after a successful login (Bearer kept working, masking the issue).
+- The dashboard SPA entry `/` was inside the auth-guarded surface, so an unauthenticated visitor
+  received the `401` problem JSON instead of the SPA (login gate never rendered). The guard now
+  exempts the non-`/api/` namespace.
+
 ---
 
 ## M5 — Hardening & documentation

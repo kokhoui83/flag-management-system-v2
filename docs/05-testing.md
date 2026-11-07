@@ -10,9 +10,9 @@ browser layer. No test that requires Docker runs in the default `npm test` (unit
 dependent tests live behind `npm run test:integration` (testcontainers MariaDB) and
 `npm run test:e2e` (testcontainers: MariaDB + real flagd engine). The browser E2E tier runs the
 Playwright suite (`web/e2e/*.spec.ts`, config in `web/playwright.config.ts`) against the docker
-compose stack (API + MariaDB + flagd + built dashboard). The Given/When/Then specs below are prose
-specifications, not `.feature` files, and the browser flows are executed by Playwright against the
-running stack rather than by a Gherkin parser.
+compose stack (API + MariaDB + flagd + built dashboard; wired via `npm run test:e2e:web`).
+The Given/When/Then specs below are prose specifications, not `.feature` files, and the browser
+flows are executed by Playwright against the running stack rather than by a Gherkin parser.
 
 ## 1. Test pyramid
 

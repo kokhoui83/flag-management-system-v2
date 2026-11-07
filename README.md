@@ -127,5 +127,5 @@ scenarios (`npm run test:e2e`) are green against the real flagd engine via testc
 
 **M4 dashboard testing:** the §2.6 multi-user UI scenarios run as Vitest + `@vue/test-utils`
 component tests in the `web/` workspace (API client mocked), and the manual M4 checklist is adopted
-as the Playwright browser E2E plan (UF-1…UF-9) that drives the dashboard against the running
-docker compose stack.
+as the Playwright browser E2E suite (`npm run test:e2e:web`, specs in `web/e2e/*.spec.ts`) that
+drives the dashboard against the running docker compose stack.

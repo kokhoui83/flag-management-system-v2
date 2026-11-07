@@ -43,6 +43,7 @@ import { NAlert, NButton, NCard, NForm, NFormItem, NInput } from 'naive-ui';
 import { useSessionStore } from '../stores/session';
 
 const session = useSessionStore();
+const router = useRouter();
 
 const username = ref('');
 const password = ref('');
@@ -56,7 +57,6 @@ async function submit(): Promise<void> {
   const ok = await session.login(username.value, password.value);
   loading.value = false;
   if (ok) {
-    const router = useRouter();
     await router.push('/projects');
   } else {
     errorMessage.value = 'Invalid username or password';

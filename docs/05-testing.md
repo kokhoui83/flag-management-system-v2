@@ -5,20 +5,24 @@ written first; the smallest production change makes it pass; then refactor with 
 green. The tests below are the _specification_ — they are written before the feature they
 describe exists.
 
-Runner: **vitest**. Node ≥ 22. No test that requires Docker runs in the default `npm test`
-(unit tier); Docker-dependent tests live behind `npm run test:integration` (testcontainers
-MariaDB) and `npm run test:e2e` (testcontainers: MariaDB + real flagd engine). v1 uses Vitest for
-every tier, including E2E and the dashboard's component/UI scenarios; there is no Playwright or
-Gherkin runner. The Given/When/Then specs below are prose specifications, not `.feature` files.
+Runner: **Vitest** (server/shared tiers) and **Playwright** (`@playwright/test`) for the dashboard
+browser layer. No test that requires Docker runs in the default `npm test` (unit tier); Docker
+dependent tests live behind `npm run test:integration` (testcontainers MariaDB) and
+`npm run test:e2e` (testcontainers: MariaDB + real flagd engine). The browser E2E tier runs the
+Playwright suite (`web/e2e/*.spec.ts`, config in `web/playwright.config.ts`) against the docker
+compose stack (API + MariaDB + flagd + built dashboard). The Given/When/Then specs below are prose
+specifications, not `.feature` files, and the browser flows are executed by Playwright against the
+running stack rather than by a Gherkin parser.
 
 ## 1. Test pyramid
 
-| Layer                 | What                                                                                                                                  | How                                                                                                                          | Docker?              |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| **Unit**              | Domain: validation, rule→flagd compiler, ETag/serialization, config parsing, key hashing, ULID/version logic, event-broadcaster queue | pure functions, no DB, no network                                                                                            | No                   |
-| **Integration (API)** | Routes + middleware + MariaDB + model compilation, with the `FlagEvaluator` seam injected                                             | supertest-style calls against the Fastify app; **testcontainers** MariaDB; evaluator mocked at the `FlagEvaluator` interface | Yes (testcontainers) |
-| **Contract**          | Published sync documents conform to the official flagd JSON schema; golden-file outputs of the compiler                               | JSON Schema (draft-07) validation + golden files committed to `test/fixtures`                                                | No                   |
-| **E2E**               | Real flagd in Docker: sync poll, real evaluation incl. `fractional` stickiness, ETag/304                                              | vitest + testcontainers (MariaDB + real flagd engine), retry-until-ready helper, deterministic assertions                    | Yes                  |
+| Layer                 | What                                                                                                                                                                                                                                                                                       | How                                                                                                                                                    | Docker?              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| **Unit**              | Domain: validation, rule→flagd compiler, ETag/serialization, config parsing, key hashing, ULID/version logic, event-broadcaster queue                                                                                                                                                      | pure functions, no DB, no network                                                                                                                      | No                   |
+| **Integration (API)** | Routes + middleware + MariaDB + model compilation, with the `FlagEvaluator` seam injected                                                                                                                                                                                                  | supertest-style calls against the Fastify app; **testcontainers** MariaDB; evaluator mocked at the `FlagEvaluator` interface                           | Yes (testcontainers) |
+| **Contract**          | Published sync documents conform to the official flagd JSON schema; golden-file outputs of the compiler                                                                                                                                                                                    | JSON Schema (draft-07) validation + golden files committed to `test/fixtures`                                                                          | No                   |
+| **E2E**               | Real flagd in Docker: sync poll, real evaluation incl. `fractional` stickiness, ETag/304                                                                                                                                                                                                   | vitest + testcontainers (MariaDB + real flagd engine), retry-until-ready helper, deterministic assertions                                              | Yes                  |
+| **Browser E2E**       | M4 dashboard manual checklist → Playwright over the docker compose stack (API + MariaDB + flagd + built dashboard): login gate, assigned-project visibility, developer create env/flag, 409 duplicate env, unassigned 403, product-owner toggle, per-env isolation, duplicate project name | `@playwright/test` + docker compose (mariadb + flagd + API + `web/dist` build), retry-until-ready helper for stack readiness, deterministic assertions | Yes                  |
 
 The `FlagEvaluator` seam (architecture §2.1) is what keeps the evaluation path testable without
 flagd: unit/integration tests inject a stub; only E2E uses the real OpenFeature provider.
@@ -26,6 +30,12 @@ flagd: unit/integration tests inject a stub; only E2E uses the real OpenFeature 
 The `web/` dashboard workspace has its own Vitest + `@vue/test-utils` component tests (rule
 editor, diff view) run by `npm test -w web`; they mock the API client and contain no network
 calls. The shared validators are tested once, in the unit tier, and imported by both sides.
+
+The dashboard's user-flow scenarios (the [§2.6](#26-multi-user-projects--environments-dashboard)
+UI matrix) run at two levels: component tests via Vitest + `@vue/test-utils` (rule editor, diff
+view, badge logic with the API client mocked), and browser E2E via Playwright (`@playwright/test`,
+`web/playwright.config.ts`, specs in `web/e2e/*.spec.ts`) against the docker compose stack —
+the adopted executable form of the M4 manual checklist.
 
 ## 2. Core behavior specs (Given/When/Then)
 
@@ -40,7 +50,7 @@ Milestone map (used by [06-roadmap.md](06-roadmap.md) acceptance criteria):
 | §2.3 flagd E2E    | M2 (ETag/304), M3 (evaluate, propagation, SSE, readiness, NFR-3)                                                                  |
 | §2.4 Auth & audit | M1 (auth/audit/keys/revocation; capability-matrix scenarios implemented via the M1 follow-up), M2 (sync scope), M3 (events scope) |
 | §2.5 API surface  | M1 (flags/audit), M2 (sync/ETag/admin-sync/memo), M5 (OpenAPI)                                                                    |
-| §2.6 Multi-user   | M1 (API), M4 (UI)                                                                                                                 |
+| §2.6 Multi-user   | M1 (API), M4 (UI; browser E2E via Playwright)                                                                                     |
 
 ### 2.1 Validation
 
@@ -295,6 +305,13 @@ Milestone map (used by [06-roadmap.md](06-roadmap.md) acceptance criteria):
 
 Covers the multi-user dashboard requirements FR-53–FR-59 (see [01-requirements.md](01-requirements.md)).
 
+These UI scenarios run at two tiers: component scenarios via Vitest + `@vue/test-utils` in the
+`web/` workspace (API client mocked, no network), and browser scenarios via Playwright
+(`@playwright/test`, config `web/playwright.config.ts`, specs `web/e2e/*.spec.ts`) against the
+docker compose stack — the adopted executable form of the M4 manual checklist. The Playwright
+specs drive the same Given/When/Then scenarios above through the real login → project → flag →
+toggle flows.
+
 - **G** an unauthenticated visitor opens the dashboard
   **W** they navigate to a flag view
   **T** the login view is shown; successful login issues a session cookie (FR-40, FR-53).
@@ -349,7 +366,8 @@ Covers the multi-user dashboard requirements FR-53–FR-59 (see [01-requirements
   so bounds are stable across runs.
 - Every test file is named `*.test.ts` next to the code it tests (domain unit) or in
   `test/` for integration/e2e; e2e files are `*.e2e.test.ts` and excluded from the default
-  vitest run.
+  vitest run. Playwright browser specs live in `web/e2e/*.spec.ts` (Playwright default layout,
+  excluded from the Vitest run).
 - Fixtures under `test/fixtures/` are reviewed in PRs — golden file changes are an explicit
   part of a compiler change's diff.
 
@@ -357,5 +375,7 @@ Covers the multi-user dashboard requirements FR-53–FR-59 (see [01-requirements
 
 - New behavior: red → green → refactored, suite green locally before the commit is finished.
 - `npm run typecheck` (strict TS), lint, and `npm test` green.
-- E2E (`npm run test:e2e`) green for milestones M2–M5.
+- E2E (`npm run test:e2e`) green for milestones M2–M5; the M4 dashboard flows additionally
+  require the Playwright browser E2E (`web/e2e/*.spec.ts` against the docker compose stack) to be
+  green before M4 is closed.
 - Docs updated for any user-visible change (AGENTS.md documentation rule).

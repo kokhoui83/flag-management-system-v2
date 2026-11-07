@@ -281,7 +281,10 @@ provider state.
 
 **Implementation status (2026-11-07):** the M4 dashboard surface is implemented in `web/` (Vue 3 +
 Naive UI + Pinia + hash router; Vite dev proxy `/api` → `:3000`; prod build served by the API at
-`/`). Built assets: 658.71 kB JS / 197.07 kB gzip (bundle budget, M4 note).
+`/`). Built assets: 659.28 kB JS / 197.33 kB gzip (bundle budget, M4 note). A Playwright browser
+E2E setup is adopted as the executable form of the M4 manual checklist (§2.6); a demo client app
+is **not** required for the M4 flag-behaviour verification (the dashboard evaluate playground +
+API evaluate cover it).
 
 - FR-40: login view + session bootstrap (`GET /api/v1/auth/session`, cookie/Bearer).
 - FR-41/42/47/52: flag list + editor (env tabs from the project's env set, enable toggle, variant
@@ -294,12 +297,14 @@ Naive UI + Pinia + hash router; Vite dev proxy `/api` → `:3000`; prod build se
 **Acceptance**
 
 - [ ] Every UI-scoped requirement (FR-40–FR-47, FR-52–FR-59) exercisable in the UI; manual
-      checklist committed to the M4 note. FR-50 (client-side OpenFeature events) and FR-51
-      (SSE API) are API/provider requirements verified in M3, not UI acceptance criteria.
+      checklist committed to the M4 note — adopted as the Playwright browser E2E plan
+      (UF-1…UF-9) over the docker compose stack; FR-50 (client-side OpenFeature events) and
+      FR-51 (SSE API) are API/provider requirements verified in M3, not UI acceptance criteria.
 - [ ] UI-level [05-testing.md §2.6](05-testing.md) scenarios green (login gate, assigned-project
       visibility, developer create env/flag, 409 duplicate env, unassigned 403, product-owner
-      toggle, per-environment isolation, duplicate project name) via Vitest +
-      `@vue/test-utils` with the API client mocked.
+      toggle, per-environment isolation, duplicate project name) — component scenarios via
+      Vitest + `@vue/test-utils` with the API client mocked, browser scenarios via Playwright
+      against the compose stack.
 - [ ] Capability matrix enforced in the UI and API: product-owner `enabled`-only toggle;
       developer cannot manage members/keys/projects; admin-only audit/keys/member views
       (FR-54/FR-58/FR-59).
@@ -311,8 +316,8 @@ Naive UI + Pinia + hash router; Vite dev proxy `/api` → `:3000`; prod build se
 
 **M4 note (implementation record, 2026-11-07):** the dashboard implementation is complete for the
 auth → projects → flags → evaluate → keys → audit → sync → guide user flows listed above; the
-manual E2E checklist on a running stack (docker compose) and the full §2.6 UI scenario matrix remain
-as the final acceptance step.
+manual E2E checklist on a running stack (docker compose) — adopted as the Playwright browser E2E
+plan (UF-1…UF-9) — and the full §2.6 UI scenario matrix remain as the final acceptance step.
 
 ---
 

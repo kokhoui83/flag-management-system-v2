@@ -73,9 +73,19 @@ export async function createApp(
     jwtSecret: config.jwtSecret,
   });
 
+  // @fastify/cookie must be registered before the auth onRequest hook so the hook can read
+  // `request.cookies` (the dashboard authenticates via the `fms_token` session cookie).
+  app.register(fastifyCookie);
+
   app.addHook('onRequest', async (request) => {
     const path = request.url.split('?')[0] ?? '';
     if (PUBLIC_PATHS.has(path) || PUBLIC_AUTH_PATHS.has(path)) {
+      return;
+    }
+    if (!path.startsWith('/api/')) {
+      // Everything outside the API namespace is public: the health probes above and the
+      // dashboard SPA, which this process serves statically at `/` (hash router hands
+      // unauthenticated visitors to the login view — FR-40/FR-53).
       return;
     }
     await auth.resolve(request);
@@ -101,8 +111,6 @@ export async function createApp(
         ),
       );
   });
-
-  app.register(fastifyCookie);
 
   const services: RouteServices = {
     auth,

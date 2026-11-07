@@ -1,7 +1,7 @@
 import { PrismaClient, type Prisma } from '@prisma/client';
 import { createHash, randomBytes } from 'node:crypto';
 import { hash as argon2Hash, verify as argon2Verify } from 'argon2';
-import { generateUlid } from '@fms/shared';
+import { generateUlid } from '../domain/ulid';
 import { nextFlagVersion } from '../domain/flags';
 import { DEFAULT_ENVIRONMENTS } from '../config';
 import type { ActorType, Role } from '../domain/types';
@@ -135,18 +135,31 @@ export interface MemberAssignment {
 
 export interface Store {
   findUserByName(userName: string): Promise<UserRecord | null>;
-  findMembership(userName: string, projectId: string): Promise<MembershipRecord | null>;
+  findMembership(
+    userName: string,
+    projectId: string,
+  ): Promise<MembershipRecord | null>;
   findApiKeyByHash(keyHash: string): Promise<ApiKeyRecord | null>;
   verifyUserPassword(userName: string, password: string): Promise<boolean>;
-  createProject(input: { key: string; name: string; actor: string }): Promise<CreateProjectResult>;
+  createProject(input: {
+    key: string;
+    name: string;
+    actor: string;
+  }): Promise<CreateProjectResult>;
   listProjects(input: {
     isAdmin: boolean;
     username: string;
     assignments: MemberAssignment[];
   }): Promise<ProjectSummary[]>;
   listMemberAssignments(userName: string): Promise<MemberAssignment[]>;
-  createEnvironment(projectId: string, env: string, actor: string): Promise<'created' | 'conflict'>;
-  listMembers(projectId: string): Promise<Array<{ user: string; role: string }>>;
+  createEnvironment(
+    projectId: string,
+    env: string,
+    actor: string,
+  ): Promise<'created' | 'conflict'>;
+  listMembers(
+    projectId: string,
+  ): Promise<Array<{ user: string; role: string }>>;
   inviteMember(input: {
     username: string;
     /** Global role applied to the invited user (FR-54/FR-57). */
@@ -154,12 +167,30 @@ export interface Store {
     /** Independent per-project assignments (FR-54/FR-57); a membership may elevate, never reduce. */
     assignments: Array<{ projectId: string; role: Role }>;
     actor: string;
-  }): Promise<{ user: string; tempPassword: string; memberships: Array<{ projectId: string; role: string }> }>;
-  createFlag(input: { projectId: string; key: string; description: string; actor: string }): Promise<'created' | 'conflict'>;
+  }): Promise<{
+    user: string;
+    tempPassword: string;
+    memberships: Array<{ projectId: string; role: string }>;
+  }>;
+  createFlag(input: {
+    projectId: string;
+    key: string;
+    description: string;
+    actor: string;
+  }): Promise<'created' | 'conflict'>;
   listFlags(projectId: string): Promise<FlagSummary[]>;
   getFlag(projectId: string, key: string): Promise<FlagDetail | null>;
-  updateFlagDescription(projectId: string, key: string, description: string, actor: string): Promise<'updated' | 'not_found'>;
-  deleteFlag(projectId: string, key: string, actor: string): Promise<'deleted' | 'not_found'>;
+  updateFlagDescription(
+    projectId: string,
+    key: string,
+    description: string,
+    actor: string,
+  ): Promise<'updated' | 'not_found'>;
+  deleteFlag(
+    projectId: string,
+    key: string,
+    actor: string,
+  ): Promise<'deleted' | 'not_found'>;
   putDefinition(input: {
     projectId: string;
     flagKey: string;
@@ -180,21 +211,41 @@ export interface Store {
     actor: string;
   }): Promise<'copied' | 'not_found'>;
   /** Resolves a project by its globally unique key (FR-55/FR-56) → environments. */
-  getProject(key: string): Promise<{ id: string; key: string; name: string; environments: string[] } | null>;
+  getProject(
+    key: string,
+  ): Promise<{
+    id: string;
+    key: string;
+    name: string;
+    environments: string[];
+  } | null>;
   /** All flag inputs of one (project, env) for the flagd sync model (M2). */
-  listFlagdModelInputs(projectId: string, env: string): Promise<FlagdFlagInput[]>;
+  listFlagdModelInputs(
+    projectId: string,
+    env: string,
+  ): Promise<FlagdFlagInput[]>;
   /** Database reachability probe for `/readyz` (M3 readiness). */
   pingDatabase(): Promise<'OK' | 'DOWN'>;
   /** All (project, environment) flag sets known to the system, as `<projectKey>:<env>` (M3 readyz). */
-  listFlagSets(): Promise<Array<{ flagSetId: string; projectKey: string; env: string }>>;
+  listFlagSets(): Promise<
+    Array<{ flagSetId: string; projectKey: string; env: string }>
+  >;
   /** Owning project key of a project ID, for change-event routing after mutations (M3). */
   getProjectKeyById(projectId: string): Promise<string | null>;
   listAudit(query: AuditQuery): Promise<AuditPage>;
-  createApiKey(input: { name: string; scope: string; createdBy: string }): Promise<CreateApiKeyResult>;
+  createApiKey(input: {
+    name: string;
+    scope: string;
+    createdBy: string;
+  }): Promise<CreateApiKeyResult>;
   listApiKeys(): Promise<ApiKeyRecord[]>;
   revokeApiKey(id: string, actor: string): Promise<'revoked' | 'not_found'>;
   /** FR-36 / docs/03-data-model.md §5: append-only `auth.login` audit (success only). */
-  recordAuthLogin(input: { username: string; actorName: string; actorType: ActorType }): Promise<void>;
+  recordAuthLogin(input: {
+    username: string;
+    actorName: string;
+    actorType: ActorType;
+  }): Promise<void>;
 }
 
 function variantTypeOf(variants: unknown): string {
@@ -237,22 +288,31 @@ async function writeAudit(
 /** Normalizes a capability/role name (`product-owner`) to the Prisma enum spelling (`PRODUCT_OWNER`). */
 function toPrismaRole(role: string): 'ADMIN' | 'DEVELOPER' | 'PRODUCT_OWNER' {
   const normalized = (role ?? '').trim().toUpperCase().replace(/-/g, '_');
-  if (normalized !== 'ADMIN' && normalized !== 'DEVELOPER' && normalized !== 'PRODUCT_OWNER') {
+  if (
+    normalized !== 'ADMIN' &&
+    normalized !== 'DEVELOPER' &&
+    normalized !== 'PRODUCT_OWNER'
+  ) {
     throw new Error(`Invalid role for membership: ${role}`);
   }
   return normalized as 'ADMIN' | 'DEVELOPER' | 'PRODUCT_OWNER';
 }
 
-export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo } = {}): Store {
+export function createStore(
+  prisma: PrismaClient,
+  deps: { memo?: FlagdModelMemo } = {},
+): Store {
   return {
     // ---------- auth resolution ----------
 
-    findUserByName: (userName) => prisma.user.findUnique({ where: { userName } }),
+    findUserByName: (userName) =>
+      prisma.user.findUnique({ where: { userName } }),
     findMembership: (userName, projectId) =>
       prisma.projectMembership.findUnique({
         where: { userName_projectId: { userName, projectId } },
       }),
-    findApiKeyByHash: (keyHash) => prisma.apiKey.findUnique({ where: { keyHash } }),
+    findApiKeyByHash: (keyHash) =>
+      prisma.apiKey.findUnique({ where: { keyHash } }),
     verifyUserPassword: async (userName, password) => {
       const user = await prisma.user.findUnique({ where: { userName } });
       if (!user) return false;
@@ -271,7 +331,9 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
           data: { id: generateUlid(), key, name },
         });
         for (const env of DEFAULT_ENVIRONMENTS) {
-          await tx.projectEnvironment.create({ data: { projectId: project.id, env } });
+          await tx.projectEnvironment.create({
+            data: { projectId: project.id, env },
+          });
         }
         await writeAudit(tx, {
           action: 'project.create',
@@ -285,11 +347,16 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
         });
         return project;
       });
-      return { ok: true, project: { id: created.id, key: created.key, name: created.name } };
+      return {
+        ok: true,
+        project: { id: created.id, key: created.key, name: created.name },
+      };
     },
     listProjects: async ({ isAdmin, assignments }) => {
       if (isAdmin) {
-        const projects = await prisma.project.findMany({ orderBy: { name: 'asc' } });
+        const projects = await prisma.project.findMany({
+          orderBy: { name: 'asc' },
+        });
         const result: ProjectSummary[] = [];
         for (const project of projects) {
           const envs = await prisma.projectEnvironment.findMany({
@@ -306,14 +373,19 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
             key: project.key,
             name: project.name,
             environments: envs.map((e) => e.env),
-            members: members.map((m) => ({ user: m.user.userName, role: m.role })),
+            members: members.map((m) => ({
+              user: m.user.userName,
+              role: m.role,
+            })),
           });
         }
         return result;
       }
       const result: ProjectSummary[] = [];
       for (const assignment of assignments) {
-        const project = await prisma.project.findUnique({ where: { id: assignment.projectId } });
+        const project = await prisma.project.findUnique({
+          where: { id: assignment.projectId },
+        });
         if (!project) continue;
         const envs = await prisma.projectEnvironment.findMany({
           where: { projectId: project.id },
@@ -329,7 +401,10 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
           key: project.key,
           name: project.name,
           environments: envs.map((e) => e.env),
-          members: members.map((m) => ({ user: m.user.userName, role: m.role })),
+          members: members.map((m) => ({
+            user: m.user.userName,
+            role: m.role,
+          })),
         });
       }
       return result;
@@ -348,7 +423,12 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
         where: { projectId: project.id },
         orderBy: { env: 'asc' },
       });
-      return { id: project.id, key: project.key, name: project.name, environments: environments.map((e) => e.env) };
+      return {
+        id: project.id,
+        key: project.key,
+        name: project.name,
+        environments: environments.map((e) => e.env),
+      };
     },
 
     createEnvironment: async (projectId, env, actor) => {
@@ -373,11 +453,15 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
     },
 
     listMembers: async (projectId) =>
-      prisma.projectMembership.findMany({
-        where: { projectId },
-        include: { user: true },
-        orderBy: { userName: 'asc' },
-      }).then((rows) => rows.map((r) => ({ user: r.user.userName, role: r.role }))),
+      prisma.projectMembership
+        .findMany({
+          where: { projectId },
+          include: { user: true },
+          orderBy: { userName: 'asc' },
+        })
+        .then((rows) =>
+          rows.map((r) => ({ user: r.user.userName, role: r.role })),
+        ),
 
     inviteMember: async ({ username, globalRole, assignments, actor }) => {
       const tempPassword = `temp-${randomBytes(9).toString('base64url')}`;
@@ -388,16 +472,32 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
         await tx.user.upsert({
           where: { userName: username },
           update: { passwordHash, globalRole: globalRoleUpper },
-          create: { userName: username, passwordHash, globalRole: globalRoleUpper },
+          create: {
+            userName: username,
+            passwordHash,
+            globalRole: globalRoleUpper,
+          },
         });
         for (const assignment of assignments) {
           const assignmentRole = toPrismaRole(assignment.role);
           await tx.projectMembership.upsert({
-            where: { userName_projectId: { userName: username, projectId: assignment.projectId } },
+            where: {
+              userName_projectId: {
+                userName: username,
+                projectId: assignment.projectId,
+              },
+            },
             update: { role: assignmentRole },
-            create: { userName: username, projectId: assignment.projectId, role: assignmentRole },
+            create: {
+              userName: username,
+              projectId: assignment.projectId,
+              role: assignmentRole,
+            },
           });
-          memberships.push({ projectId: assignment.projectId, role: assignment.role });
+          memberships.push({
+            projectId: assignment.projectId,
+            role: assignment.role,
+          });
         }
         await writeAudit(tx, {
           action: 'project.member.invite',
@@ -405,7 +505,11 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
           entityId: assignments[0]?.projectId ?? username,
           env: null,
           before: null,
-          after: { user: username, role: globalRoleUpper, projects: assignments },
+          after: {
+            user: username,
+            role: globalRoleUpper,
+            projects: assignments,
+          },
           actorType: 'session',
           actorName: actor,
         });
@@ -414,7 +518,9 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
     },
 
     createFlag: async ({ projectId, key, description, actor }) => {
-      const existing = await prisma.flag.findFirst({ where: { projectId, key } });
+      const existing = await prisma.flag.findFirst({
+        where: { projectId, key },
+      });
       if (existing) return 'conflict';
       await prisma.$transaction(async (tx) => {
         const created = await tx.flag.create({
@@ -426,7 +532,12 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
           entityId: key,
           env: null,
           before: null,
-          after: { id: created.id, key: created.key, description: created.description, version: created.version },
+          after: {
+            id: created.id,
+            key: created.key,
+            description: created.description,
+            version: created.version,
+          },
           actorType: 'session',
           actorName: actor,
         });
@@ -435,44 +546,54 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
     },
 
     listFlags: async (projectId) =>
-      prisma.flag.findMany({
-        where: { projectId },
-        orderBy: { key: 'asc' },
-      }).then(async (flags) => {
-        const result: FlagSummary[] = [];
-        for (const flag of flags) {
-          const definitions = await prisma.flagDefinition.findMany({
-            where: { flagId: flag.id },
-          });
-          const environments: Record<string, FlagEnvironmentStatus> = {};
-          for (const def of definitions) {
-            environments[def.env] = {
-              enabled: def.enabled,
-              variantType: variantTypeOf(def.variants),
-            };
+      prisma.flag
+        .findMany({
+          where: { projectId },
+          orderBy: { key: 'asc' },
+        })
+        .then(async (flags) => {
+          const result: FlagSummary[] = [];
+          for (const flag of flags) {
+            const definitions = await prisma.flagDefinition.findMany({
+              where: { flagId: flag.id },
+            });
+            const environments: Record<string, FlagEnvironmentStatus> = {};
+            for (const def of definitions) {
+              environments[def.env] = {
+                enabled: def.enabled,
+                variantType: variantTypeOf(def.variants),
+              };
+            }
+            result.push({
+              key: flag.key,
+              description: flag.description,
+              version: flag.version,
+              createdAt: flag.createdAt,
+              updatedAt: flag.updatedAt,
+              environments,
+            });
           }
-          result.push({
-            key: flag.key,
-            description: flag.description,
-            version: flag.version,
-            createdAt: flag.createdAt,
-            updatedAt: flag.updatedAt,
-            environments,
-          });
-        }
-        return result;
-      }),
+          return result;
+        }),
 
     listFlagdModelInputs: async (projectId, env) => {
-      const flags = await prisma.flag.findMany({ where: { projectId }, include: { definitions: true } });
+      const flags = await prisma.flag.findMany({
+        where: { projectId },
+        include: { definitions: true },
+      });
       const inputs: FlagdFlagInput[] = [];
       for (const flag of flags) {
-        const definition = flag.definitions.find((candidate) => candidate.env === env);
+        const definition = flag.definitions.find(
+          (candidate) => candidate.env === env,
+        );
         if (!definition) continue;
         inputs.push({
           key: flag.key,
           enabled: definition.enabled,
-          variants: definition.variants as Record<string, boolean | number | string>,
+          variants: definition.variants as Record<
+            string,
+            boolean | number | string
+          >,
           defaultVariant: definition.defaultVariant,
           rules: definition.rules as unknown as FlagRule[],
           version: flag.version,
@@ -491,18 +612,31 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
     },
 
     listFlagSets: async () => {
-      const projects = await prisma.project.findMany({ include: { environments: true } });
-      const result: Array<{ flagSetId: string; projectKey: string; env: string }> = [];
+      const projects = await prisma.project.findMany({
+        include: { environments: true },
+      });
+      const result: Array<{
+        flagSetId: string;
+        projectKey: string;
+        env: string;
+      }> = [];
       for (const project of projects) {
         for (const environment of project.environments) {
-          result.push({ flagSetId: `${project.key}:${environment.env}`, projectKey: project.key, env: environment.env });
+          result.push({
+            flagSetId: `${project.key}:${environment.env}`,
+            projectKey: project.key,
+            env: environment.env,
+          });
         }
       }
       return result;
     },
 
     getProjectKeyById: async (projectId) => {
-      const project = await prisma.project.findUnique({ where: { id: projectId }, select: { key: true } });
+      const project = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: { key: true },
+      });
       return project?.key ?? null;
     },
 
@@ -565,7 +699,11 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
           entityId: key,
           env: null,
           before: {
-            flag: { key: flag.key, description: flag.description, version: flag.version },
+            flag: {
+              key: flag.key,
+              description: flag.description,
+              version: flag.version,
+            },
             definitions: flag.definitions.map((d) => ({
               env: d.env,
               enabled: d.enabled,
@@ -584,7 +722,9 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
     },
 
     putDefinition: async ({ projectId, flagKey, env, definition, actor }) => {
-      const flag = await prisma.flag.findFirst({ where: { projectId, key: flagKey } });
+      const flag = await prisma.flag.findFirst({
+        where: { projectId, key: flagKey },
+      });
       if (!flag) {
         return { found: false, flagKey, env, version: 0, unchanged: false };
       }
@@ -596,7 +736,10 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
         existing
           ? {
               enabled: existing.enabled,
-              variants: existing.variants as Record<string, boolean | number | string>,
+              variants: existing.variants as Record<
+                string,
+                boolean | number | string
+              >,
               defaultVariant: existing.defaultVariant,
               rules: existing.rules,
             }
@@ -669,7 +812,9 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
     },
 
     copyDefinition: async ({ projectId, flagKey, env, fromEnv, actor }) => {
-      const flag = await prisma.flag.findFirst({ where: { projectId, key: flagKey } });
+      const flag = await prisma.flag.findFirst({
+        where: { projectId, key: flagKey },
+      });
       if (!flag) return 'not_found';
       const source = await prisma.flagDefinition.findUnique({
         where: { flag_def_flag_env: { flagId: flag.id, env: fromEnv } },
@@ -699,7 +844,10 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
             rules: source.rules as Prisma.InputJsonValue,
           },
         });
-        await tx.flag.update({ where: { id: flag.id }, data: { version: flag.version + 1, updatedAt: now } });
+        await tx.flag.update({
+          where: { id: flag.id },
+          data: { version: flag.version + 1, updatedAt: now },
+        });
         await writeAudit(tx, {
           action: 'definition.copy',
           entity: 'definition',
@@ -745,14 +893,23 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
 
     createApiKey: async ({ name, scope, createdBy }) => {
       const keyBytes = randomBytes(32);
-      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      const alphabet =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
       const keyBody = Array.from(keyBytes, (b) => alphabet[b % 62]).join('');
       const plaintext = `fms_${keyBody}`;
       const keyHash = createHash('sha256').update(plaintext).digest('hex');
-      const apiKeyScope = scope.toUpperCase() as 'MANAGE' | 'EVALUATE' | 'SYNC' | 'ALL';
+      const apiKeyScope = scope.toUpperCase() as
+        'MANAGE' | 'EVALUATE' | 'SYNC' | 'ALL';
       const key = await prisma.$transaction(async (tx) => {
         const created = await tx.apiKey.create({
-          data: { id: generateUlid(), name, keyHash, keyPrefix: plaintext.slice(0, 8), scope: apiKeyScope, createdBy },
+          data: {
+            id: generateUlid(),
+            name,
+            keyHash,
+            keyPrefix: plaintext.slice(0, 8),
+            scope: apiKeyScope,
+            createdBy,
+          },
         });
         // FR-34 / FR-36 / docs/03-data-model.md §5: key creation is audited; key material never enters the audit trail.
         // The create and its audit share one transaction so an audit failure aborts the mutation (FR-39).
@@ -771,7 +928,8 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
       return { key, plaintext };
     },
 
-    listApiKeys: async () => prisma.apiKey.findMany({ orderBy: { createdAt: 'desc' } }),
+    listApiKeys: async () =>
+      prisma.apiKey.findMany({ orderBy: { createdAt: 'desc' } }),
 
     revokeApiKey: async (id, actor) => {
       const key = await prisma.apiKey.findUnique({ where: { id } });
@@ -779,7 +937,10 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
       if (!key) return 'not_found';
       const revokedAt = new Date();
       const updated = await prisma.$transaction(async (tx) => {
-        const result = await tx.apiKey.update({ where: { id }, data: { revokedAt } });
+        const result = await tx.apiKey.update({
+          where: { id },
+          data: { revokedAt },
+        });
         // FR-34 / FR-36 / docs/03-data-model.md §5: key revocation is audited; key material never enters the audit trail.
         // The revoke and its audit share one transaction so an audit failure aborts the mutation (FR-39).
         await writeAudit(tx, {
@@ -788,7 +949,11 @@ export function createStore(prisma: PrismaClient, deps: { memo?: FlagdModelMemo 
           entityId: id,
           env: null,
           before: { id: key.id, name: key.name, revokedAt: null },
-          after: { id: key.id, name: key.name, revokedAt: revokedAt.toISOString() },
+          after: {
+            id: key.id,
+            name: key.name,
+            revokedAt: revokedAt.toISOString(),
+          },
           actorType: 'session',
           actorName: actor,
         });

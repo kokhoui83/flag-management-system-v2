@@ -10,9 +10,15 @@ import { createPrismaClient } from './db';
 import { type AppConfig } from './config';
 import { FlagdModelMemo } from './sync/model-memo';
 import { OpenFeature } from '@openfeature/server-sdk';
-import { OpenFeatureFlagEvaluator, type FlagEvaluator } from './evaluate/evaluator';
+import {
+  OpenFeatureFlagEvaluator,
+  type FlagEvaluator,
+} from './evaluate/evaluator';
 import { FlagdProviderRegistry } from './evaluate/providers';
-import { InMemoryFlagChangeBroadcaster, type FlagChangeBroadcaster } from './events/broadcaster';
+import {
+  InMemoryFlagChangeBroadcaster,
+  type FlagChangeBroadcaster,
+} from './events/broadcaster';
 
 export interface AppOptions {
   /** Overrides the Prisma-backed store (tests inject one bound to a test DB). */
@@ -27,20 +33,39 @@ export interface AppOptions {
   broadcaster?: FlagChangeBroadcaster;
 }
 
-const PUBLIC_PATHS = new Set(['/healthz', '/readyz', '/api/v1/auth/login', '/api/v1/auth/logout']);
+const PUBLIC_PATHS = new Set(['/healthz', '/readyz']);
+// Auth endpoints that require no credential: login issues one, logout clears it. The session
+// surface (`/api/v1/auth/session`) is a protected surface (FR-53) — it must run the auth hook.
+const PUBLIC_AUTH_PATHS = new Set([
+  '/api/v1/auth/login',
+  '/api/v1/auth/logout',
+]);
 
 /**
  * Fastify app factory (architecture §2.1 module layout). Wires auth (session/API
  * key), the M1 route surface (projects, flags, definitions, audit, keys, auth,
  * openapi) and the RFC 9457 problem+json error handler.
  */
-export async function createApp(config: AppConfig, options: AppOptions = {}): Promise<FastifyInstance> {
+export async function createApp(
+  config: AppConfig,
+  options: AppOptions = {},
+): Promise<FastifyInstance> {
   const app = Fastify({ logger: true });
   const memo = options.memo ?? new FlagdModelMemo();
-  const store = options.store ?? createStore(createPrismaClient(config.databaseUrl), { memo });
-  const registry = options.registry ?? new FlagdProviderRegistry({ openFeature: () => OpenFeature, flagd: { host: config.flagdHost, port: config.flagdPort } });
-  const broadcaster = options.broadcaster ?? new InMemoryFlagChangeBroadcaster();
-  const evaluator = options.evaluator ?? new OpenFeatureFlagEvaluator({ openFeature: () => OpenFeature, registry });
+  const store =
+    options.store ??
+    createStore(createPrismaClient(config.databaseUrl), { memo });
+  const registry =
+    options.registry ??
+    new FlagdProviderRegistry({
+      openFeature: () => OpenFeature,
+      flagd: { host: config.flagdHost, port: config.flagdPort },
+    });
+  const broadcaster =
+    options.broadcaster ?? new InMemoryFlagChangeBroadcaster();
+  const evaluator =
+    options.evaluator ??
+    new OpenFeatureFlagEvaluator({ openFeature: () => OpenFeature, registry });
   const auth = createAuthService({
     store,
     adminUsername: config.adminUsername,
@@ -50,7 +75,7 @@ export async function createApp(config: AppConfig, options: AppOptions = {}): Pr
 
   app.addHook('onRequest', async (request) => {
     const path = request.url.split('?')[0] ?? '';
-    if (PUBLIC_PATHS.has(path) || path.startsWith('/api/v1/auth/')) {
+    if (PUBLIC_PATHS.has(path) || PUBLIC_AUTH_PATHS.has(path)) {
       return;
     }
     await auth.resolve(request);
@@ -61,18 +86,32 @@ export async function createApp(config: AppConfig, options: AppOptions = {}): Pr
       if (error.status === 401) {
         reply.header('WWW-Authenticate', 'Bearer');
       }
-      return reply.code(error.status).type('application/problem+json').send(problemBody(error));
+      return reply
+        .code(error.status)
+        .type('application/problem+json')
+        .send(problemBody(error));
     }
     app.log.error({ err: error }, 'unhandled error');
     return reply
       .code(500)
       .type('application/problem+json')
-      .send(problemBody(new FmsError(500, PROBLEM_TYPES.unavailable, 'Internal error')));
+      .send(
+        problemBody(
+          new FmsError(500, PROBLEM_TYPES.unavailable, 'Internal error'),
+        ),
+      );
   });
 
   app.register(fastifyCookie);
 
-  const services: RouteServices = { auth, store, memo, evaluator, registry, broadcaster };
+  const services: RouteServices = {
+    auth,
+    store,
+    memo,
+    evaluator,
+    registry,
+    broadcaster,
+  };
   await registerRoutes(app, services);
 
   if (existsSync(config.webDist)) {

@@ -2,7 +2,12 @@ import { createHmac, timingSafeEqual, createHash } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
 import { type ApiKeyRecord, type Store } from '../store';
 import { FmsError, unauthorizedError } from './problem';
-import { effectiveCapability, hasProjectAccess, isFullAccess, type EffectiveRole } from '../domain/types';
+import {
+  effectiveCapability,
+  hasProjectAccess,
+  isFullAccess,
+  type EffectiveRole,
+} from '@fms/shared';
 
 export const COOKIE_NAME = 'fms_token';
 const JWT_TTL_SECONDS = 12 * 60 * 60;
@@ -27,19 +32,35 @@ export interface AuthService {
   /** Resolves the credential on the request (Bearer or `fms_token` cookie) → principal; throws 401 problem+json. */
   resolve(request: FastifyRequest): Promise<Principal>;
   /** Verifies bootstrap-admin credentials (FR-30) → full-access session context, or null. */
-  verifyBootstrap(username: string, password: string): Promise<SessionContext | null>;
+  verifyBootstrap(
+    username: string,
+    password: string,
+  ): Promise<SessionContext | null>;
   /** Verifies an invited user via their argon2id temp-password hash (FR-57/FR-31). */
-  verifyUser(username: string, password: string): Promise<SessionContext | null>;
+  verifyUser(
+    username: string,
+    password: string,
+  ): Promise<SessionContext | null>;
   /** Issues a signed session token (JWT, HS256, 12 h) for a session context. */
   issue(context: SessionContext, secret: string): string;
   /** True when the principal holds full admin capability (bootstrap admin, invited global admin, manage key). */
   isAdmin(principal: Principal): Promise<boolean>;
   /** Effective role of the caller on a project (FR-53/FR-54); throws 403 when none. */
-  requireProjectRole(principal: Principal, projectId: string): Promise<EffectiveRole>;
+  requireProjectRole(
+    principal: Principal,
+    projectId: string,
+  ): Promise<EffectiveRole | null>;
   /** True when the principal may fetch a project's flagd model (FR-27). */
   canSync(principal: Principal, projectId?: string): Promise<boolean>;
   /** True when the principal may evaluate flags / open the events stream (FR-22/FR-51). */
   canEvaluate(principal: Principal, projectId?: string): Promise<boolean>;
+  /** Current identity + per-project assignments of the caller (FR-53; consumed by the dashboard). */
+  session(principal: Principal): Promise<{
+    username: string;
+    globalRole: string | null;
+    isBootstrapAdmin: boolean;
+    assignments: Array<{ projectId: string; role: string }>;
+  }>;
 }
 
 export function createAuthService(deps: {
@@ -51,9 +72,13 @@ export function createAuthService(deps: {
   const { store, adminUsername, adminPassword, jwtSecret } = deps;
 
   function signJwt(payload: Record<string, unknown>): string {
-    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+    const header = Buffer.from(
+      JSON.stringify({ alg: 'HS256', typ: 'JWT' }),
+    ).toString('base64url');
     const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
-    const signature = createHmac('sha256', jwtSecret).update(`${header}.${body}`).digest('base64url');
+    const signature = createHmac('sha256', jwtSecret)
+      .update(`${header}.${body}`)
+      .digest('base64url');
     return `${header}.${body}.${signature}`;
   }
 
@@ -64,17 +89,23 @@ export function createAuthService(deps: {
     const body = parts[1];
     const signature = parts[2];
     if (!header || !body || !signature) return null;
-    const expected = createHmac('sha256', jwtSecret).update(`${header}.${body}`).digest('base64url');
+    const expected = createHmac('sha256', jwtSecret)
+      .update(`${header}.${body}`)
+      .digest('base64url');
     const a = Buffer.from(signature);
     const b = Buffer.from(expected);
     if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as {
+    const payload = JSON.parse(
+      Buffer.from(body, 'base64url').toString('utf8'),
+    ) as {
       sub?: string;
       type?: string;
       exp?: number;
     };
-    if (payload.type !== 'session' || typeof payload.sub !== 'string') return null;
-    if (typeof payload.exp !== 'number' || payload.exp * 1000 < Date.now()) return null;
+    if (payload.type !== 'session' || typeof payload.sub !== 'string')
+      return null;
+    if (typeof payload.exp !== 'number' || payload.exp * 1000 < Date.now())
+      return null;
     return payload.sub;
   }
 
@@ -85,12 +116,16 @@ export function createAuthService(deps: {
     return timingSafeEqual(ab, bb);
   }
 
-  async function authenticate(credential: string | undefined): Promise<Principal> {
+  async function authenticate(
+    credential: string | undefined,
+  ): Promise<Principal> {
     if (!credential) {
       throw unauthorizedError();
     }
     if (credential.startsWith('fms_')) {
-      const apiKey = await store.findApiKeyByHash(createHash('sha256').update(credential).digest('hex'));
+      const apiKey = await store.findApiKeyByHash(
+        createHash('sha256').update(credential).digest('hex'),
+      );
       if (!apiKey || apiKey.revokedAt !== null) {
         throw unauthorizedError('API key is unknown or revoked');
       }
@@ -110,7 +145,9 @@ export function createAuthService(deps: {
     return { type: 'session', session };
   }
 
-  async function storeUserSession(username: string): Promise<SessionContext | null> {
+  async function storeUserSession(
+    username: string,
+  ): Promise<SessionContext | null> {
     const user = await store.findUserByName(username);
     if (!user) return null;
     return { username, globalRole: user.globalRole, isBootstrapAdmin: false };
@@ -130,13 +167,19 @@ export function createAuthService(deps: {
     return principal;
   }
 
-  async function verifyBootstrap(username: string, password: string): Promise<SessionContext | null> {
+  async function verifyBootstrap(
+    username: string,
+    password: string,
+  ): Promise<SessionContext | null> {
     if (username !== adminUsername) return null;
     if (!safeEqual(password, adminPassword)) return null;
     return { username, globalRole: 'admin', isBootstrapAdmin: true };
   }
 
-  async function verifyUser(username: string, password: string): Promise<SessionContext | null> {
+  async function verifyUser(
+    username: string,
+    password: string,
+  ): Promise<SessionContext | null> {
     const user = await store.findUserByName(username);
     if (!user) return null;
     const ok = await store.verifyUserPassword(username, password);
@@ -166,29 +209,45 @@ export function createAuthService(deps: {
     return user?.globalRole?.toUpperCase() === 'ADMIN';
   }
 
-  async function requireProjectRole(principal: Principal, projectId: string): Promise<EffectiveRole> {
+  async function requireProjectRole(
+    principal: Principal,
+    projectId: string,
+  ): Promise<EffectiveRole | null> {
     if (principal.type === 'api_key') {
       const principalScope = principal.apiKey.scope.toUpperCase();
       const apiAdmin = principalScope === 'MANAGE' || principalScope === 'ALL';
       if (!apiAdmin) {
-        throw new FmsError(403, 'https://fms.local/errors/forbidden', 'Insufficient scope for this project operation');
+        throw new FmsError(
+          403,
+          'https://fms.local/errors/forbidden',
+          'Insufficient scope for this project operation',
+        );
       }
       return 'admin';
     }
     const session = principal.session;
     if (session.isBootstrapAdmin) return 'admin';
     const user = await store.findUserByName(session.username);
-    const membership = user ? await store.findMembership(session.username, projectId) : null;
+    const membership = user
+      ? await store.findMembership(session.username, projectId)
+      : null;
     // Effective permissions are the union of the global role and the per-project
     // membership (FR-54): a membership may elevate on this project, never below global.
     const role = effectiveCapability(user?.globalRole, membership?.role);
     if (!hasProjectAccess(role)) {
-      throw new FmsError(403, 'https://fms.local/errors/forbidden', 'No access to this project');
+      throw new FmsError(
+        403,
+        'https://fms.local/errors/forbidden',
+        'No access to this project',
+      );
     }
     return role;
   }
 
-  async function canSync(principal: Principal, projectId?: string): Promise<boolean> {
+  async function canSync(
+    principal: Principal,
+    projectId?: string,
+  ): Promise<boolean> {
     if (principal.type === 'api_key') {
       const scope = principal.apiKey.scope.toUpperCase();
       return scope === 'SYNC' || scope === 'ALL';
@@ -197,15 +256,59 @@ export function createAuthService(deps: {
     const user = await store.findUserByName(principal.session.username);
     if (user?.globalRole?.toUpperCase() === 'ADMIN') return true;
     if (projectId) {
-      const membership = await store.findMembership(principal.session.username, projectId);
+      const membership = await store.findMembership(
+        principal.session.username,
+        projectId,
+      );
       // The flagd sync source is admin-gated: global admin or a project-scoped admin via elevation.
-      return isFullAccess(effectiveCapability(user?.globalRole, membership?.role));
+      return isFullAccess(
+        effectiveCapability(user?.globalRole, membership?.role),
+      );
     }
-    const assignments = await store.listMemberAssignments(principal.session.username);
-    return assignments.some((assignment) => assignment.role?.toUpperCase() === 'ADMIN');
+    const assignments = await store.listMemberAssignments(
+      principal.session.username,
+    );
+    return assignments.some(
+      (assignment) => assignment.role?.toUpperCase() === 'ADMIN',
+    );
   }
 
-  async function canEvaluate(principal: Principal, projectId?: string): Promise<boolean> {
+  async function session(principal: Principal): Promise<{
+    username: string;
+    globalRole: string | null;
+    isBootstrapAdmin: boolean;
+    assignments: Array<{ projectId: string; role: string }>;
+  }> {
+    if (principal.type === 'api_key') {
+      // Machine identities carry no human capability context; the dashboard never calls this
+      // for API keys (it derives key capabilities from the key scopes itself).
+      return {
+        username: principal.apiKey.name,
+        globalRole: principal.apiKey.scope,
+        isBootstrapAdmin: false,
+        assignments: [],
+      };
+    }
+    const context = principal.session;
+    const user = context.isBootstrapAdmin
+      ? null
+      : await store.findUserByName(context.username);
+    const globalRole = context.isBootstrapAdmin
+      ? 'admin'
+      : (user?.globalRole ?? null);
+    const assignments = await store.listMemberAssignments(context.username);
+    return {
+      username: context.username,
+      globalRole,
+      isBootstrapAdmin: context.isBootstrapAdmin,
+      assignments,
+    };
+  }
+
+  async function canEvaluate(
+    principal: Principal,
+    projectId?: string,
+  ): Promise<boolean> {
     if (principal.type === 'api_key') {
       const scope = principal.apiKey.scope.toUpperCase();
       // The evaluate surface accepts the `evaluate` scope (plus `all`); sessions pass through.
@@ -215,11 +318,16 @@ export function createAuthService(deps: {
     const user = await store.findUserByName(principal.session.username);
     if (user?.globalRole?.toUpperCase() === 'ADMIN') return true;
     if (projectId) {
-      const membership = await store.findMembership(principal.session.username, projectId);
+      const membership = await store.findMembership(
+        principal.session.username,
+        projectId,
+      );
       // Any assigned role may evaluate (capability matrix: admin/developer/product-owner all "Yes").
       return effectiveCapability(user?.globalRole, membership?.role) !== null;
     }
-    const assignments = await store.listMemberAssignments(principal.session.username);
+    const assignments = await store.listMemberAssignments(
+      principal.session.username,
+    );
     // Without a project scope, any active assignment grants evaluate access.
     return assignments.length > 0;
   }
@@ -233,5 +341,6 @@ export function createAuthService(deps: {
     requireProjectRole,
     canSync,
     canEvaluate,
+    session,
   };
 }

@@ -55,6 +55,15 @@ per-environment state (FR-56), admin invites (FR-57), developer and product-owne
 (FR-58/FR-59) — see [docs/01-requirements.md §4.9.1](docs/01-requirements.md). Implementation lands in
 M4 per [docs/06-roadmap.md](docs/06-roadmap.md).
 
+**M4 — Dashboard (implemented).** The full operator surface now ships in the browser: Vue 3 +
+Naive UI dashboard in `web/` (login gate with session bootstrap via `GET /api/v1/auth/session`,
+project list/create, per-project flag list/editor, evaluate playground, API keys, audit,
+sync-health badge, SSE live refresh, and the in-app HTML user guide at `/guide`). The management API
+gained the `GET /api/v1/auth/session` identity surface; the capability vocabulary lives in
+`@fms/shared` as the single source for server and dashboard (FR-54). Web unit tier is green (Vitest +
+happy-dom + `@vue/test-utils`, 10 dashboard tests); bundle budget recorded at 658.71 kB JS /
+197.07 kB gzip. See [docs/06-roadmap.md](docs/06-roadmap.md) §M4 and the in-app user guide.
+
 ## Documentation
 
 | Document                                           | Contents                                                                      |

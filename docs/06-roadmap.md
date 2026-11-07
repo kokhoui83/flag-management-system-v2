@@ -279,6 +279,18 @@ provider state.
 - Live updates: subscribe to `GET /api/v1/events` (`EventSource`, session cookie); flag list
   - sync-health badge refresh on `flag-changed` / `provider-ready` (FR-52).
 
+**Implementation status (2026-11-07):** the M4 dashboard surface is implemented in `web/` (Vue 3 +
+Naive UI + Pinia + hash router; Vite dev proxy `/api` → `:3000`; prod build served by the API at
+`/`). Built assets: 658.71 kB JS / 197.07 kB gzip (bundle budget, M4 note).
+
+- FR-40: login view + session bootstrap (`GET /api/v1/auth/session`, cookie/Bearer).
+- FR-41/42/47/52: flag list + editor (env tabs from the project's env set, enable toggle, variant
+  table, default variant, ordered rule editor, copy-from-env, all-at-once error display, pre-submit
+  validation via `@fms/shared` — ADR-0006), sync-health badge, SSE refresh.
+- FR-44: evaluate playground (project/flag + env picker, targeting key, context JSON, result).
+- FR-45/46: API keys view (create once / revoke) and audit view (list + before/after diff).
+- FR-52: `EventSource('/api/v1/events')` refresh of flag list/detail and sync badge.
+
 **Acceptance**
 
 - [ ] Every UI-scoped requirement (FR-40–FR-47, FR-52–FR-59) exercisable in the UI; manual
@@ -296,6 +308,11 @@ provider state.
 - [ ] No validation/compilation logic reimplemented in dashboard code (`shared/` imports
       only); component tests (Vitest + @vue/test-utils) for the rule editor and diff view.
 - [ ] Bundle budget (Vue + Naive UI, gzip) recorded in the M4 note.
+
+**M4 note (implementation record, 2026-11-07):** the dashboard implementation is complete for the
+auth → projects → flags → evaluate → keys → audit → sync → guide user flows listed above; the
+manual E2E checklist on a running stack (docker compose) and the full §2.6 UI scenario matrix remain
+as the final acceptance step.
 
 ---
 

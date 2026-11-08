@@ -1,16 +1,16 @@
 # Graph Report - flag-management-system  (2026-11-08)
 
 ## Corpus Check
-- 103 files · ~63,559 words
+- 105 files · ~64,284 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1116 nodes · 1702 edges · 83 communities (70 shown, 7 thin omitted)
+- 1120 nodes · 1728 edges · 88 communities (73 shown, 9 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 36 edges (avg confidence: 0.84)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `7652746d`
+- Built from commit: `7a6aafaf`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -35,14 +35,14 @@
 - properties
 - server/tsconfig.json
 - shared/tsconfig.json
-- problem.ts
+- auth.ts
 - properties
 - routes.ts
 - server/src/index.ts
 - $ref
 - definitions
 - flagsMap
-- missingRule
+- stringCompareRule
 - createAuthService
 - definitions
 - missingSomeRule
@@ -73,47 +73,52 @@
 - metadata
 - numberFlag
 - objectFlag
-- session.ts
-- auth.ts
+- ProjectsView.vue
+- Role
 - m2.sync.integration.test.ts
 - DiffView.vue
 - binaryOrTernaryOp
 - FlagEditorView.vue
 - m3.evaluate.integration.test.ts
-- FlagdProviderRegistry
+- evaluator.ts
 - FlagsView.vue
 - naive-ui
 - PlaygroundView.vue
-- AuditView.vue
+- FlagdProviderRegistry
 - ApiKeysView.vue
 - RunningWaitStrategy
-- binaryOp
+- session.ts
 - variadicOp
 - metadata
 - properties
 - $evaluators
+- domain/flags.ts
+- missingRule
+- createStore
+- stringCompareArgs
+- ActorType
 
 ## God Nodes (most connected - your core abstractions)
 1. `Store` - 40 edges
 2. `definitions` - 28 edges
 3. `FlagdProviderRegistry` - 24 edges
-4. `createApp()` - 18 edges
-5. `registerRoutes()` - 18 edges
-6. `createAuthService()` - 17 edges
-7. `definitions` - 17 edges
-8. `naive-ui` - 17 edges
+4. `naive-ui` - 19 edges
+5. `createApp()` - 18 edges
+6. `registerRoutes()` - 18 edges
+7. `createAuthService()` - 17 edges
+8. `definitions` - 17 edges
 9. `compilerOptions` - 16 edges
 10. `FmsError` - 15 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `FlagdFlagInput` --references--> `FlagRule`  [EXTRACTED]
   server/src/domain/flagd-model.ts → shared/src/index.ts
-- `FlagdFlagInput` --references--> `VariantValue`  [EXTRACTED]
-  server/src/domain/flagd-model.ts → shared/src/index.ts
 - `FlagdFlagEntry` --references--> `VariantValue`  [EXTRACTED]
   server/src/domain/flagd-model.ts → shared/src/index.ts
 - `StoredFlagDefinition` --references--> `VariantValue`  [EXTRACTED]
   server/src/domain/flags.ts → shared/src/index.ts
+- `FlagEvaluationInput` --references--> `VariantValue`  [EXTRACTED]
+  server/src/evaluate/types.ts → shared/src/index.ts
 - `canEvaluate()` --calls--> `effectiveCapability()`  [EXTRACTED]
   server/src/http/auth.ts → shared/src/index.ts
 
@@ -125,11 +130,11 @@
 - **Flag Authoring Model** — docs_01_requirements_feature_flag, docs_01_requirements_definition, docs_01_requirements_rule, docs_01_requirements_percentage_rule [INFERRED 0.85]
 - **Flag Evaluation Implementation Chain** — docs_02_architecture_flagd_provider, docs_02_architecture_flag_evaluator, docs_01_requirements_evaluation, readme_flagd [INFERRED 0.85]
 
-## Communities (83 total, 7 thin omitted)
+## Communities (88 total, 9 thin omitted)
 
 ### Community 1 - "flagd-model.ts"
 Cohesion: 0.11
-Nodes (25): ADR-0005, compileChain(), compileFlagdModel(), compileTargeting(), conditionsToExpression(), conditionToJsonLogic(), compileDoc(), flagsSchemaPath (+17 more)
+Nodes (26): ADR-0005, compileChain(), compileFlagdModel(), compileTargeting(), conditionsToExpression(), conditionToJsonLogic(), compileDoc(), flagsSchemaPath (+18 more)
 
 ### Community 2 - "web/package.json"
 Cohesion: 0.05
@@ -144,8 +149,8 @@ Cohesion: 0.05
 Nodes (50): Development Guidelines, API Key, Attribute Condition, Audit Log, Flag Definition, Environment, Evaluation, Feature Flag (+42 more)
 
 ### Community 5 - "store/index.ts"
-Cohesion: 0.09
-Nodes (30): changedFields(), DefinitionChange, definitionsEqual(), nextFlagVersion(), productOwnerPutAllowed(), solelyEnabledChanged(), stableStringify(), StoredFlagDefinition (+22 more)
+Cohesion: 0.13
+Nodes (14): AuditLogRecord, AuditPage, AuditQuery, CreateApiKeyResult, CreateProjectResult, FlagDetail, FlagEnvironmentStatus, FlagSummary (+6 more)
 
 ### Community 7 - "server/package.json"
 Cohesion: 0.05
@@ -160,8 +165,8 @@ Cohesion: 0.11
 Nodes (17): compilerOptions, declaration, esModuleInterop, forceConsistentCasingInFileNames, lib, module, moduleResolution, noFallthroughCasesInSwitch (+9 more)
 
 ### Community 14 - "config.ts"
-Cohesion: 0.16
-Nodes (16): assertSecureDefaults(), DEFAULT_ENVIRONMENTS, DEFAULT_ENVS, DEFAULT_FLAGD_HOST, DEFAULT_FLAGD_PORT, DEFAULT_PORT, DEFAULT_WEB_DIST, generateJwtSecret() (+8 more)
+Cohesion: 0.15
+Nodes (17): stubStore, assertSecureDefaults(), DEFAULT_ENVIRONMENTS, DEFAULT_ENVS, DEFAULT_FLAGD_HOST, DEFAULT_FLAGD_PORT, DEFAULT_PORT, DEFAULT_WEB_DIST (+9 more)
 
 ### Community 15 - "compilerOptions"
 Cohesion: 0.15
@@ -183,17 +188,17 @@ Nodes (5): compilerOptions, outDir, extends, include, ../tsconfig.base.json
 Cohesion: 0.33
 Nodes (5): compilerOptions, outDir, extends, include, ../tsconfig.base.json
 
-### Community 20 - "problem.ts"
-Cohesion: 0.27
-Nodes (10): FmsError, forbiddenError(), notFoundError(), PROBLEM_TYPES, problemBody(), ProblemDetails, TITLES, unauthorizedError() (+2 more)
+### Community 20 - "auth.ts"
+Cohesion: 0.16
+Nodes (16): COOKIE_NAME, fastify, FastifyRequest, Principal, SessionContext, FmsError, forbiddenError(), notFoundError() (+8 more)
 
 ### Community 26 - "properties"
 Cohesion: 0.12
 Nodes (16): $comment, properties, required, type, description, title, type, baseFlag (+8 more)
 
 ### Community 27 - "routes.ts"
-Cohesion: 0.24
-Nodes (11): actorName(), enqueueFlagChange(), ifNoneMatchMatches(), paramsOf(), paramValue(), queryOf(), registerRoutes(), ADR-0008 (+3 more)
+Cohesion: 0.19
+Nodes (14): flagSetParts(), sseFrame(), startFlagChangeStream(), actorName(), enqueueFlagChange(), ifNoneMatchMatches(), paramsOf(), paramValue() (+6 more)
 
 ### Community 29 - "server/src/index.ts"
 Cohesion: 0.13
@@ -201,7 +206,7 @@ Nodes (16): @prisma/adapter-mariadb, @prisma/client, closePrismaClient(), create
 
 ### Community 30 - "$ref"
 Cohesion: 0.13
-Nodes (15): items, minItems, type, associativeOp, fractionalShorthandOp, stringCompareArgs, items, minItems (+7 more)
+Nodes (15): items, minItems, type, items, maxItems, minItems, type, associativeOp (+7 more)
 
 ### Community 31 - "definitions"
 Cohesion: 0.12
@@ -211,9 +216,9 @@ Nodes (19): anyOf, properties, type, definitions, anyFlag, booleanVariants, numb
 Cohesion: 0.17
 Nodes (12): $comment, $ref, type, flagsMap, additionalProperties, $comment, description, patternProperties (+4 more)
 
-### Community 33 - "missingRule"
-Cohesion: 0.09
-Nodes (22): missingRule, stringCompareRule, description, $ref, title, type, items, type (+14 more)
+### Community 33 - "stringCompareRule"
+Cohesion: 0.17
+Nodes (12): stringCompareRule, description, $ref, title, ends_with, starts_with, description, $ref (+4 more)
 
 ### Community 34 - "createAuthService"
 Cohesion: 0.24
@@ -240,8 +245,8 @@ Cohesion: 0.20
 Nodes (10): reduceRule, reduce, description, maxItems, minItems, title, type, additionalProperties (+2 more)
 
 ### Community 40 - "app.ts"
-Cohesion: 0.19
-Nodes (10): @testcontainers/mariadb, createApp(), PUBLIC_AUTH_PATHS, PUBLIC_PATHS, stubStore, RFC-9457, AppConfig, adminToken() (+2 more)
+Cohesion: 0.18
+Nodes (11): AppOptions, createApp(), PUBLIC_AUTH_PATHS, PUBLIC_PATHS, RFC-9457, FlagEvaluator, FlagChangeBroadcaster, StartFlagChangeStreamInput (+3 more)
 
 ### Community 41 - "reference"
 Cohesion: 0.22
@@ -272,8 +277,8 @@ Cohesion: 0.29
 Nodes (7): $ref, fractionalOp, additionalItems, $comment, items, minItems, type
 
 ### Community 48 - "api/types.ts"
-Cohesion: 0.14
-Nodes (20): ApiError, request(), RFC-9457, ApiKeyCreated, CopyResult, CreateEnvironmentResult, DefinitionPutResult, EvaluationResult (+12 more)
+Cohesion: 0.11
+Nodes (21): ApiError, request(), RFC-9457, AuditEntry, AuditPage, CopyResult, CreateEnvironmentResult, DefinitionPutResult (+13 more)
 
 ### Community 49 - "flagsArray"
 Cohesion: 0.33
@@ -300,8 +305,8 @@ Cohesion: 0.40
 Nodes (5): flagdConfig, allOf, description, required, type
 
 ### Community 55 - "shared/src/index.ts"
-Cohesion: 0.17
-Nodes (17): ATTRIBUTE_OPS, AttributeRule, CAPABILITY_LADDER, conditionIsValid(), ENV_PATTERN, FLAG_KEY_PATTERN, isVariantValue(), RESERVED_VARIANT_NAMES (+9 more)
+Cohesion: 0.11
+Nodes (28): canEvaluate(), canSync(), requireProjectRole(), API_KEY_SCOPES, ApiKeyScope, ATTRIBUTE_OPS, AttributeRule, CAPABILITY_LADDER (+20 more)
 
 ### Community 56 - "RuleEditor.vue"
 Cohesion: 0.13
@@ -335,17 +340,13 @@ Nodes (8): numberFlag, stringFlag, allOf, description, title, allOf, description
 Cohesion: 0.50
 Nodes (4): objectFlag, allOf, description, title
 
-### Community 64 - "session.ts"
-Cohesion: 0.13
-Nodes (12): pinia, api, ProjectSummary, ProjectAssignment, useSessionStore, createKey, createName, creating (+4 more)
-
-### Community 65 - "auth.ts"
-Cohesion: 0.12
-Nodes (18): COOKIE_NAME, canEvaluate(), canSync(), requireProjectRole(), fastify, FastifyRequest, Principal, SessionContext (+10 more)
+### Community 64 - "ProjectsView.vue"
+Cohesion: 0.18
+Nodes (7): createKey, createName, creating, creatingProject, errorMessage, router, session
 
 ### Community 66 - "m2.sync.integration.test.ts"
-Cohesion: 0.25
-Nodes (3): adminToken(), login(), repoRoot
+Cohesion: 0.15
+Nodes (9): fastify, @testcontainers/mariadb, AppConfig, adminToken(), login(), repoRoot, adminToken(), login() (+1 more)
 
 ### Community 67 - "DiffView.vue"
 Cohesion: 0.43
@@ -363,9 +364,9 @@ Nodes (18): copyFromEnv, copySourceEnvs, env, environments, errorMessage, flagKe
 Cohesion: 0.15
 Nodes (4): InMemoryFlagChangeBroadcaster, QueuedFlagChange, ADR-0008, repoRoot
 
-### Community 71 - "FlagdProviderRegistry"
-Cohesion: 0.05
-Nodes (40): fastify, @openfeature/server-sdk, AppOptions, FlagdFlagEntry, FlagEvaluator, observedFlagVersion(), OpenFeatureFlagEvaluator, openFeature (+32 more)
+### Community 71 - "evaluator.ts"
+Cohesion: 0.13
+Nodes (14): @openfeature/server-sdk, observedFlagVersion(), OpenFeatureFlagEvaluator, openFeature, OpenFeatureLike, ADR-0004, LATENCY_WARMUP_CALLS, LatencyTracker (+6 more)
 
 ### Community 72 - "FlagsView.vue"
 Cohesion: 0.11
@@ -379,17 +380,17 @@ Nodes (8): naive-ui, @vue/test-utils, FlagRule, ObservedEnvironmentStatus, varia
 Cohesion: 0.12
 Nodes (15): contextJson, env, envOptions, errorMessage, flagKey, flagOptions, flagsStore, loading (+7 more)
 
-### Community 75 - "AuditView.vue"
-Cohesion: 0.20
-Nodes (7): AuditEntry, AuditPage, actionFilter, entityFilter, entries, loading, nextBefore
+### Community 75 - "FlagdProviderRegistry"
+Cohesion: 0.11
+Nodes (14): eventTypeOf(), FlagdEventListener, FlagdProviderBinding, FlagdProviderEvent, FlagdProviderRegistry, flagSetIdOf(), stateForEvent(), openFeature (+6 more)
 
 ### Community 76 - "ApiKeysView.vue"
-Cohesion: 0.16
-Nodes (12): ApiKeyRecord, create(), createdKey, creating, creatingKey, errorMessage, keys, loadKeys() (+4 more)
+Cohesion: 0.15
+Nodes (13): ApiKeyCreated, ApiKeyRecord, create(), createdKey, creating, creatingKey, errorMessage, keys (+5 more)
 
-### Community 78 - "binaryOp"
-Cohesion: 0.40
-Nodes (5): items, maxItems, minItems, type, binaryOp
+### Community 78 - "session.ts"
+Cohesion: 0.22
+Nodes (12): pinia, api, FlagDefinition, FlagDetail, ProjectSummary, FlagChangeEvent, ADR-0008, useFlagsStore (+4 more)
 
 ### Community 79 - "variadicOp"
 Cohesion: 0.50
@@ -407,24 +408,40 @@ Nodes (7): description, type, properties, flagSetId, version, description, type
 Cohesion: 0.33
 Nodes (6): additionalProperties, description, patternProperties, title, type, $evaluators
 
+### Community 83 - "domain/flags.ts"
+Cohesion: 0.36
+Nodes (9): changedFields(), DefinitionChange, definitionsEqual(), nextFlagVersion(), productOwnerPutAllowed(), solelyEnabledChanged(), stableStringify(), StoredFlagDefinition (+1 more)
+
+### Community 84 - "missingRule"
+Cohesion: 0.20
+Nodes (10): missingRule, type, items, type, additionalProperties, description, properties, title (+2 more)
+
+### Community 85 - "createStore"
+Cohesion: 0.32
+Nodes (7): encodeBase32(), generateUlid(), ULID_BASE_POWERS, createStore(), toPrismaRole(), variantTypeOf(), writeAudit()
+
+### Community 86 - "stringCompareArgs"
+Cohesion: 0.40
+Nodes (5): stringCompareArgs, items, maxItems, minItems, type
+
 ## Knowledge Gaps
-- **551 isolated node(s):** `name`, `version`, `private`, `type`, `workspaces` (+546 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 657 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **7 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **553 isolated node(s):** `name`, `version`, `private`, `type`, `workspaces` (+548 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 659 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **9 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `definitions` connect `definitions` to `properties`, `properties`, `$ref`, `missingRule`, `missingSomeRule`, `sem_ver`, `reduce`, `reference`, `binaryOrTernaryRule`, `fractionalRule`, `varRule`, `targeting.json`, `fractionalOp`, `associativeRule`, `fractionalWeightArg`, `unaryRule`, `semVerString`, `binaryOrTernaryOp`, `binaryOp`, `variadicOp`?**
+- **Why does `definitions` connect `definitions` to `properties`, `properties`, `$ref`, `stringCompareRule`, `missingSomeRule`, `sem_ver`, `reduce`, `reference`, `binaryOrTernaryRule`, `fractionalRule`, `varRule`, `targeting.json`, `fractionalOp`, `associativeRule`, `fractionalWeightArg`, `unaryRule`, `semVerString`, `binaryOrTernaryOp`, `variadicOp`, `missingRule`, `stringCompareArgs`?**
   _High betweenness centrality (0.035) - this node is a cross-community bridge._
-- **Why does `Store` connect `Store` to `auth.ts`, `flagd-model.ts`, `m2.sync.integration.test.ts`, `store/index.ts`, `m3.evaluate.integration.test.ts`, `FlagdProviderRegistry`, `app.ts`, `config.ts`, `m3.evaluate.e2e.test.ts`, `routes.ts`, `server/src/index.ts`?**
+- **Why does `Store` connect `Store` to `Role`, `flagd-model.ts`, `m2.sync.integration.test.ts`, `store/index.ts`, `m3.evaluate.integration.test.ts`, `app.ts`, `config.ts`, `auth.ts`, `ActorType`, `m3.evaluate.e2e.test.ts`, `routes.ts`, `server/src/index.ts`?**
   _High betweenness centrality (0.034) - this node is a cross-community bridge._
-- **Why does `naive-ui` connect `naive-ui` to `session.ts`, `web/package.json`, `DiffView.vue`, `FlagEditorView.vue`, `router/index.ts`, `FlagsView.vue`, `PlaygroundView.vue`, `AuditView.vue`, `ApiKeysView.vue`, `RuleEditor.vue`?**
+- **Why does `naive-ui` connect `naive-ui` to `ProjectsView.vue`, `web/package.json`, `DiffView.vue`, `FlagEditorView.vue`, `router/index.ts`, `FlagsView.vue`, `PlaygroundView.vue`, `ApiKeysView.vue`, `session.ts`, `api/types.ts`, `RuleEditor.vue`?**
   _High betweenness centrality (0.021) - this node is a cross-community bridge._
 - **What connects `name`, `version`, `private` to the rest of the system?**
-  _551 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _553 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `flagd-model.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.10793650793650794 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.11260504201680673 - nodes in this community are weakly interconnected._
 - **Should `web/package.json` be split into smaller, more focused modules?**
   _Cohesion score 0.04878048780487805 - nodes in this community are weakly interconnected._
 - **Should `properties` be split into smaller, more focused modules?**

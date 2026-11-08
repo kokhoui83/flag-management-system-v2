@@ -39,7 +39,7 @@
         v-if="errorMessage"
         type="error"
         :show-icon="true"
-        :message="errorMessage"
+        :title="errorMessage"
       />
     </n-form>
 

@@ -74,7 +74,7 @@ describe('LoginView (FR-40 / FR-53 session bootstrap)', () => {
     await nextTick();
     const alert = wrapper.find('.n-alert');
     expect(alert.exists()).toBe(true);
-    expect(alert.attributes('message')).toBe('Invalid username or password');
+    expect(alert.text()).toContain('Invalid username or password');
     expect(useSessionStore().isAuthenticated).toBe(false);
   });
 });

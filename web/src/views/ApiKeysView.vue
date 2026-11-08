@@ -9,7 +9,7 @@
       v-if="errorMessage"
       type="error"
       :show-icon="true"
-      :message="errorMessage"
+      :title="errorMessage"
     />
 
     <n-card v-if="createdKey" title="API key created" type="success">

@@ -92,6 +92,7 @@ const canCreateFlags = computed(() => {
 
 onMounted(async () => {
   await flagsStore.setActiveProject(projectId.value);
+  loading.value = false;
 });
 
 const envEntries = (

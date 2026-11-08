@@ -13,7 +13,6 @@
       </n-form-item>
 
       <n-tabs v-model:value="env">
-        <n-tab v-for="envName in environments" :key="envName" :name="envName" />
         <n-tab-pane
           v-for="envName in environments"
           :key="envName"
@@ -21,8 +20,8 @@
         >
           <n-form-item :label="`Environment: ${envName}`">
             <n-switch
-              :checked="localDefinition.enabled"
-              @update:checked="(checked: boolean) => setEnabled(checked)"
+              :value="localDefinition.enabled"
+              @update:value="(checked: boolean) => setEnabled(checked)"
             />
           </n-form-item>
         </n-tab-pane>
@@ -93,7 +92,6 @@ import {
   NSelect,
   NSwitch,
   NTabs,
-  NTab,
   NTabPane,
 } from 'naive-ui';
 import { useFlagsStore } from '../stores/flags';

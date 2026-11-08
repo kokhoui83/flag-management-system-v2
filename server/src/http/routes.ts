@@ -174,6 +174,21 @@ export async function registerRoutes(
       .send();
   });
 
+  app.get('/api/v1/auth/session', async (request) => {
+    // Dashboard identity surface (FR-53): the caller + their per-project assignments, from
+    // which the UI derives the effective capability per project (FR-54).
+    const principal = request.principal;
+    if (!principal) {
+      throw new FmsError(
+        401,
+        'https://fms.local/errors/unauthorized',
+        'Missing or invalid credential',
+      );
+    }
+    const identity = await auth.session(principal);
+    return identity;
+  });
+
   // ---------------------------------------------------------------- projects
 
   app.get('/api/v1/projects', async (request) => {

@@ -18,6 +18,10 @@ web/dist/
 server/dist/
 shared/dist/
 
+# playwright
+web/test-results/
+web/playwright-report/
+
 # local env (secrets)
 .env
 

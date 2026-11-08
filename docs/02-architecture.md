@@ -54,7 +54,7 @@ Key properties:
 | Sessions | JWT (HS256), 12 h expiry, `HttpOnly`/`SameSite=Lax` cookie + bearer use |
 | Flag evaluation client | `@openfeature/server-sdk` + `@openfeature/flagd-provider` (gRPC, `rpc` resolver) |
 | Validation | `zod` at the HTTP boundary; domain-level validation in pure functions (shared with the dashboard via the `shared/` workspace, ADR-0006) |
-| Testing | `vitest` (unit + integration), testcontainers for store tests, Docker-based e2e against a real flagd |
+| Testing | `vitest` (unit + integration), testcontainers for store tests, Docker-based e2e against a real flagd; dashboard browser E2E via Playwright (`@playwright/test`, `web/e2e/*.spec.ts`) against the docker compose stack |
 
 Responsibilities:
 
@@ -423,6 +423,10 @@ Dev loop: `npm run dev` (API, watch) + `npm run dev:web` (Vite dev server on :51
 `/api` → :3000). `docker-compose.yml` ships with the repo and contains **flagd and mariadb**;
 the API runs as a Node process (keeps the dev loop simple; a container image for the API is
 a v1.1 candidate).
+
+Dashboard browser E2E: the M4 manual checklist is adopted as the Playwright suite
+(`web/e2e/*.spec.ts` + `web/playwright.config.ts`) that runs against the compose stack
+(API + MariaDB + flagd + built `web/dist`).
 
 **Later (out of scope for v1):** API container image, TLS termination, Postgres, multi-instance
 FMS (incl. boot-time migration locking), multiple flagd instances (see §11).

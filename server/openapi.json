@@ -5,9 +5,7 @@
     "version": "0.0.0",
     "description": "Management API of the Flag Management System (M1/M2/M3 surface: auth, projects, flags, definitions, audit, API keys, sync, evaluate, events, readiness). Full contract: docs/04-api.md."
   },
-  "servers": [
-    { "url": "http://localhost:3000" }
-  ],
+  "servers": [{ "url": "http://localhost:3000" }],
   "paths": {
     "/healthz": {
       "get": {
@@ -113,17 +111,60 @@
       }
     },
     "/api/v1/auth/logout": {
-      "post": { "summary": "Clear session", "operationId": "logout", "tags": ["Auth"], "responses": { "204": { "description": "No content" } } }
+      "post": {
+        "summary": "Clear session",
+        "operationId": "logout",
+        "tags": ["Auth"],
+        "responses": { "204": { "description": "No content" } }
+      }
+    },
+    "/api/v1/auth/session": {
+      "get": {
+        "summary": "Current identity and per-project assignments (FR-53; dashboard identity source)",
+        "operationId": "getSession",
+        "tags": ["Auth"],
+        "responses": {
+          "200": { "description": "Identity" },
+          "401": { "description": "Unauthenticated" }
+        }
+      }
     },
     "/api/v1/projects": {
-      "get": { "summary": "List visible projects", "operationId": "listProjects", "tags": ["Projects"], "responses": { "200": { "description": "OK" } } },
-      "post": { "summary": "Create project (admin)", "operationId": "createProject", "tags": ["Projects"], "responses": { "201": { "description": "Created" }, "409": { "description": "Conflict" } } }
+      "get": {
+        "summary": "List visible projects",
+        "operationId": "listProjects",
+        "tags": ["Projects"],
+        "responses": { "200": { "description": "OK" } }
+      },
+      "post": {
+        "summary": "Create project (admin)",
+        "operationId": "createProject",
+        "tags": ["Projects"],
+        "responses": {
+          "201": { "description": "Created" },
+          "409": { "description": "Conflict" }
+        }
+      }
     },
     "/api/v1/projects/{projectId}/environments": {
-      "post": { "summary": "Add project environment", "operationId": "createProjectEnvironment", "tags": ["Projects"], "responses": { "201": { "description": "Created" }, "400": { "description": "Invalid env" }, "409": { "description": "Conflict" } } }
+      "post": {
+        "summary": "Add project environment",
+        "operationId": "createProjectEnvironment",
+        "tags": ["Projects"],
+        "responses": {
+          "201": { "description": "Created" },
+          "400": { "description": "Invalid env" },
+          "409": { "description": "Conflict" }
+        }
+      }
     },
     "/api/v1/projects/{projectId}/members": {
-      "get": { "summary": "List project members (admin)", "operationId": "listMembers", "tags": ["Projects"], "responses": { "200": { "description": "OK" } } },
+      "get": {
+        "summary": "List project members (admin)",
+        "operationId": "listMembers",
+        "tags": ["Projects"],
+        "responses": { "200": { "description": "OK" } }
+      },
       "post": {
         "summary": "Invite member with a global role and per-project roles (admin)",
         "operationId": "inviteMember",
@@ -137,7 +178,10 @@
                 "required": ["username", "role", "projects"],
                 "properties": {
                   "username": { "type": "string" },
-                  "role": { "type": "string", "enum": ["admin", "developer", "product-owner"] },
+                  "role": {
+                    "type": "string",
+                    "enum": ["admin", "developer", "product-owner"]
+                  },
                   "projects": {
                     "type": "array",
                     "items": {
@@ -145,7 +189,10 @@
                       "required": ["projectId", "role"],
                       "properties": {
                         "projectId": { "type": "string" },
-                        "role": { "type": "string", "enum": ["admin", "developer", "product-owner"] }
+                        "role": {
+                          "type": "string",
+                          "enum": ["admin", "developer", "product-owner"]
+                        }
                       }
                     }
                   }
@@ -154,23 +201,80 @@
             }
           }
         },
-        "responses": { "201": { "description": "Created" }, "400": { "description": "Validation" }, "403": { "description": "Forbidden" } }
+        "responses": {
+          "201": { "description": "Created" },
+          "400": { "description": "Validation" },
+          "403": { "description": "Forbidden" }
+        }
       }
     },
     "/api/v1/projects/{projectId}/flags": {
-      "get": { "summary": "List flags of a project", "operationId": "listFlags", "tags": ["Flags"], "responses": { "200": { "description": "OK" } } },
-      "post": { "summary": "Create flag (FR-2/FR-3/FR-56)", "operationId": "createFlag", "tags": ["Flags"], "responses": { "201": { "description": "Created" }, "400": { "description": "Invalid key" }, "409": { "description": "Conflict" } } }
+      "get": {
+        "summary": "List flags of a project",
+        "operationId": "listFlags",
+        "tags": ["Flags"],
+        "responses": { "200": { "description": "OK" } }
+      },
+      "post": {
+        "summary": "Create flag (FR-2/FR-3/FR-56)",
+        "operationId": "createFlag",
+        "tags": ["Flags"],
+        "responses": {
+          "201": { "description": "Created" },
+          "400": { "description": "Invalid key" },
+          "409": { "description": "Conflict" }
+        }
+      }
     },
     "/api/v1/projects/{projectId}/flags/{key}": {
-      "get": { "summary": "Get flag", "operationId": "getFlag", "tags": ["Flags"], "responses": { "200": { "description": "OK" }, "404": { "description": "Not found" } } },
-      "put": { "summary": "Update flag description", "operationId": "updateFlag", "tags": ["Flags"], "responses": { "200": { "description": "OK" }, "404": { "description": "Not found" } } },
-      "delete": { "summary": "Delete flag (FR-4)", "operationId": "deleteFlag", "tags": ["Flags"], "responses": { "204": { "description": "Deleted" } } }
+      "get": {
+        "summary": "Get flag",
+        "operationId": "getFlag",
+        "tags": ["Flags"],
+        "responses": {
+          "200": { "description": "OK" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "put": {
+        "summary": "Update flag description",
+        "operationId": "updateFlag",
+        "tags": ["Flags"],
+        "responses": {
+          "200": { "description": "OK" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "summary": "Delete flag (FR-4)",
+        "operationId": "deleteFlag",
+        "tags": ["Flags"],
+        "responses": { "204": { "description": "Deleted" } }
+      }
     },
     "/api/v1/projects/{projectId}/flags/{key}/definitions/{env}": {
-      "put": { "summary": "Put definition (FR-5/FR-14)", "operationId": "putDefinition", "tags": ["Flags"], "responses": { "200": { "description": "OK" }, "400": { "description": "Validation" }, "404": { "description": "Not found" } } }
+      "put": {
+        "summary": "Put definition (FR-5/FR-14)",
+        "operationId": "putDefinition",
+        "tags": ["Flags"],
+        "responses": {
+          "200": { "description": "OK" },
+          "400": { "description": "Validation" },
+          "404": { "description": "Not found" }
+        }
+      }
     },
     "/api/v1/projects/{projectId}/flags/{key}/definitions/{env}/copy": {
-      "post": { "summary": "Copy definition from another env (FR-9)", "operationId": "copyDefinition", "tags": ["Flags"], "responses": { "200": { "description": "OK" }, "400": { "description": "Bad request" }, "404": { "description": "Not found" } } }
+      "post": {
+        "summary": "Copy definition from another env (FR-9)",
+        "operationId": "copyDefinition",
+        "tags": ["Flags"],
+        "responses": {
+          "200": { "description": "OK" },
+          "400": { "description": "Bad request" },
+          "404": { "description": "Not found" }
+        }
+      }
     },
     "/api/v1/sync/{projectKey}/{env}": {
       "get": {
@@ -178,13 +282,37 @@
         "operationId": "getSyncModel",
         "tags": ["Sync"],
         "parameters": [
-          { "name": "projectKey", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "env", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "If-None-Match", "in": "header", "required": false, "schema": { "type": "string" } }
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "env",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
         ],
         "responses": {
-          "200": { "description": "Flagd model document", "headers": { "ETag": { "schema": { "type": "string" } } }, "content": { "application/json": { "schema": { "type": "object" } } } },
-          "304": { "description": "Not modified (matching If-None-Match)", "headers": { "ETag": { "schema": { "type": "string" } } } },
+          "200": {
+            "description": "Flagd model document",
+            "headers": { "ETag": { "schema": { "type": "string" } } },
+            "content": {
+              "application/json": { "schema": { "type": "object" } }
+            }
+          },
+          "304": {
+            "description": "Not modified (matching If-None-Match)",
+            "headers": { "ETag": { "schema": { "type": "string" } } }
+          },
           "401": { "description": "Unauthenticated" },
           "403": { "description": "Missing sync scope or project access" },
           "404": { "description": "Unknown project or environment" }
@@ -204,11 +332,26 @@
                 "type": "object",
                 "required": ["projectKey", "flagKey", "environment"],
                 "properties": {
-                  "projectKey": { "type": "string", "description": "Project key (unique per FMS, FR-55)" },
-                  "flagKey": { "type": "string", "description": "Flag key within the project (FR-56)" },
-                  "environment": { "type": "string", "description": "Environment of the flag set (<projectKey>:<env>, OQ-6)" },
-                  "targetingKey": { "type": "string", "description": "Optional targeting key; required for percentage rules (FR-19)" },
-                  "context": { "type": "object", "description": "OpenFeature evaluation context" }
+                  "projectKey": {
+                    "type": "string",
+                    "description": "Project key (unique per FMS, FR-55)"
+                  },
+                  "flagKey": {
+                    "type": "string",
+                    "description": "Flag key within the project (FR-56)"
+                  },
+                  "environment": {
+                    "type": "string",
+                    "description": "Environment of the flag set (<projectKey>:<env>, OQ-6)"
+                  },
+                  "targetingKey": {
+                    "type": "string",
+                    "description": "Optional targeting key; required for percentage rules (FR-19)"
+                  },
+                  "context": {
+                    "type": "object",
+                    "description": "OpenFeature evaluation context"
+                  }
                 }
               }
             }
@@ -223,21 +366,41 @@
                   "type": "object",
                   "required": ["value", "variant", "reason", "flagVersion"],
                   "properties": {
-                    "value": { "description": "Resolved value (null when disabled)" },
+                    "value": {
+                      "description": "Resolved value (null when disabled)"
+                    },
                     "variant": { "type": "string" },
-                    "reason": { "type": "string", "enum": ["STATIC", "DEFAULT", "TARGETING_MATCH", "SPLIT", "CACHED", "DISABLED", "ERROR"] },
-                    "flagVersion": { "type": "integer", "description": "Flagd-observed version from flag metadata" }
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "STATIC",
+                        "DEFAULT",
+                        "TARGETING_MATCH",
+                        "SPLIT",
+                        "CACHED",
+                        "DISABLED",
+                        "ERROR"
+                      ]
+                    },
+                    "flagVersion": {
+                      "type": "integer",
+                      "description": "Flagd-observed version from flag metadata"
+                    }
                   }
                 }
               }
             }
           },
-          "400": { "description": "Validation problem (unknown env/flag, malformed context) — problem+json" },
+          "400": {
+            "description": "Validation problem (unknown env/flag, malformed context) — problem+json"
+          },
           "401": { "description": "Unauthenticated" },
           "403": { "description": "Missing evaluate scope or project access" },
           "404": { "description": "Unknown project/flag/env" },
           "502": { "description": "flagd evaluation error" },
-          "503": { "description": "flagd provider not READY — never a defaulted value (FR-24)" }
+          "503": {
+            "description": "flagd provider not READY — never a defaulted value (FR-24)"
+          }
         }
       }
     },
@@ -247,10 +410,21 @@
         "operationId": "events",
         "tags": ["Events"],
         "parameters": [
-          { "name": "envs", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Comma-separated flag-set IDs (<projectKey>:<env>) to filter on" }
+          {
+            "name": "envs",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Comma-separated flag-set IDs (<projectKey>:<env>) to filter on"
+          }
         ],
         "responses": {
-          "200": { "description": "text/event-stream", "content": { "text/event-stream": { "schema": { "type": "string" } } } },
+          "200": {
+            "description": "text/event-stream",
+            "content": {
+              "text/event-stream": { "schema": { "type": "string" } }
+            }
+          },
           "400": { "description": "Unknown ?envs= flag set id" },
           "401": { "description": "Unauthenticated" },
           "403": { "description": "Missing evaluate scope" }
@@ -263,28 +437,74 @@
         "operationId": "observed",
         "tags": ["Flags"],
         "parameters": [
-          { "name": "projectId", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "key", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
         ],
         "responses": {
-          "200": { "description": "Observed state per environment", "content": { "application/json": { "schema": { "type": "object", "required": ["key", "observed"], "properties": { "key": { "type": "string" }, "observed": { "type": "object" } } } } } },
+          "200": {
+            "description": "Observed state per environment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["key", "observed"],
+                  "properties": {
+                    "key": { "type": "string" },
+                    "observed": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
           "400": { "description": "flagd provider not READY" },
           "401": { "description": "Unauthenticated" },
           "403": { "description": "Missing evaluate scope" },
           "404": { "description": "Unknown flag" },
-          "503": { "description": "flagd provider not READY — never a defaulted value (FR-24)" }
+          "503": {
+            "description": "flagd provider not READY — never a defaulted value (FR-24)"
+          }
         }
       }
     },
     "/api/v1/audit": {
-      "get": { "summary": "List audit entries (FR-38)", "operationId": "listAudit", "tags": ["Audit"], "responses": { "200": { "description": "OK" } } }
+      "get": {
+        "summary": "List audit entries (FR-38)",
+        "operationId": "listAudit",
+        "tags": ["Audit"],
+        "responses": { "200": { "description": "OK" } }
+      }
     },
     "/api/v1/api-keys": {
-      "get": { "summary": "List API keys", "operationId": "listApiKeys", "tags": ["ApiKeys"], "responses": { "200": { "description": "OK" } } },
-      "post": { "summary": "Create API key (FR-32)", "operationId": "createApiKey", "tags": ["ApiKeys"], "responses": { "201": { "description": "Created" } } }
+      "get": {
+        "summary": "List API keys",
+        "operationId": "listApiKeys",
+        "tags": ["ApiKeys"],
+        "responses": { "200": { "description": "OK" } }
+      },
+      "post": {
+        "summary": "Create API key (FR-32)",
+        "operationId": "createApiKey",
+        "tags": ["ApiKeys"],
+        "responses": { "201": { "description": "Created" } }
+      }
     },
     "/api/v1/api-keys/{id}": {
-      "delete": { "summary": "Revoke API key (FR-34)", "operationId": "revokeApiKey", "tags": ["ApiKeys"], "responses": { "204": { "description": "No content" } } }
+      "delete": {
+        "summary": "Revoke API key (FR-34)",
+        "operationId": "revokeApiKey",
+        "tags": ["ApiKeys"],
+        "responses": { "204": { "description": "No content" } }
+      }
     }
   }
 }

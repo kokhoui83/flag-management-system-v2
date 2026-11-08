@@ -16,12 +16,12 @@ automatically).
 
 Endpoint scopes:
 
-| Scope | Grants |
-| --- | --- |
-| `manage` | projects (create, environments, invites), flags/definitions CRUD, keys CRUD, audit read, evaluate |
-| `evaluate` | `POST /api/v1/evaluate`, `GET /api/v1/events` |
-| `sync` | `GET /api/v1/sync/:projectKey/:env` only (consumed by flagd) |
-| `all` | everything |
+| Scope      | Grants                                                                                            |
+| ---------- | ------------------------------------------------------------------------------------------------- |
+| `manage`   | projects (create, environments, invites), flags/definitions CRUD, keys CRUD, audit read, evaluate |
+| `evaluate` | `POST /api/v1/evaluate`, `GET /api/v1/events`                                                     |
+| `sync`     | `GET /api/v1/sync/:projectKey/:env` only (consumed by flagd)                                      |
+| `all`      | everything                                                                                        |
 
 Session tokens are treated as `all`-scoped for the bootstrap admin (FR-30); invited users'
 sessions resolve to the capability level of their role / project assignments (FR-53, FR-54).
@@ -77,6 +77,29 @@ Credentials are either the env-configured bootstrap admin (FR-30) or an invited 
 `204`. Clears the cookie. (Stateless JWT: server-side expiry is not enforced; the cookie is
 deleted and the token simply ignored by the client. Documented v1 behavior.)
 
+### `GET /api/v1/auth/session`
+
+Dashboard identity source (FR-53; consumed by the Vue dashboard via the `fms_token` cookie or the
+Bearer token).
+
+```json
+// 200 response
+{
+  "username": "admin",
+  "globalRole": "admin",
+  "isBootstrapAdmin": true,
+  "assignments": [{ "projectId": "01J…", "role": "admin" }]
+}
+```
+
+- `username` / `globalRole` / `isBootstrapAdmin` describe the caller; `assignments` list the
+  per-project roles of the caller (from the global role, the caller only sees assignments whose
+  projects they hold).
+- The dashboard derives the effective per-project capability with the union semantics (FR-54,
+  §4.9.1) and gates its surfaces from it.
+- API-key callers never receive assignments; the dashboard treats API-key scopes as the
+  capability level directly.
+
 ## 4. Flags (project-scoped)
 
 Flag routes live under the owning project (`flags.project_id` is NOT NULL — 03 §1);
@@ -94,9 +117,9 @@ Flag routes live under the owning project (`flags.project_id` is NOT NULL — 03
       "createdAt": "2026-10-01T09:00:00.000Z",
       "updatedAt": "2026-10-20T15:30:00.000Z",
       "environments": {
-        "dev":     { "enabled": true,  "variantType": "boolean" },
-        "staging": { "enabled": true,  "variantType": "boolean" },
-        "prod":    { "enabled": false, "variantType": "boolean" }
+        "dev": { "enabled": true, "variantType": "boolean" },
+        "staging": { "enabled": true, "variantType": "boolean" },
+        "prod": { "enabled": false, "variantType": "boolean" }
       }
     }
   ],
@@ -133,10 +156,20 @@ Flag routes live under the owning project (`flags.project_id` is NOT NULL — 03
       "variants": { "on": true, "off": false },
       "defaultVariant": "off",
       "rules": [
-        { "type": "attribute",
-          "conditions": [ { "attribute": "email", "op": "ends_with", "value": "@acme.com" } ],
-          "variant": "on" },
-        { "type": "percentage", "splits": [ { "variant": "on", "weight": 25 }, { "variant": "off", "weight": 75 } ] }
+        {
+          "type": "attribute",
+          "conditions": [
+            { "attribute": "email", "op": "ends_with", "value": "@acme.com" }
+          ],
+          "variant": "on"
+        },
+        {
+          "type": "percentage",
+          "splits": [
+            { "variant": "on", "weight": 25 },
+            { "variant": "off", "weight": 75 }
+          ]
+        }
       ],
       "updatedAt": "2026-10-20T15:30:00.000Z"
     }
@@ -155,8 +188,8 @@ returns the flagd-observed version and enablement for each environment:
 {
   "key": "new-checkout",
   "observed": {
-    "dev":     { "version": 7, "enabled": true,  "variantType": "boolean" },
-    "staging": { "version": 7, "enabled": true,  "variantType": "boolean" }
+    "dev": { "version": 7, "enabled": true, "variantType": "boolean" },
+    "staging": { "version": 7, "enabled": true, "variantType": "boolean" }
   }
 }
 ```
@@ -190,10 +223,20 @@ Full replace of one environment's definition (create or update).
   "variants": { "on": true, "off": false },
   "defaultVariant": "off",
   "rules": [
-    { "type": "attribute",
-      "conditions": [ { "attribute": "email", "op": "ends_with", "value": "@acme.com" } ],
-      "variant": "on" },
-    { "type": "percentage", "splits": [ { "variant": "on", "weight": 25 }, { "variant": "off", "weight": 75 } ] }
+    {
+      "type": "attribute",
+      "conditions": [
+        { "attribute": "email", "op": "ends_with", "value": "@acme.com" }
+      ],
+      "variant": "on"
+    },
+    {
+      "type": "percentage",
+      "splits": [
+        { "variant": "on", "weight": 25 },
+        { "variant": "off", "weight": 75 }
+      ]
+    }
   ]
 }
 // 200 → { "flagKey": "new-checkout", "env": "staging", "version": 8 }
@@ -284,14 +327,14 @@ project's environments (FR-55).
 }
 ```
 
-| Case | Response |
-| --- | --- |
-| Unknown `projectKey`, or flag key not in that project | `404` not-found |
-| Unknown/missing `environment` (or not an environment of the project) | `400` |
-| Malformed `context` (not an object) / `targetingKey` not a string | `400` |
-| Flag disabled in that environment | `200` with `{ "value": null, "variant": null, "reason": "DISABLED", "flagVersion": n }` |
-| flagd provider not READY (down / sync stalled past grace) | `503` unavailable — *no* defaulted value (FR-24) |
-| flagd reports evaluation error (e.g. invalid model — should be impossible post-validation) | `502` with `errorCode`/`errorMessage` surfaced |
+| Case                                                                                       | Response                                                                                |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| Unknown `projectKey`, or flag key not in that project                                      | `404` not-found                                                                         |
+| Unknown/missing `environment` (or not an environment of the project)                       | `400`                                                                                   |
+| Malformed `context` (not an object) / `targetingKey` not a string                          | `400`                                                                                   |
+| Flag disabled in that environment                                                          | `200` with `{ "value": null, "variant": null, "reason": "DISABLED", "flagVersion": n }` |
+| flagd provider not READY (down / sync stalled past grace)                                  | `503` unavailable — _no_ defaulted value (FR-24)                                        |
+| flagd reports evaluation error (e.g. invalid model — should be impossible post-validation) | `502` with `errorCode`/`errorMessage` surfaced                                          |
 
 `flagVersion` is read from flag metadata returned by flagd (observed model version; also the
 basis of the dashboard's stale indicator, FR-47).
@@ -355,7 +398,7 @@ actor name).
       "entityId": "new-checkout:staging",
       "env": "staging",
       "before": { "…": "definition payload" },
-      "after":  { "…": "definition payload" }
+      "after": { "…": "definition payload" }
     }
   ],
   "nextBefore": "01J…"
@@ -432,7 +475,7 @@ Semantics (ADR-0008):
 
 - `flag-changed` is emitted **only after** FMS's own per-(project, env) provider observes the
   new model
-  in flagd — it means *flagd in `env` is now serving `flagKey` at version ≥ `version`*.
+  in flagd — it means _flagd in `env` is now serving `flagKey` at version ≥ `version`_.
   There is no early window.
 - No replay: events are not retained. After a disconnect, reconnect and re-fetch state to
   reconcile (FR-51).
@@ -506,11 +549,14 @@ Admin (`manage` scope) invites a user with a global role and independent per-pro
 
 ```json
 // request
-{ "username": "brian", "role": "developer",
+{
+  "username": "brian",
+  "role": "developer",
   "projects": [
     { "projectId": "01J…", "role": "admin" },
     { "projectId": "01K…", "role": "product-owner" }
-  ] }
+  ]
+}
 // 201 → { "user": "brian", "role": "developer",
 //          "projects": [
 //            { "projectId": "01J…", "role": "admin" },

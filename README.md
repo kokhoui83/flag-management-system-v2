@@ -55,6 +55,18 @@ per-environment state (FR-56), admin invites (FR-57), developer and product-owne
 (FR-58/FR-59) — see [docs/01-requirements.md §4.9.1](docs/01-requirements.md). Implementation lands in
 M4 per [docs/06-roadmap.md](docs/06-roadmap.md).
 
+**M4 — Dashboard (implemented).** The full operator surface now ships in the browser: Vue 3 +
+Naive UI dashboard in `web/` (login gate with session bootstrap via `GET /api/v1/auth/session`,
+project list/create, per-project flag list/editor, evaluate playground, API keys, audit,
+sync-health badge, SSE live refresh, and the in-app HTML user guide at `/guide`). The management API
+gained the `GET /api/v1/auth/session` identity surface; the capability vocabulary lives in
+`@fms/shared` as the single source for server and dashboard (FR-54). Web unit tier is green (Vitest +
+happy-dom + `@vue/test-utils`, 10 dashboard tests); bundle budget recorded at 659.28 kB JS /
+197.33 kB gzip. The M4 manual checklist is adopted as the Playwright browser E2E plan (UF-1…UF-9)
+over the docker compose stack; a demo client app is **not** required for the M4 flag-behaviour
+verification (the dashboard evaluate playground + API evaluate cover it). See
+[docs/06-roadmap.md](docs/06-roadmap.md) §M4 and the in-app user guide.
+
 ## Documentation
 
 | Document                                           | Contents                                                                      |
@@ -112,3 +124,8 @@ checks are green per [05-testing.md](docs/05-testing.md) §2.2 (compiler/ETag) a
 scenarios, plus the integration tier against testcontainers MariaDB (FR-26/FR-27/FR-28). The M3
 backend (evaluate, readiness, SSE, latency) is implemented and integration-tested; its E2E
 scenarios (`npm run test:e2e`) are green against the real flagd engine via testcontainers.
+
+**M4 dashboard testing:** the §2.6 multi-user UI scenarios run as Vitest + `@vue/test-utils`
+component tests in the `web/` workspace (API client mocked), and the manual M4 checklist is adopted
+as the Playwright browser E2E suite (`npm run test:e2e:web`, specs in `web/e2e/*.spec.ts`) that
+drives the dashboard against the running docker compose stack.

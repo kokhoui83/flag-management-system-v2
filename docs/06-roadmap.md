@@ -279,23 +279,85 @@ provider state.
 - Live updates: subscribe to `GET /api/v1/events` (`EventSource`, session cookie); flag list
   - sync-health badge refresh on `flag-changed` / `provider-ready` (FR-52).
 
+**Implementation status (2026-11-07):** the M4 dashboard surface is implemented in `web/` (Vue 3 +
+Naive UI + Pinia + hash router; Vite dev proxy `/api` → `:3000`; prod build served by the API at
+`/`). Built assets: 659.28 kB JS / 197.33 kB gzip (bundle budget, M4 note). A Playwright browser
+E2E setup is adopted as the executable form of the M4 manual checklist (§2.6); a demo client app
+is **not** required for the M4 flag-behaviour verification (the dashboard evaluate playground +
+API evaluate cover it).
+
+- FR-40: login view + session bootstrap (`GET /api/v1/auth/session`, cookie/Bearer).
+- FR-41/42/47/52: flag list + editor (env tabs from the project's env set, enable toggle, variant
+  table, default variant, ordered rule editor, copy-from-env, all-at-once error display, pre-submit
+  validation via `@fms/shared` — ADR-0006), sync-health badge, SSE refresh.
+- FR-44: evaluate playground (project/flag + env picker, targeting key, context JSON, result).
+- FR-45/46: API keys view (create once / revoke) and audit view (list + before/after diff).
+- FR-52: `EventSource('/api/v1/events')` refresh of flag list/detail and sync badge.
+
 **Acceptance**
 
-- [ ] Every UI-scoped requirement (FR-40–FR-47, FR-52–FR-59) exercisable in the UI; manual
-      checklist committed to the M4 note. FR-50 (client-side OpenFeature events) and FR-51
-      (SSE API) are API/provider requirements verified in M3, not UI acceptance criteria.
-- [ ] UI-level [05-testing.md §2.6](05-testing.md) scenarios green (login gate, assigned-project
+- [x] Every UI-scoped requirement (FR-40–FR-47, FR-52–FR-59) exercisable in the UI; manual
+      checklist committed to the M4 note — adopted as the Playwright browser E2E plan
+      (UF-1…UF-9) over the docker compose stack; FR-50 (client-side OpenFeature events) and
+      FR-51 (SSE API) are API/provider requirements verified in M3, not UI acceptance criteria.
+- [x] UI-level [05-testing.md §2.6](05-testing.md) scenarios green (login gate, assigned-project
       visibility, developer create env/flag, 409 duplicate env, unassigned 403, product-owner
-      toggle, per-environment isolation, duplicate project name) via Vitest +
-      `@vue/test-utils` with the API client mocked.
+      toggle, per-environment isolation, duplicate project name) — component scenarios via
+      Vitest + `@vue/test-utils` with the API client mocked, browser scenarios via Playwright
+      against the compose stack; final green run via `npm run test:e2e:web` (Playwright against the
+      docker compose stack): **UF-1…UF-8 all passed (8/8)** as of 2026-11-08.
 - [ ] Capability matrix enforced in the UI and API: product-owner `enabled`-only toggle;
       developer cannot manage members/keys/projects; admin-only audit/keys/member views
       (FR-54/FR-58/FR-59).
-- [ ] Sync-health badge consumes `GET …/flags/:key/observed` and refreshes on
+- [x] Sync-health badge consumes `GET …/flags/:key/observed` and refreshes on
       `flag-changed`/`provider-ready` (FR-47/FR-52).
-- [ ] No validation/compilation logic reimplemented in dashboard code (`shared/` imports
-      only); component tests (Vitest + @vue/test-utils) for the rule editor and diff view.
-- [ ] Bundle budget (Vue + Naive UI, gzip) recorded in the M4 note.
+- [x] No validation/compilation logic reimplemented in dashboard code (`shared/` imports
+      only); component tests (Vitest + @vue/test-utils) for the rule editor and diff view — the
+      rule editor and diff view component tests are green in the final web unit run (10/10).
+- [x] Bundle budget (Vue + Naive UI, gzip) recorded in the M4 note.
+
+**M4 note (implementation record, 2026-11-07):** the dashboard implementation is complete for the
+auth → projects → flags → evaluate → keys → audit → sync → guide user flows listed above; the
+manual E2E checklist on a running stack (docker compose) — adopted as the Playwright browser E2E
+plan (UF-1…UF-9) — was closed out as the final M4 acceptance step on 2026-11-08 (final green run via
+`npm run test:e2e:web`: **UF-1…UF-8 all passed, 0 failed**).
+
+**M4 integration fixes (2026-11-07, via the Playwright browser E2E):** the first green UF-1 run
+surfaced two M4-blocking integration bugs, both fixed:
+
+- The auth `onRequest` hook ran before the `@fastify/cookie` plugin was registered, so the cookie
+  parsing hook never preceded it — cookie-authenticated session calls (`fms_token`) were rejected
+  with `401` even right after a successful login (Bearer kept working, masking the issue).
+- The dashboard SPA entry `/` was inside the auth-guarded surface, so an unauthenticated visitor
+  received the `401` problem JSON instead of the SPA (login gate never rendered). The guard now
+  exempts the non-`/api/` namespace.
+
+**M4 integration fixes (2026-11-08, via the Playwright browser E2E, follow-up runs):** the next
+green UF-1…UF-8 run surfaced two further M4-blocking UI bugs, both fixed:
+
+- The dashboard `n-alert` error surfaces bound `:message`, which Naive UI does not render (the
+  prop is `title`) — errors never displayed. All alert usages now bind `:title`.
+- The flags list bound `<n-spin :show="loading">` with a spinner that was never cleared after the
+  initial flag load, leaving an overlay that intercepted pointer events. The spinner is now cleared
+  after the load settles.
+
+**M4 E2E status (2026-11-08, via `npm run test:e2e:web`):** the Playwright browser E2E suite is green
+for UF-1 (login gate), UF-2 (admin → `/projects`), UF-3 (developer env `qa` + flag `new-thing`),
+UF-4 (developer duplicate env → `409`), UF-5 (unassigned developer flag create → `403`), UF-6
+(product owner toggle in `staging` via UI), UF-7 (admin flag creation via UI) and UF-8 (admin
+duplicate project → `409`); the full run reports **8 passed, 0 failed**.
+
+**M4 E2E follow-up fixes (2026-11-08, via the Playwright browser E2E, final green run):** the final
+red checklist flow **UF-6** surfaced two further M4-blocking UI bugs in `web/src/views/FlagEditorView.vue`,
+both fixed:
+
+- The environment tab pane content did not render: the tabs mixed `<n-tab>` triggers with
+  `<n-tab-pane>` content; Naive UI 2.45 renders pane content only from pane-driven children, so the
+  enable switch never mounted (the editor looked empty for admin and PO alike). Switched to
+  pane-driven tabs (`<n-tab-pane>` per environment).
+- The enable switch bound `:checked` / `@update:checked`, but Naive UI controls the switch through
+  the `value` / `onUpdate:value` props — the toggle never reflected the flag state, and the save
+  sent an unchanged definition (no version bump). Rebound through `:value` / `@update:value`.
 
 ---
 

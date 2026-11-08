@@ -52,6 +52,10 @@ test.describe('UF-6 — product owner toggle in staging, editor read-only', () =
 
     const flagCreated = await page.request.post(`/api/v1/projects/${project.id}/flags`, { data: { key: 'new-thing', description: 'uf6' } });
     expect(flagCreated.status()).toBe(201);
+    // Provision the initial definition for the environment the PO toggles (create → version 1,
+    // first changed put → version 2); the product-owner toggle below is the version-bumping put.
+    const initialDefinition = await page.request.put(`/api/v1/projects/${project.id}/flags/new-thing/definitions/staging`, { data: { enabled: true, variants: { on: true, off: false }, defaultVariant: 'off', rules: [] } });
+    expect(initialDefinition.status()).toBe(200);
     const invite = await page.request.post(`/api/v1/projects/${project.id}/members`, { data: { username: `po-uf6-${suffix}`, role: 'product-owner', projects: [{ projectId: project.id, role: 'product-owner' }] } });
     expect(invite.status()).toBe(201);
     const inviteBody = await invite.json();
@@ -83,10 +87,10 @@ test.describe('UF-6 — product owner toggle in staging, editor read-only', () =
     // Save the definition → flag-level version increments by 1.
     await poPage.getByRole('button', { name: 'Save definition' }).click();
 
-    // Back to the flag list and confirm the version bumped from create=1.
+    // Back to the flag list and confirm the version bumped from the create via the toggle save.
     await poPage.getByRole('button', { name: 'Back' }).click();
     await expect(poPage).toHaveURL(new RegExp(`#\\/projects/${project.id}/flags$`), { timeout: 20_000 });
-    await expect(poPage.getByText('version 2')).toBeVisible();
+    await expect(poPage.getByText('version 3')).toBeVisible();
   });
 });
 

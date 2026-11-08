@@ -77,6 +77,7 @@ verification (the dashboard evaluate playground + API evaluate cover it). See
 | [docs/04-api.md](docs/04-api.md)                   | REST API contract, sync endpoint, evaluation endpoint, error model            |
 | [docs/05-testing.md](docs/05-testing.md)           | TDD strategy, behavior specs (Given/When/Then), test pyramid                  |
 | [docs/06-roadmap.md](docs/06-roadmap.md)           | Milestones with acceptance criteria                                           |
+| [docs/07-dashboard-design.md](docs/07-dashboard-design.md) | Dashboard design spec: IA, screens, tokens, user flows (Figma)      |
 | [docs/adr/](docs/adr/)                             | Architecture decision records                                                 |
 
 ## Architecture in one paragraph

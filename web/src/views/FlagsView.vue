@@ -13,7 +13,7 @@
 
     <n-spin :show="loading">
       <n-empty
-        v-if="flags.length === 0"
+        v-if="!loading && flags.length === 0"
         description="No flags yet — create one to start controlling rollout."
       />
 

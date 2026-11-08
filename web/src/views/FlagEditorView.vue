@@ -190,12 +190,22 @@ watch(
 watch(env, (next: string) => {
   const detail = flagsStore.detail;
   const definition = detail?.definitions[next];
-  if (!definition) return;
+  if (definition) {
+    localDefinition.value = {
+      enabled: definition.enabled,
+      variants: definition.variants,
+      defaultVariant: definition.defaultVariant,
+      rules: definition.rules as FlagRule[],
+    };
+    return;
+  }
+  // An environment without a stored definition starts from a pristine state instead of
+  // retaining whatever the previously selected environment held.
   localDefinition.value = {
-    enabled: definition.enabled,
-    variants: definition.variants,
-    defaultVariant: definition.defaultVariant,
-    rules: definition.rules as FlagRule[],
+    enabled: true,
+    variants: { on: true, off: false },
+    defaultVariant: 'off',
+    rules: [],
   };
 });
 

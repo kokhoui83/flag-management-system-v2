@@ -319,7 +319,8 @@ API evaluate cover it).
 **M4 note (implementation record, 2026-11-07):** the dashboard implementation is complete for the
 auth → projects → flags → evaluate → keys → audit → sync → guide user flows listed above; the
 manual E2E checklist on a running stack (docker compose) — adopted as the Playwright browser E2E
-plan (UF-1…UF-9) — and the full §2.6 UI scenario matrix remain as the final acceptance step.
+plan (UF-1…UF-9) — was closed out as the final M4 acceptance step on 2026-11-08 (final green run via
+`npm run test:e2e:web`: **UF-1…UF-8 all passed, 0 failed**).
 
 **M4 integration fixes (2026-11-07, via the Playwright browser E2E):** the first green UF-1 run
 surfaced two M4-blocking integration bugs, both fixed:

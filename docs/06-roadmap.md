@@ -311,8 +311,9 @@ API evaluate cover it).
       (FR-54/FR-58/FR-59).
 - [x] Sync-health badge consumes `GET …/flags/:key/observed` and refreshes on
       `flag-changed`/`provider-ready` (FR-47/FR-52).
-- [ ] No validation/compilation logic reimplemented in dashboard code (`shared/` imports
-      only); component tests (Vitest + @vue/test-utils) for the rule editor and diff view.
+- [x] No validation/compilation logic reimplemented in dashboard code (`shared/` imports
+      only); component tests (Vitest + @vue/test-utils) for the rule editor and diff view — the
+      rule editor and diff view component tests are green in the final web unit run (10/10).
 - [x] Bundle budget (Vue + Naive UI, gzip) recorded in the M4 note.
 
 **M4 note (implementation record, 2026-11-07):** the dashboard implementation is complete for the
@@ -322,6 +323,7 @@ plan (UF-1…UF-9) — and the full §2.6 UI scenario matrix remain as the final
 
 **M4 integration fixes (2026-11-07, via the Playwright browser E2E):** the first green UF-1 run
 surfaced two M4-blocking integration bugs, both fixed:
+
 - The auth `onRequest` hook ran before the `@fastify/cookie` plugin was registered, so the cookie
   parsing hook never preceded it — cookie-authenticated session calls (`fms_token`) were rejected
   with `401` even right after a successful login (Bearer kept working, masking the issue).
@@ -331,6 +333,7 @@ surfaced two M4-blocking integration bugs, both fixed:
 
 **M4 integration fixes (2026-11-08, via the Playwright browser E2E, follow-up runs):** the next
 green UF-1…UF-8 run surfaced two further M4-blocking UI bugs, both fixed:
+
 - The dashboard `n-alert` error surfaces bound `:message`, which Naive UI does not render (the
   prop is `title`) — errors never displayed. All alert usages now bind `:title`.
 - The flags list bound `<n-spin :show="loading">` with a spinner that was never cleared after the
@@ -346,6 +349,7 @@ duplicate project → `409`); the full run reports **8 passed, 0 failed**.
 **M4 E2E follow-up fixes (2026-11-08, via the Playwright browser E2E, final green run):** the final
 red checklist flow **UF-6** surfaced two further M4-blocking UI bugs in `web/src/views/FlagEditorView.vue`,
 both fixed:
+
 - The environment tab pane content did not render: the tabs mixed `<n-tab>` triggers with
   `<n-tab-pane>` content; Naive UI 2.45 renders pane content only from pane-driven children, so the
   enable switch never mounted (the editor looked empty for admin and PO alike). Switched to

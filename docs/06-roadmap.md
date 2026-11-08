@@ -300,11 +300,12 @@ API evaluate cover it).
       checklist committed to the M4 note — adopted as the Playwright browser E2E plan
       (UF-1…UF-9) over the docker compose stack; FR-50 (client-side OpenFeature events) and
       FR-51 (SSE API) are API/provider requirements verified in M3, not UI acceptance criteria.
-- [ ] UI-level [05-testing.md §2.6](05-testing.md) scenarios green (login gate, assigned-project
+- [x] UI-level [05-testing.md §2.6](05-testing.md) scenarios green (login gate, assigned-project
       visibility, developer create env/flag, 409 duplicate env, unassigned 403, product-owner
       toggle, per-environment isolation, duplicate project name) — component scenarios via
       Vitest + `@vue/test-utils` with the API client mocked, browser scenarios via Playwright
-      against the compose stack.
+      against the compose stack; final green run via `npm run test:e2e:web` (Playwright against the
+      docker compose stack): **UF-1…UF-8 all passed (8/8)** as of 2026-11-08.
 - [ ] Capability matrix enforced in the UI and API: product-owner `enabled`-only toggle;
       developer cannot manage members/keys/projects; admin-only audit/keys/member views
       (FR-54/FR-58/FR-59).
@@ -338,11 +339,20 @@ green UF-1…UF-8 run surfaced two further M4-blocking UI bugs, both fixed:
 
 **M4 E2E status (2026-11-08, via `npm run test:e2e:web`):** the Playwright browser E2E suite is green
 for UF-1 (login gate), UF-2 (admin → `/projects`), UF-3 (developer env `qa` + flag `new-thing`),
-UF-4 (developer duplicate env → `409`), UF-5 (unassigned developer flag create → `403`), UF-7
-(admin flag creation via UI) and UF-8 (admin duplicate project → `409`); the full run reports
-**7 passed**. The remaining checklist flow **UF-6 (product owner toggle in `staging`, editor
-read-only)** is authored in `web/e2e/flags.spec.ts` but still red at the environment-switch step
-(the env tab pane content does not render), so the M4 acceptance is not yet formally closed.
+UF-4 (developer duplicate env → `409`), UF-5 (unassigned developer flag create → `403`), UF-6
+(product owner toggle in `staging` via UI), UF-7 (admin flag creation via UI) and UF-8 (admin
+duplicate project → `409`); the full run reports **8 passed, 0 failed**.
+
+**M4 E2E follow-up fixes (2026-11-08, via the Playwright browser E2E, final green run):** the final
+red checklist flow **UF-6** surfaced two further M4-blocking UI bugs in `web/src/views/FlagEditorView.vue`,
+both fixed:
+- The environment tab pane content did not render: the tabs mixed `<n-tab>` triggers with
+  `<n-tab-pane>` content; Naive UI 2.45 renders pane content only from pane-driven children, so the
+  enable switch never mounted (the editor looked empty for admin and PO alike). Switched to
+  pane-driven tabs (`<n-tab-pane>` per environment).
+- The enable switch bound `:checked` / `@update:checked`, but Naive UI controls the switch through
+  the `value` / `onUpdate:value` props — the toggle never reflected the flag state, and the save
+  sent an unchanged definition (no version bump). Rebound through `:value` / `@update:value`.
 
 ---
 

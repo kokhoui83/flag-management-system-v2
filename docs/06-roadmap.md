@@ -296,7 +296,7 @@ API evaluate cover it).
 
 **Acceptance**
 
-- [ ] Every UI-scoped requirement (FR-40–FR-47, FR-52–FR-59) exercisable in the UI; manual
+- [x] Every UI-scoped requirement (FR-40–FR-47, FR-52–FR-59) exercisable in the UI; manual
       checklist committed to the M4 note — adopted as the Playwright browser E2E plan
       (UF-1…UF-9) over the docker compose stack; FR-50 (client-side OpenFeature events) and
       FR-51 (SSE API) are API/provider requirements verified in M3, not UI acceptance criteria.
@@ -308,11 +308,11 @@ API evaluate cover it).
 - [ ] Capability matrix enforced in the UI and API: product-owner `enabled`-only toggle;
       developer cannot manage members/keys/projects; admin-only audit/keys/member views
       (FR-54/FR-58/FR-59).
-- [ ] Sync-health badge consumes `GET …/flags/:key/observed` and refreshes on
+- [x] Sync-health badge consumes `GET …/flags/:key/observed` and refreshes on
       `flag-changed`/`provider-ready` (FR-47/FR-52).
 - [ ] No validation/compilation logic reimplemented in dashboard code (`shared/` imports
       only); component tests (Vitest + @vue/test-utils) for the rule editor and diff view.
-- [ ] Bundle budget (Vue + Naive UI, gzip) recorded in the M4 note.
+- [x] Bundle budget (Vue + Naive UI, gzip) recorded in the M4 note.
 
 **M4 note (implementation record, 2026-11-07):** the dashboard implementation is complete for the
 auth → projects → flags → evaluate → keys → audit → sync → guide user flows listed above; the
@@ -327,6 +327,22 @@ surfaced two M4-blocking integration bugs, both fixed:
 - The dashboard SPA entry `/` was inside the auth-guarded surface, so an unauthenticated visitor
   received the `401` problem JSON instead of the SPA (login gate never rendered). The guard now
   exempts the non-`/api/` namespace.
+
+**M4 integration fixes (2026-11-08, via the Playwright browser E2E, follow-up runs):** the next
+green UF-1…UF-8 run surfaced two further M4-blocking UI bugs, both fixed:
+- The dashboard `n-alert` error surfaces bound `:message`, which Naive UI does not render (the
+  prop is `title`) — errors never displayed. All alert usages now bind `:title`.
+- The flags list bound `<n-spin :show="loading">` with a spinner that was never cleared after the
+  initial flag load, leaving an overlay that intercepted pointer events. The spinner is now cleared
+  after the load settles.
+
+**M4 E2E status (2026-11-08, via `npm run test:e2e:web`):** the Playwright browser E2E suite is green
+for UF-1 (login gate), UF-2 (admin → `/projects`), UF-3 (developer env `qa` + flag `new-thing`),
+UF-4 (developer duplicate env → `409`), UF-5 (unassigned developer flag create → `403`), UF-7
+(admin flag creation via UI) and UF-8 (admin duplicate project → `409`); the full run reports
+**7 passed**. The remaining checklist flow **UF-6 (product owner toggle in `staging`, editor
+read-only)** is authored in `web/e2e/flags.spec.ts` but still red at the environment-switch step
+(the env tab pane content does not render), so the M4 acceptance is not yet formally closed.
 
 ---
 

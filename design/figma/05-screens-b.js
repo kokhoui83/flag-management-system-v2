@@ -22,7 +22,7 @@ function T(str, fKey, color, w) {
   const t = figma.createText();
   t.fontName = { family: f.family, style: f.style };
   t.fontSize = f.size; t.lineHeight = { value: f.lh, unit: 'PIXELS' };
-  t.fills = [F(color || '#101828')];
+  t.fills = [F(color || '#0F172A')];
   t.characters = str;
   if (w) { t.textAutoResize = 'HEIGHT'; t.width = w; }
   return t;
@@ -35,7 +35,7 @@ function getComp(name) { return ds.children.find(n => n.name === name && n.type 
 function newScreen(name) {
   let fr = page.children.find(n => n.name === name);
   if (fr) fr.remove();
-  fr = figma.createFrame(); fr.name = name; fr.resize(1440, 900); fr.fills = [F('#F6F7F9')];
+  fr = figma.createFrame(); fr.name = name; fr.resize(1440, 900); fr.fills = [F('#F8FAFC')];
   fr.x = (page.children.length - 1) * 1600; fr.y = 0;
   page.appendChild(fr);
   out.frames.push(name + ':' + fr.id);
@@ -51,7 +51,7 @@ function withShell(frame, breadcrumb) {
 }
 function card(parent, w) {
   const c = figma.createAutoLayout('VERTICAL', { itemSpacing: 16, paddingLeft: 20, paddingRight: 20, paddingTop: 18, paddingBottom: 18 });
-  c.fills = [F('#FFFFFF')]; c.strokes = [F('#E4E7EC')]; c.strokeWeight = 1; c.cornerRadius = 12;
+  c.fills = [F('#FFFFFF')]; c.strokes = [F('#E2E8F0')]; c.strokeWeight = 1; c.cornerRadius = 12;
   c.layoutSizingHorizontal = w === 'fill' ? 'FILL' : 'FIXED';
   if (w !== 'fill') c.resize(w, 100);
   parent.appendChild(c);
@@ -76,14 +76,14 @@ function ghostBtn(label, color, bg) {
   // --- left rail ---
   const rail = card(twoCol, 280);
   rail.layoutSizingVertical = 'HUG';
-  rail.appendChild(T('Flag', 'h2', '#101828'));
+  rail.appendChild(T('Flag', 'h2', '#0F172A'));
   const keyRow = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 8, primaryAxisAlignItems: 'CENTER' });
-  keyRow.appendChild(T('new-payment-flow', 'mono', '#101828'));
+  keyRow.appendChild(T('new-payment-flow', 'mono', '#0F172A'));
   const cp = getComp('Icon/Copy'); if (cp) keyRow.appendChild(cp.createInstance());
   rail.appendChild(keyRow);
   const descBox = figma.createAutoLayout('VERTICAL', { itemSpacing: 6, paddingLeft: 12, paddingRight: 12, paddingTop: 10, paddingBottom: 10 });
-  descBox.fills = [F('#F2F4F7')]; descBox.cornerRadius = 8;
-  descBox.appendChild(T('Refactored payment step with 3DS challenge', 'bsm', '#101828'));
+  descBox.fills = [F('#F1F5F9')]; descBox.cornerRadius = 8;
+  descBox.appendChild(T('Refactored payment step with 3DS challenge', 'bsm', '#0F172A'));
   rail.appendChild(descBox);
   const meta = [
     ['Version', 'v9'],
@@ -93,18 +93,18 @@ function ghostBtn(label, color, bg) {
   for (const [k, v] of meta) {
     const r = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 8 });
     r.layoutSizingHorizontal = 'FILL';
-    r.appendChild(T(k, 'cap', '#98A2B3'));
+    r.appendChild(T(k, 'cap', '#94A3B8'));
     const sp = figma.createAutoLayout({}); sp.fills = []; sp.layoutSizingHorizontal = 'FILL'; sp.resize(1, 8);
     r.appendChild(sp);
-    r.appendChild(T(v, 'mono', '#475467'));
+    r.appendChild(T(v, 'mono', '#475569'));
     rail.appendChild(r);
   }
-  const div = figma.createAutoLayout({}); div.resize(240, 1); div.fills = [F('#EAECF0')]; rail.appendChild(div);
-  rail.appendChild(T('DANGER ZONE', 'ovl', '#B42318'));
+  const div = figma.createAutoLayout({}); div.resize(240, 1); div.fills = [F('#EEF2F6')]; rail.appendChild(div);
+  rail.appendChild(T('DANGER ZONE', 'ovl', '#B91C1C'));
   const del = getComp('Button/Danger').createInstance();
   override(del, 'Button', 'Delete flag');
   rail.appendChild(del);
-  rail.appendChild(T('Removes the flag from all environments; flagd drops it on next sync (FR-4).', 'cap', '#98A2B3', 240));
+  rail.appendChild(T('Removes the flag from all environments; flagd drops it on next sync (FR-4).', 'cap', '#94A3B8', 240));
   // --- main column ---
   const main = figma.createAutoLayout('VERTICAL', { itemSpacing: 16 });
   main.fills = [];
@@ -129,19 +129,19 @@ function ghostBtn(label, color, bg) {
   defn.layoutSizingVertical = 'HUG';
   const dhead = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 12, primaryAxisAlignItems: 'CENTER' });
   dhead.layoutSizingHorizontal = 'FILL';
-  dhead.appendChild(T('Definition · staging', 'h3', '#101828'));
+  dhead.appendChild(T('Definition · staging', 'h3', '#0F172A'));
   const sp = figma.createAutoLayout({}); sp.fills = []; sp.layoutSizingHorizontal = 'FILL'; sp.resize(1, 8);
   dhead.appendChild(sp);
   const en = getComp('Badge/Enabled').createInstance(); dhead.appendChild(en);
   const tog = getComp('Toggle/On').createInstance(); dhead.appendChild(tog);
   defn.appendChild(dhead);
   // variants
-  defn.appendChild(T('VARIANTS', 'ovl', '#98A2B3'));
+  defn.appendChild(T('VARIANTS', 'ovl', '#94A3B8'));
   const vhead = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 12 });
   vhead.layoutSizingHorizontal = 'FILL';
   const vw = [0.3, 0.4, 0.2];
   ['Name', 'Value', 'Type'].forEach((h, i) => {
-    const c = T(h, 'ovl', '#98A2B3');
+    const c = T(h, 'ovl', '#94A3B8');
     vhead.appendChild(c);
   });
   defn.appendChild(vhead);
@@ -149,21 +149,21 @@ function ghostBtn(label, color, bg) {
   for (const [n, val, typ] of variants) {
     const vr = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 12, paddingTop: 10, paddingBottom: 10 });
     vr.layoutSizingHorizontal = 'FILL';
-    vr.appendChild(T(n, 'mono', '#101828'));
-    vr.appendChild(T(val, 'mono', '#475467'));
+    vr.appendChild(T(n, 'mono', '#0F172A'));
+    vr.appendChild(T(val, 'mono', '#475569'));
     const t = getComp('Badge/Disabled').createInstance();
     override(t, 'Disabled', typ);
     vr.appendChild(t);
     defn.appendChild(vr);
   }
-  defn.appendChild(ghostBtn('+ Add variant', '#475467'));
+  defn.appendChild(ghostBtn('+ Add variant', '#475569'));
   // default variant
-  defn.appendChild(T('DEFAULT VARIANT (FALLBACK)', 'ovl', '#98A2B3'));
+  defn.appendChild(T('DEFAULT VARIANT (FALLBACK)', 'ovl', '#94A3B8'));
   const dv = getComp('Input/Select').createInstance();
   override(dv, 'Select…', 'off');
   defn.appendChild(dv);
   // rules
-  defn.appendChild(T('RULES — evaluated top to bottom', 'ovl', '#98A2B3'));
+  defn.appendChild(T('RULES — evaluated top to bottom', 'ovl', '#94A3B8'));
   const rules = [
     ['1 · Beta allowlist', ['email', 'ends-with', '@acme.com'], 'on'],
     ['2 · EU users', ['country', 'is one of', 'DE, FR, ES'], 'on'],
@@ -171,10 +171,10 @@ function ghostBtn(label, color, bg) {
   ];
   for (const [name, chips, target] of rules) {
     const rr = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 10, primaryAxisAlignItems: 'CENTER', paddingLeft: 12, paddingRight: 12, paddingTop: 10, paddingBottom: 10 });
-    rr.fills = [F('#F6F7F9')]; rr.cornerRadius = 8;
+    rr.fills = [F('#F8FAFC')]; rr.cornerRadius = 8;
     rr.layoutSizingHorizontal = 'FILL';
     const grip = getComp('Icon/Grip'); if (grip) rr.appendChild(grip.createInstance());
-    rr.appendChild(T(name, 'bsm', '#101828'));
+    rr.appendChild(T(name, 'bsm', '#0F172A'));
     const chipsRow = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 6 });
     for (const chipText of chips) {
       const chip = figma.createAutoLayout('HORIZONTAL', { paddingLeft: 8, paddingRight: 8, paddingTop: 3, paddingBottom: 3 });
@@ -185,7 +185,7 @@ function ghostBtn(label, color, bg) {
     rr.appendChild(chipsRow);
     const sp2 = figma.createAutoLayout({}); sp2.fills = []; sp2.layoutSizingHorizontal = 'FILL'; sp2.resize(1, 8);
     rr.appendChild(sp2);
-    rr.appendChild(T('→ ' + target, 'mono', '#475467'));
+    rr.appendChild(T('→ ' + target, 'mono', '#475569'));
     const tr = getComp('Icon/Trash'); if (tr) rr.appendChild(tr.createInstance());
     defn.appendChild(rr);
   }
@@ -195,12 +195,12 @@ function ghostBtn(label, color, bg) {
   saveBar.layoutSizingVertical = 'HUG';
   saveBar.itemSpacing = 12;
   const valBox = figma.createAutoLayout('VERTICAL', { itemSpacing: 6, paddingLeft: 12, paddingRight: 12, paddingTop: 10, paddingBottom: 10 });
-  valBox.fills = [F('#FEF2F2')]; valBox.cornerRadius = 8;
+  valBox.fills = [F('#FEE2E2')]; valBox.cornerRadius = 8;
   valBox.layoutSizingHorizontal = 'FILL';
   const wicon = getComp('Icon/Warning'); if (wicon) valBox.appendChild(wicon.createInstance());
-  valBox.appendChild(T('2 issues found — fix all to save (validated all-at-once, FR-14)', 'bsm', '#B42318'));
-  valBox.appendChild(T('1 · Rule 3: percentage splits require a targeting key attribute in context', 'cap', '#B42318'));
-  valBox.appendChild(T('2 · Default variant “off” must remain defined while flag is enabled', 'cap', '#B42318'));
+  valBox.appendChild(T('2 issues found — fix all to save (validated all-at-once, FR-14)', 'bsm', '#B91C1C'));
+  valBox.appendChild(T('1 · Rule 3: percentage splits require a targeting key attribute in context', 'cap', '#B91C1C'));
+  valBox.appendChild(T('2 · Default variant “off” must remain defined while flag is enabled', 'cap', '#B91C1C'));
   saveBar.appendChild(valBox);
   const barRow = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 8, primaryAxisAlignItems: 'CENTER' });
   barRow.layoutSizingHorizontal = 'FILL';
@@ -209,7 +209,7 @@ function ghostBtn(label, color, bg) {
   barRow.appendChild(cf);
   const sp3 = figma.createAutoLayout({}); sp3.fills = []; sp3.layoutSizingHorizontal = 'FILL'; sp3.resize(1, 8);
   barRow.appendChild(sp3);
-  const disc = ghostBtn('Discard', '#475467'); barRow.appendChild(disc);
+  const disc = ghostBtn('Discard', '#475569'); barRow.appendChild(disc);
   const save = getComp('Button/Primary').createInstance();
   override(save, 'Button', 'Save changes');
   barRow.appendChild(save);
@@ -217,7 +217,7 @@ function ghostBtn(label, color, bg) {
   // PO note
   const poNote = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 8, primaryAxisAlignItems: 'CENTER' });
   const sh = getComp('Icon/Shield'); if (sh) poNote.appendChild(sh.createInstance());
-  poNote.appendChild(T('Product owner access: the enabled toggle is the only control available (FR-59); everything else is read-only for that role.', 'cap', '#667085', 900));
+  poNote.appendChild(T('Product owner access: the enabled toggle is the only control available (FR-59); everything else is read-only for that role.', 'cap', '#64748B', 900));
   main.appendChild(poNote);
 }
 
@@ -230,16 +230,16 @@ function ghostBtn(label, color, bg) {
   // left: configure
   const conf = card(twoCol, 620);
   conf.layoutSizingVertical = 'HUG';
-  conf.appendChild(T('Configure evaluation', 'h2', '#101828'));
+  conf.appendChild(T('Configure evaluation', 'h2', '#0F172A'));
   function sel(label, value) {
-    conf.appendChild(T(label, 'bsm', '#475467'));
+    conf.appendChild(T(label, 'bsm', '#475569'));
     const s = getComp('Input/Select').createInstance();
     override(s, 'Select…', value);
     conf.appendChild(s);
   }
   sel('Project', 'Checkout Web');
   sel('Flag', 'new-payment-flow');
-  conf.appendChild(T('Environment', 'bsm', '#475467'));
+  conf.appendChild(T('Environment', 'bsm', '#475569'));
   const envRow = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 8 });
   for (const [env, active] of [['dev', false], ['staging', true], ['prod', false]]) {
     const chip = getComp('EnvChip/' + env).createInstance();
@@ -251,15 +251,15 @@ function ghostBtn(label, color, bg) {
     } else envRow.appendChild(chip);
   }
   conf.appendChild(envRow);
-  conf.appendChild(T('Targeting key', 'bsm', '#475467'));
+  conf.appendChild(T('Targeting key', 'bsm', '#475569'));
   const tk = getComp('Input/Text').createInstance();
   override(tk, 'Placeholder', 'user_84712');
   conf.appendChild(tk);
-  conf.appendChild(T('Required for percentage-split rules — evaluation is sticky by this key.', 'cap', '#98A2B3'));
-  conf.appendChild(T('Context (JSON)', 'bsm', '#475467'));
+  conf.appendChild(T('Required for percentage-split rules — evaluation is sticky by this key.', 'cap', '#94A3B8'));
+  conf.appendChild(T('Context (JSON)', 'bsm', '#475569'));
   const ctx = figma.createAutoLayout('VERTICAL', { paddingLeft: 12, paddingRight: 12, paddingTop: 10, paddingBottom: 10 });
-  ctx.fills = [F('#0B1220')]; ctx.cornerRadius = 8;
-  ctx.appendChild(T('{"country": "FR", "plan": "pro"}', 'mono', '#E6EAF2'));
+  ctx.fills = [F('#0F172A')]; ctx.cornerRadius = 8;
+  ctx.appendChild(T('{"country": "FR", "plan": "pro"}', 'mono', '#E2E8F0'));
   conf.appendChild(ctx);
   const ev = getComp('Button/Primary').createInstance();
   override(ev, 'Button', 'Evaluate');
@@ -267,23 +267,23 @@ function ghostBtn(label, color, bg) {
   // right: result
   const res = card(twoCol, 'fill');
   res.layoutSizingVertical = 'HUG';
-  res.appendChild(T('Result', 'h2', '#101828'));
+  res.appendChild(T('Result', 'h2', '#0F172A'));
   const valRow = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 12, primaryAxisAlignItems: 'CENTER' });
-  valRow.appendChild(T('true', 'mono24', '#027A48'));
+  valRow.appendChild(T('true', 'mono24', '#047857'));
   const vb = getComp('Badge/Enabled').createInstance();
   override(vb, 'Enabled', 'variant: on');
   valRow.appendChild(vb);
   res.appendChild(valRow);
   const reason = figma.createAutoLayout('VERTICAL', { itemSpacing: 4, paddingLeft: 12, paddingRight: 12, paddingTop: 10, paddingBottom: 10 });
-  reason.fills = [F('#ECFDF3')]; reason.cornerRadius = 8;
+  reason.fills = [F('#D1FAE5')]; reason.cornerRadius = 8;
   reason.layoutSizingHorizontal = 'FILL';
-  reason.appendChild(T('MATCHED_RULE · rule 2 (EU users) → on', 'bsm', '#027A48'));
-  reason.appendChild(T('staging · v7 · 8 ms', 'cap', '#667085'));
+  reason.appendChild(T('MATCHED_RULE · rule 2 (EU users) → on', 'bsm', '#047857'));
+  reason.appendChild(T('staging · v7 · 8 ms', 'cap', '#64748B'));
   res.appendChild(reason);
   const acts = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 8 });
   acts.appendChild(ghostBtn('Copy OpenFeature snippet', '#4338CA'));
-  acts.appendChild(ghostBtn('Retry', '#475467'));
+  acts.appendChild(ghostBtn('Retry', '#475569'));
   res.appendChild(acts);
-  res.appendChild(T('Snippets use the standard OpenFeature SDK + official flagd provider — no custom client (goal 2).', 'cap', '#98A2B3'));
+  res.appendChild(T('Snippets use the standard OpenFeature SDK + official flagd provider — no custom client (goal 2).', 'cap', '#94A3B8'));
 }
 return out;

@@ -1,8 +1,9 @@
 // design/figma/02-atoms.js — run after 01-icons.js (needs icon components)
-// Builds button/badge/chip/tag/toggle/input/tab/card/avatar/badge-pill/empty/diff atoms
-// into an "Atoms" section on page 00 · Design System.
+// Atom set for the "Atoms" section on page 00 · Design System.
+// Reference palette (2026-11-09): slate neutrals + indigo accent, soft status badges.
 const C = (hex) => { const h = hex.replace('#',''); return { r: parseInt(h.slice(0,2),16)/255, g: parseInt(h.slice(2,4),16)/255, b: parseInt(h.slice(4,6),16)/255 }; };
 const F = (hex) => ({ type: 'SOLID', color: C(hex) });
+const fillArr = (hex) => hex === 'transparent' ? [] : [F(hex)];
 const FONTS = {
   h1: { family: 'Inter', style: 'Semi Bold', size: 20, lh: 28 },
   h2: { family: 'Inter', style: 'Semi Bold', size: 16, lh: 24 },
@@ -22,7 +23,7 @@ function T(str, fKey, color) {
   const t = figma.createText();
   t.fontName = { family: f.family, style: f.style };
   t.fontSize = f.size; t.lineHeight = { value: f.lh, unit: 'PIXELS' };
-  t.fills = [F(color || '#101828')];
+  t.fills = [F(color || '#0F172A')];
   t.characters = str;
   return t;
 }
@@ -38,7 +39,7 @@ function mk(name) {
 let sec = page.children.find(n => n.name === 'Atoms' && n.type === 'SECTION');
 if (!sec) {
   sec = figma.createSection(); sec.name = 'Atoms'; sec.x = 0; sec.y = 640;
-  sec.resize(1240, 760); sec.fills = [F('#F6F7F9')]; page.appendChild(sec);
+  sec.resize(1240, 780); sec.fills = [F('#F8FAFC')]; page.appendChild(sec);
 }
 function place(c, x, y) { if (!c) return null; c.x = x; c.y = y; sec.appendChild(c); out.created.push(c.name + ':' + c.id); return c; }
 
@@ -58,25 +59,23 @@ function place(c, x, y) { if (!c) return null; c.x = x; c.y = y; sec.appendChild
 function button(name, bg, text, border, h, px) {
   const c = mk(name);
   if (!c) return;
-  c.fills = [F(bg)];
+  c.fills = fillArr(bg);
   if (border) { c.strokes = [F(border)]; c.strokeWeight = 1; }
   c.cornerRadius = 8;
   c.layoutMode = 'HORIZONTAL'; c.primaryAxisSizingMode = 'AUTO'; c.counterAxisSizingMode = 'AUTO';
   c.itemSpacing = 8; c.paddingLeft = px; c.paddingRight = px; c.paddingTop = 0; c.paddingBottom = 0;
-  c.resize(h ? c.width : c.width, h || 36);
   c.height = h || 36;
-  const t = T('Button', 'med', text);
-  c.appendChild(t);
+  c.appendChild(T('Button', 'med', text));
   return c;
 }
 place(button('Button/Primary', '#4F46E5', '#FFFFFF', null, 36, 16), 24, 100);
 place(button('Button/Primary-SM', '#4F46E5', '#FFFFFF', null, 30, 12), 160, 100);
-place(button('Button/Secondary', '#FFFFFF', '#101828', '#D0D5DD', 36, 16), 320, 100);
-place(button('Button/Secondary-SM', '#FFFFFF', '#101828', '#D0D5DD', 30, 12), 466, 100);
-place(button('Button/Ghost', 'transparent', '#475467', null, 36, 12), 612, 100);
-place(button('Button/Danger', '#F04438', '#FFFFFF', null, 36, 16), 738, 100);
+place(button('Button/Secondary', '#FFFFFF', '#0F172A', '#CBD5E1', 36, 16), 320, 100);
+place(button('Button/Secondary-SM', '#FFFFFF', '#0F172A', '#CBD5E1', 30, 12), 466, 100);
+place(button('Button/Ghost', 'transparent', '#475569', null, 36, 12), 612, 100);
+place(button('Button/Danger', '#DC2626', '#FFFFFF', null, 36, 16), 738, 100);
 
-// --- Badges / chips / tags / pills ---
+// --- Badges / state pills / chips / tags ---
 function pill(name, bg, fg, dotHex, label, ovl) {
   const c = mk(name);
   if (!c) return;
@@ -90,43 +89,46 @@ function pill(name, bg, fg, dotHex, label, ovl) {
   c.appendChild(T(label, ovl || 'ovl', fg));
   return c;
 }
-place(pill('Badge/Enabled', '#ECFDF3', '#027A48', '#12B76A', 'Enabled'), 24, 160);
-place(pill('Badge/Disabled', '#F2F4F7', '#667085', '#98A2B3', 'Disabled'), 128, 160);
-place(pill('Badge/Synced', '#ECFDF3', '#027A48', '#12B76A', 'Synced'), 232, 160);
-place(pill('Badge/Stale', '#FFFAEB', '#B54708', '#F79009', 'Stale'), 330, 160);
-place(pill('Badge/Error', '#FEF2F2', '#B42318', '#F04438', 'Error'), 424, 160);
+place(pill('Badge/Enabled', '#D1FAE5', '#047857', '#10B981', 'Enabled'), 24, 160);
+place(pill('Badge/Disabled', '#F1F5F9', '#64748B', '#94A3B8', 'Disabled'), 128, 160);
+place(pill('Badge/Synced', '#D1FAE5', '#047857', '#10B981', 'Synced'), 232, 160);
+place(pill('Badge/Stale', '#FEF3C7', '#B45309', '#D97706', 'Stale'), 330, 160);
+place(pill('Badge/Error', '#FEE2E2', '#B91C1C', '#EF4444', 'Error'), 424, 160);
 place(pill('Badge/Live', '#EEF2FF', '#4338CA', '#4F46E5', 'Live'), 512, 160);
-place(pill('Badge/Active', '#ECFDF3', '#027A48', '#12B76A', 'Active'), 592, 160);
-place(pill('Badge/Revoked', '#F2F4F7', '#667085', '#98A2B3', 'Revoked'), 672, 160);
-place(pill('EnvChip/Dev', '#EEF4FF', '#175CD3', '#2E6BFF', 'dev'), 24, 200);
-place(pill('EnvChip/Staging', '#FFFAEB', '#B54708', '#F79009', 'staging'), 108, 200);
-place(pill('EnvChip/Prod', '#FEF2F2', '#B42318', '#F04438', 'prod'), 200, 200);
-place(pill('RoleTag/Admin', '#EEF2FF', '#4338CA', null, 'Admin', 'caps'), 288, 200);
-place(pill('RoleTag/Developer', '#EEF4FF', '#175CD3', null, 'developer', 'caps'), 366, 200);
-place(pill('RoleTag/Product Owner', '#F4F3FF', '#6941C6', null, 'product-owner', 'caps'), 490, 200);
+place(pill('Badge/Active', '#D1FAE5', '#047857', '#10B981', 'Active'), 592, 160);
+place(pill('Badge/Revoked', '#F1F5F9', '#64748B', '#94A3B8', 'Revoked'), 672, 160);
+place(pill('Badge/Pending', '#FEF3C7', '#B45309', '#D97706', 'Pending'), 760, 160);
+place(pill('Pill/ON', '#D1FAE5', '#10B981', null, 'ON'), 24, 200);
+place(pill('Pill/OFF', '#FEE2E2', '#EF4444', null, 'OFF'), 96, 200);
+place(pill('EnvChip/Dev', '#DBEAFE', '#1D4ED8', '#2563EB', 'dev'), 168, 200);
+place(pill('EnvChip/Staging', '#FEF3C7', '#B45309', '#D97706', 'staging'), 252, 200);
+place(pill('EnvChip/Prod', '#FEE2E2', '#B91C1C', '#DC2626', 'prod'), 348, 200);
+place(pill('RoleTag/Admin', '#D1FAE5', '#047857', null, 'admin', 'caps'), 444, 200);
+place(pill('RoleTag/Developer', '#DBEAFE', '#1D4ED8', null, 'developer', 'caps'), 522, 200);
+place(pill('RoleTag/Product Owner', '#F3E8FF', '#7C3AED', null, 'product-owner', 'caps'), 648, 200);
 
 // --- Toggles ---
 function toggle(name, on) {
   const c = mk(name);
   if (!c) return;
-  c.resize(36, 20); c.fills = [F(on ? '#4F46E5' : '#D0D5DD')]; c.cornerRadius = 999;
+  c.resize(36, 20); c.fills = [F(on ? '#4F46E5' : '#CBD5E1')]; c.cornerRadius = 999;
   const k = figma.createEllipse(); k.resize(16, 16); k.fills = [F('#FFFFFF')]; k.strokes = [];
   k.x = on ? 18 : 2; k.y = 2;
   c.appendChild(k);
   return c;
 }
-place(toggle('Toggle/On', true), 622, 200);
-place(toggle('Toggle/Off', false), 676, 200);
+place(toggle('Toggle/On', true), 772, 200);
+place(toggle('Toggle/Off', false), 826, 200);
 
 // --- Inputs ---
 function input(name, w, placeholder, chevron) {
   const c = mk(name);
   if (!c) return;
-  c.resize(w, 36); c.fills = [F('#FFFFFF')]; c.strokes = [F('#D0D5DD')]; c.strokeWeight = 1; c.cornerRadius = 8;
+  c.resize(w, 36); c.fills = [F('#FFFFFF')]; c.strokes = [F('#CBD5E1')]; c.strokeWeight = 1; c.cornerRadius = 8;
   c.layoutMode = 'HORIZONTAL'; c.primaryAxisSizingMode = 'FIXED'; c.counterAxisSizingMode = 'AUTO';
   c.itemSpacing = 8; c.paddingLeft = 12; c.paddingRight = 12; c.paddingTop = 8; c.paddingBottom = 8;
   c.primaryAxisAlignItems = 'SPACE_BETWEEN';
-  c.appendChild(T(placeholder, 'body', '#98A2B3'));
+  c.appendChild(T(placeholder, 'body', '#94A3B8'));
   if (chevron) {
     const ic = getIcon('Icon/ChevronDown');
     if (ic) { const i = ic.createInstance(); c.appendChild(i); }
@@ -138,11 +140,11 @@ place(input('Input/Select', 280, 'Select…', true), 324, 248);
 {
   const c = mk('SearchBox');
   if (c) {
-    c.resize(240, 32); c.fills = [F('#FFFFFF')]; c.strokes = [F('#D0D5DD')]; c.strokeWeight = 1; c.cornerRadius = 8;
+    c.resize(240, 32); c.fills = [F('#FFFFFF')]; c.strokes = [F('#CBD5E1')]; c.strokeWeight = 1; c.cornerRadius = 8;
     c.layoutMode = 'HORIZONTAL'; c.itemSpacing = 8; c.paddingLeft = 10; c.paddingRight = 10; c.paddingTop = 7; c.paddingBottom = 7;
     const ic = getIcon('Icon/Search');
     if (ic) c.appendChild(ic.createInstance());
-    c.appendChild(T('Search…', 'bsm', '#98A2B3'));
+    c.appendChild(T('Search…', 'bsm', '#94A3B8'));
     place(c, 624, 248);
   }
 }
@@ -154,8 +156,8 @@ function tab(name, active) {
   c.resize(90, 34);
   c.layoutMode = 'VERTICAL'; c.primaryAxisSizingMode = 'AUTO'; c.counterAxisSizingMode = 'AUTO';
   c.itemSpacing = 0; c.paddingLeft = 0; c.paddingRight = 0;
-  c.appendChild(T('Tab label', active ? 'h3' : 'body', active ? '#101828' : '#667085'));
-  const bar = figma.createRectangle(); bar.resize(90, 2); bar.fills = [F(active ? '#4F46E5' : 'transparent')]; bar.strokes = [];
+  c.appendChild(T('Tab label', active ? 'h3' : 'body', active ? '#0F172A' : '#64748B'));
+  const bar = figma.createRectangle(); bar.resize(90, 2); bar.fills = active ? [F('#4F46E5')] : []; bar.strokes = [];
   c.appendChild(bar);
   return c;
 }
@@ -165,14 +167,14 @@ place(tab('Tab/Inactive', false), 124, 308);
 // --- Cards ---
 {
   const c = mk('Card');
-  if (c) { c.resize(400, 200); c.fills = [F('#FFFFFF')]; c.strokes = [F('#E4E7EC')]; c.strokeWeight = 1; c.cornerRadius = 12; place(c, 24, 360); }
+  if (c) { c.resize(400, 200); c.fills = [F('#FFFFFF')]; c.strokes = [F('#E2E8F0')]; c.strokeWeight = 1; c.cornerRadius = 12; place(c, 24, 360); }
   const s = mk('StatCard');
   if (s) {
-    s.resize(220, 108); s.fills = [F('#FFFFFF')]; s.strokes = [F('#E4E7EC')]; s.strokeWeight = 1; s.cornerRadius = 12;
+    s.resize(220, 108); s.fills = [F('#FFFFFF')]; s.strokes = [F('#E2E8F0')]; s.strokeWeight = 1; s.cornerRadius = 12;
     s.layoutMode = 'VERTICAL'; s.itemSpacing = 4; s.paddingLeft = 16; s.paddingRight = 16; s.paddingTop = 14; s.paddingBottom = 14;
-    s.appendChild(T('FLAGS', 'ovl', '#98A2B3'));
-    s.appendChild(T('42', 'h1', '#101828'));
-    s.appendChild(T('12 enabled in prod', 'cap', '#667085'));
+    s.appendChild(T('FLAGS', 'ovl', '#94A3B8'));
+    s.appendChild(T('42', 'h1', '#0F172A'));
+    s.appendChild(T('12 enabled in prod', 'cap', '#64748B'));
     place(s, 444, 360);
   }
 }
@@ -181,9 +183,9 @@ place(tab('Tab/Inactive', false), 124, 308);
 {
   const c = mk('Avatar');
   if (c) {
-    c.resize(24, 24); c.fills = [F('#E4E7EC')]; c.cornerRadius = 999;
+    c.resize(24, 24); c.fills = [F('#E2E8F0')]; c.cornerRadius = 999;
     c.layoutMode = 'HORIZONTAL'; c.primaryAxisAlignItems = 'CENTER'; c.counterAxisAlignItems = 'CENTER';
-    c.appendChild(T('AL', 'caps', '#475467'));
+    c.appendChild(T('AL', 'caps', '#475569'));
     place(c, 684, 360);
   }
 }
@@ -192,13 +194,13 @@ place(tab('Tab/Inactive', false), 124, 308);
 {
   const c = mk('EmptyState');
   if (c) {
-    c.resize(280, 150); c.fills = []; 
+    c.resize(280, 150); c.fills = [];
     c.layoutMode = 'VERTICAL'; c.primaryAxisSizingMode = 'AUTO'; c.counterAxisSizingMode = 'AUTO';
     c.itemSpacing = 8; c.primaryAxisAlignItems = 'CENTER';
     const ic = getIcon('Icon/Inbox');
     if (ic) c.appendChild(ic.createInstance());
-    c.appendChild(T('Nothing here yet', 'h3', '#101828'));
-    c.appendChild(T('Create your first flag to get started.', 'cap', '#667085'));
+    c.appendChild(T('Nothing here yet', 'h3', '#0F172A'));
+    c.appendChild(T('Create your first flag to get started.', 'cap', '#64748B'));
     place(c, 24, 580);
   }
 }
@@ -212,7 +214,7 @@ function diff(name, bg, fg, text) {
   c.appendChild(T(text, 'monosm', fg));
   return c;
 }
-place(diff('DiffRow/-', '#FEF2F2', '#B42318', 'enabled: true'), 324, 580);
-place(diff('DiffRow/+', '#ECFDF3', '#027A48', 'enabled: false'), 324, 616);
+place(diff('DiffRow/-', '#FEE2E2', '#B91C1C', 'enabled: true'), 324, 580);
+place(diff('DiffRow/+', '#D1FAE5', '#047857', 'enabled: false'), 324, 616);
 
 return out;

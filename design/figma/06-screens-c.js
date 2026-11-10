@@ -19,7 +19,7 @@ function T(str, fKey, color, w) {
   const t = figma.createText();
   t.fontName = { family: f.family, style: f.style };
   t.fontSize = f.size; t.lineHeight = { value: f.lh, unit: 'PIXELS' };
-  t.fills = [F(color || '#101828')];
+  t.fills = [F(color || '#0F172A')];
   t.characters = str;
   if (w) { t.textAutoResize = 'HEIGHT'; t.width = w; }
   return t;
@@ -32,7 +32,7 @@ function getComp(name) { return ds.children.find(n => n.name === name && n.type 
 function newScreen(name) {
   let fr = page.children.find(n => n.name === name);
   if (fr) fr.remove();
-  fr = figma.createFrame(); fr.name = name; fr.resize(1440, 900); fr.fills = [F('#F6F7F9')];
+  fr = figma.createFrame(); fr.name = name; fr.resize(1440, 900); fr.fills = [F('#F8FAFC')];
   fr.x = (page.children.length - 1) * 1600; fr.y = 0;
   page.appendChild(fr);
   out.frames.push(name + ':' + fr.id);
@@ -48,7 +48,7 @@ function withShell(frame, breadcrumb) {
 }
 function card(parent, w) {
   const c = figma.createAutoLayout('VERTICAL', { itemSpacing: 16, paddingLeft: 20, paddingRight: 20, paddingTop: 18, paddingBottom: 18 });
-  c.fills = [F('#FFFFFF')]; c.strokes = [F('#E4E7EC')]; c.strokeWeight = 1; c.cornerRadius = 12;
+  c.fills = [F('#FFFFFF')]; c.strokes = [F('#E2E8F0')]; c.strokeWeight = 1; c.cornerRadius = 12;
   c.layoutSizingHorizontal = w === 'fill' ? 'FILL' : 'FIXED';
   if (w !== 'fill') c.resize(w, 100);
   parent.appendChild(c);
@@ -62,8 +62,8 @@ function headRow(parent, title, actionLabel, caption) {
   const head = figma.createAutoLayout('HORIZONTAL', { primaryAxisAlignItems: 'CENTER', itemSpacing: 16 });
   head.layoutSizingHorizontal = 'FILL';
   const left = figma.createAutoLayout('VERTICAL', { itemSpacing: 2 });
-  left.appendChild(T(title, 'h1', '#101828'));
-  if (caption) left.appendChild(T(caption, 'cap', '#667085'));
+  left.appendChild(T(title, 'h1', '#0F172A'));
+  if (caption) left.appendChild(T(caption, 'cap', '#64748B'));
   head.appendChild(left);
   const grow = figma.createAutoLayout({ itemSpacing: 8 }); grow.fills = []; grow.layoutSizingHorizontal = 'FILL';
   if (actionLabel) {
@@ -80,7 +80,7 @@ function makeTable(parent, cols) {
   function row(cells, isHead) {
     const r = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 12, paddingTop: 12, paddingBottom: 12 });
     r.layoutSizingHorizontal = 'FILL';
-    r.fills = [F(isHead ? '#F2F4F7' : 'transparent')]; r.cornerRadius = 6;
+    r.fills = [F(isHead ? '#F1F5F9' : 'transparent')]; r.cornerRadius = 6;
     cols.forEach(([label, wfrac], i) => {
       const cell = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 8, counterAxisAlignItems: 'CENTER' });
       cell.layoutSizingHorizontal = 'FIXED';
@@ -90,7 +90,7 @@ function makeTable(parent, cols) {
     });
     return r;
   }
-  tbl.appendChild(row((label) => [T(label, 'ovl', '#98A2B3')], true));
+  tbl.appendChild(row((label) => [T(label, 'ovl', '#94A3B8')], true));
   return { tbl, row };
 }
 
@@ -109,9 +109,9 @@ function makeTable(parent, cols) {
   ];
   for (const [name, scopes, created, last, badge, status] of keys) {
     tbl.appendChild(row((label, i) => {
-      if (label === 'Name') return [T(name, 'mono', '#101828')];
+      if (label === 'Name') return [T(name, 'mono', '#0F172A')];
       if (label === 'Scope') { const c = []; for (const s of scopes) { const b = getComp('Badge/Live').createInstance(); override(b, 'Live', s); c.push(b); } return c; }
-      if (label === 'Created' || label === 'Last used') return [T(label === 'Created' ? created : last, 'cap', '#667085')];
+      if (label === 'Created' || label === 'Last used') return [T(label === 'Created' ? created : last, 'cap', '#64748B')];
       if (label === 'Status') return [getComp(badge).createInstance()];
       const b = getComp('Button/Ghost').createInstance();
       override(b, 'Button', 'Revoke');
@@ -123,12 +123,12 @@ function makeTable(parent, cols) {
   once.itemSpacing = 8;
   const warnRow = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 8, primaryAxisAlignItems: 'CENTER' });
   const wicon = getComp('Icon/Warning'); if (wicon) warnRow.appendChild(wicon.createInstance());
-  warnRow.appendChild(T('Plaintext key — shown once, only its hash is stored (FR-45)', 'bsm', '#B42318'));
+  warnRow.appendChild(T('Plaintext key — shown once, only its hash is stored (FR-45)', 'bsm', '#B91C1C'));
   once.appendChild(warnRow);
   const keyRow = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 12, primaryAxisAlignItems: 'CENTER', paddingLeft: 12, paddingRight: 12, paddingTop: 10, paddingBottom: 10 });
-  keyRow.fills = [F('#F2F4F7')]; keyRow.cornerRadius = 8;
+  keyRow.fills = [F('#F1F5F9')]; keyRow.cornerRadius = 8;
   keyRow.layoutSizingHorizontal = 'FILL';
-  keyRow.appendChild(T('fms_sk_9f2c41ab77e0d3a85512bb04', 'mono', '#101828'));
+  keyRow.appendChild(T('fms_sk_9f2c41ab77e0d3a85512bb04', 'mono', '#0F172A'));
   const sp = figma.createAutoLayout({}); sp.fills = []; sp.layoutSizingHorizontal = 'FILL'; sp.resize(1, 8);
   keyRow.appendChild(sp);
   const cpb = getComp('Button/Secondary-SM').createInstance();
@@ -164,27 +164,27 @@ function makeTable(parent, cols) {
   const envColor = { dev: 'EnvChip/Dev', staging: 'EnvChip/Staging', prod: 'EnvChip/Prod' };
   for (const [time, actor, action, entity, env, expanded] of rows) {
     tbl.appendChild(row((label, i) => {
-      if (label === 'Time') return [T(time, 'monosm', '#667085')];
-      if (label === 'Actor') { const c = []; const av = getComp('Avatar'); if (av) { const a = av.createInstance(); override(a, 'AL', actor.slice(0, 2).toUpperCase()); c.push(a); } c.push(T(actor, 'bsm', '#101828')); return c; }
+      if (label === 'Time') return [T(time, 'monosm', '#64748B')];
+      if (label === 'Actor') { const c = []; const av = getComp('Avatar'); if (av) { const a = av.createInstance(); override(a, 'AL', actor.slice(0, 2).toUpperCase()); c.push(a); } c.push(T(actor, 'bsm', '#0F172A')); return c; }
       if (label === 'Action') { const b = getComp('Badge/Disabled').createInstance(); override(b, 'Disabled', action); return [b]; }
-      if (label === 'Entity') return [T(entity, 'mono', '#475467')];
-      if (label === 'Env') return env === '—' ? [T('—', 'cap', '#98A2B3')] : [getComp(envColor[env]).createInstance()];
+      if (label === 'Entity') return [T(entity, 'mono', '#475569')];
+      if (label === 'Env') return env === '—' ? [T('—', 'cap', '#94A3B8')] : [getComp(envColor[env]).createInstance()];
       const ch = getComp(expanded ? 'Icon/ChevronDown' : 'Icon/ChevronRight');
       return ch ? [ch.createInstance()] : [];
     }, false));
     if (expanded) {
       const diff = figma.createAutoLayout('VERTICAL', { itemSpacing: 4, paddingLeft: 16, paddingRight: 16, paddingTop: 12, paddingBottom: 12 });
-      diff.fills = [F('#FFFFFF')]; diff.strokes = [F('#EAECF0')]; diff.strokeWeight = 1; diff.cornerRadius = 8;
+      diff.fills = [F('#FFFFFF')]; diff.strokes = [F('#EEF2F6')]; diff.strokeWeight = 1; diff.cornerRadius = 8;
       diff.layoutSizingHorizontal = 'FILL';
       diff.appendChild(getComp('DiffRow/-').createInstance());
       diff.appendChild(getComp('DiffRow/+').createInstance());
-      diff.appendChild(T('rule 2: {country is one of [DE, FR]} → {country is one of [DE, FR, ES]}', 'monosm', '#667085'));
+      diff.appendChild(T('rule 2: {country is one of [DE, FR]} → {country is one of [DE, FR, ES]}', 'monosm', '#64748B'));
       tbl.appendChild(diff);
     }
   }
   const pager = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 12, primaryAxisAlignItems: 'CENTER' });
   pager.layoutSizingHorizontal = 'FILL';
-  pager.appendChild(T('1–20 of 214', 'cap', '#667085'));
+  pager.appendChild(T('1–20 of 214', 'cap', '#64748B'));
   const sp = figma.createAutoLayout({}); sp.fills = []; sp.layoutSizingHorizontal = 'FILL'; sp.resize(1, 8);
   pager.appendChild(sp);
   const prev = getComp('Button/Secondary-SM').createInstance(); override(prev, 'Button', 'Prev'); pager.appendChild(prev);
@@ -198,21 +198,22 @@ function makeTable(parent, cols) {
   const content = withShell(fr, 'Members');
   headRow(content, 'Members', 'Invite user', 'Global role + independent per-project roles; effective permission is the union (FR-54).');
   const { tbl, row } = makeTable(content, [
-    ['User', 0.28], ['Global role', 0.16], ['Project roles', 0.36], ['Last active', 0.12], ['', 0.08],
+    ['User', 0.25], ['Status', 0.1], ['Global role', 0.15], ['Project roles', 0.3], ['Last active', 0.13], ['', 0.07],
   ]);
   const members = [
-    ['admin@acme.com', 'RoleTag/Admin', ['checkout-web: admin', 'mobile-api: admin'], 'now'],
-    ['alex@acme.com', 'RoleTag/Developer', ['checkout-web: developer', 'mobile-api: developer'], '12:41'],
-    ['maya@acme.com', 'RoleTag/Developer', ['checkout-web: developer'], '12:38'],
-    ['dana@acme.com', 'RoleTag/Product Owner', ['marketing-site: product-owner', 'checkout-web: product-owner'], '11:52'],
-    ['sam@acme.com', 'RoleTag/Product Owner', ['mobile-api: product-owner'], '— (invited)'],
+    ['admin@acme.com', 'Active', 'RoleTag/Admin', ['checkout-web: admin', 'mobile-api: admin'], 'now'],
+    ['alex@acme.com', 'Active', 'RoleTag/Developer', ['checkout-web: developer', 'mobile-api: developer'], '12:41'],
+    ['maya@acme.com', 'Active', 'RoleTag/Developer', ['checkout-web: developer'], '12:38'],
+    ['dana@acme.com', 'Active', 'RoleTag/Product Owner', ['marketing-site: product-owner', 'checkout-web: product-owner'], '11:52'],
+    ['sam@acme.com', 'Pending', 'RoleTag/Product Owner', ['mobile-api: product-owner'], '— (invited)'],
   ];
-  for (const [user, role, proles, last] of members) {
+  for (const [user, st, role, proles, last] of members) {
     tbl.appendChild(row((label, i) => {
-      if (label === 'User') { const c = []; const av = getComp('Avatar'); if (av) { const a = av.createInstance(); override(a, 'AL', user.slice(0, 2).toUpperCase()); c.push(a); } c.push(T(user, 'bsm', '#101828')); return c; }
+      if (label === 'User') { const c = []; const av = getComp('Avatar'); if (av) { const a = av.createInstance(); override(a, 'AL', user.slice(0, 2).toUpperCase()); c.push(a); } c.push(T(user, 'bsm', '#0F172A')); return c; }
+      if (label === 'Status') return [getComp(st === 'Active' ? 'Badge/Active' : 'Badge/Pending').createInstance()];
       if (label === 'Global role') return [getComp(role).createInstance()];
       if (label === 'Project roles') { const c = []; for (const p of proles) { const chip = getComp('Badge/Disabled').createInstance(); override(chip, 'Disabled', p); c.push(chip); } return c; }
-      if (label === 'Last active') return [T(last, 'cap', '#667085')];
+      if (label === 'Last active') return [T(last, 'cap', '#64748B')];
       const b = getComp('Button/Ghost').createInstance();
       override(b, 'Button', 'Re-invite');
       return [b];
@@ -221,15 +222,15 @@ function makeTable(parent, cols) {
   // invite success card
   const inv = card(content, 'fill');
   inv.itemSpacing = 8;
-  inv.appendChild(T('Invite sent — sam@acme.com', 'h3', '#101828'));
+  inv.appendChild(T('Invite sent — sam@acme.com', 'h3', '#0F172A'));
   const warnRow = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 8, primaryAxisAlignItems: 'CENTER' });
   const wicon = getComp('Icon/Warning'); if (wicon) warnRow.appendChild(wicon.createInstance());
-  warnRow.appendChild(T('Temporary password — shown once, only its hash is stored (FR-57)', 'bsm', '#B54708'));
+  warnRow.appendChild(T('Temporary password — shown once, only its hash is stored (FR-57)', 'bsm', '#B45309'));
   inv.appendChild(warnRow);
   const pwRow = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 12, primaryAxisAlignItems: 'CENTER', paddingLeft: 12, paddingRight: 12, paddingTop: 10, paddingBottom: 10 });
-  pwRow.fills = [F('#F2F4F7')]; pwRow.cornerRadius = 8;
+  pwRow.fills = [F('#F1F5F9')]; pwRow.cornerRadius = 8;
   pwRow.layoutSizingHorizontal = 'FILL';
-  pwRow.appendChild(T('Tq8-m4x-vw2-9kP7', 'mono', '#101828'));
+  pwRow.appendChild(T('Tq8-m4x-vw2-9kP7', 'mono', '#0F172A'));
   const sp = figma.createAutoLayout({}); sp.fills = []; sp.layoutSizingHorizontal = 'FILL'; sp.resize(1, 8);
   pwRow.appendChild(sp);
   const cpb = getComp('Button/Secondary-SM').createInstance();

@@ -18,7 +18,7 @@ function T(str, fKey, color, w) {
   const t = figma.createText();
   t.fontName = { family: f.family, style: f.style };
   t.fontSize = f.size; t.lineHeight = { value: f.lh, unit: 'PIXELS' };
-  t.fills = [F(color || '#101828')];
+  t.fills = [F(color || '#0F172A')];
   t.characters = str;
   if (w) { t.textAutoResize = 'HEIGHT'; t.width = w; }
   return t;
@@ -33,7 +33,7 @@ fr.x = 0; fr.y = 0;
 page.appendChild(fr);
 out.frame = fr.id;
 
-function box(x, y, w, h, title, sub, { bg = '#FFFFFF', border = '#D0D5DD', titleColor = '#101828', subColor = '#667085' } = {}) {
+function box(x, y, w, h, title, sub, { bg = '#FFFFFF', border = '#CBD5E1', titleColor = '#0F172A', subColor = '#64748B' } = {}) {
   const b = figma.createAutoLayout('VERTICAL', { itemSpacing: 4, paddingLeft: 14, paddingRight: 14, paddingTop: 10, paddingBottom: 10, primaryAxisAlignItems: 'CENTER', counterAxisAlignItems: 'CENTER' });
   b.fills = [F(bg)]; b.strokes = [F(border)]; b.strokeWeight = 1.5; b.cornerRadius = 10;
   b.x = x; b.y = y; b.resize(w, h);
@@ -71,23 +71,23 @@ function arrowD(x, y1, y2, color) {
 
 // title + legend
 {
-  const t = T('FMS — User flows', 'h1', '#101828'); t.x = 48; t.y = 36; fr.appendChild(t);
-  const sub = T('Login → project → flag → environment. Role gates follow the FR-54 capability matrix; every mutation is auditable.', 'body', '#667085', 760);
+  const t = T('FMS — User flows', 'h1', '#0F172A'); t.x = 48; t.y = 36; fr.appendChild(t);
+  const sub = T('Login → project → flag → environment. Role gates follow the FR-54 capability matrix; every mutation is auditable.', 'body', '#64748B', 760);
   sub.x = 48; sub.y = 72; fr.appendChild(sub);
   const legend = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 16 });
   legend.x = 1120; legend.y = 44;
-  for (const [label, color] of [['main loop', '#475467'], ['admin', '#4F46E5'], ['developer', '#2E6BFF'], ['product owner', '#6941C6'], ['on-call', '#F04438']]) {
+  for (const [label, color] of [['main loop', '#475569'], ['admin', '#4F46E5'], ['developer', '#2563EB'], ['product owner', '#7C3AED'], ['on-call', '#EF4444']]) {
     const item = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 6, counterAxisAlignItems: 'CENTER' });
     const d = figma.createEllipse(); d.resize(8, 8); d.fills = [F(color)]; d.strokes = [];
     item.appendChild(d);
-    item.appendChild(T(label, 'cap', '#475467'));
+    item.appendChild(T(label, 'cap', '#475569'));
     legend.appendChild(item);
   }
   fr.appendChild(legend);
 }
 
 // main loop row
-fr.appendChild(Object.assign(T('MAIN LOOP — all roles', 'ovl', '#98A2B3'), { x: 48, y: 116 }));
+fr.appendChild(Object.assign(T('MAIN LOOP — all roles', 'ovl', '#94A3B8'), { x: 48, y: 116 }));
 const mainY = 140, mainH = 88;
 const main = [
   [48, 168, 'Login', '#/login · FR-40'],
@@ -103,27 +103,27 @@ let prevX = 0;
 for (const [x, w, title, sub] of main) {
   const isGate = title === 'Role gate';
   box(x, mainY, w, mainH, title, sub, isGate ? { bg: '#EEF2FF', border: '#4F46E5', titleColor: '#4338CA' } : {});
-  if (prevX) arrowR(prevX, mainY + mainH / 2, x, '#98A2B3');
+  if (prevX) arrowR(prevX, mainY + mainH / 2, x, '#94A3B8');
   prevX = x + w;
 }
 // loop-back note
 {
-  const note = T('next change loops back to the flags list (live SSE update, FR-52)', 'cap', '#98A2B3');
+  const note = T('next change loops back to the flags list (live SSE update, FR-52)', 'cap', '#94A3B8');
   note.x = 1180; note.y = 236; fr.appendChild(note);
 }
 
 // role branches under the gate
-arrowD(328, mainY + mainH, 300, '#98A2B3');
+arrowD(328, mainY + mainH, 300, '#94A3B8');
 const rolesY = 320;
 const roles = [
   [104, 240, 'Admin', '#4F46E5', '#EEF2FF', ['full nav + admin section', 'projects, keys, audit, members', 'all definition edits']],
-  [384, 240, 'Developer', '#2E6BFF', '#EEF4FF', ['create envs + flags (assigned)', 'edit definitions + toggle', 'no admin nav · 403 guard']],
-  [664, 240, 'Product owner', '#6941C6', '#F4F3FF', ['view flags + definitions', 'enabled toggle only (FR-59)', 'no admin nav · 403 guard']],
+  [384, 240, 'Developer', '#2563EB', '#DBEAFE', ['create envs + flags (assigned)', 'edit definitions + toggle', 'no admin nav · 403 guard']],
+  [664, 240, 'Product owner', '#7C3AED', '#F3E8FF', ['view flags + definitions', 'enabled toggle only (FR-59)', 'no admin nav · 403 guard']],
 ];
 for (const [x, w, title, color, bg, lines] of roles) {
   const b = box(x, rolesY, w, 128, title, '', { bg, border: color, titleColor: color });
   lines.forEach((l, i) => {
-    const lt = T('· ' + l, 'cap', '#475467', w - 28);
+    const lt = T('· ' + l, 'cap', '#475569', w - 28);
     lt.x = x + 14; lt.y = rolesY + 44 + i * 20;
     fr.appendChild(lt);
   });
@@ -131,7 +131,7 @@ for (const [x, w, title, color, bg, lines] of roles) {
 
 // task flows
 {
-  const t = T('TASK FLOWS', 'ovl', '#98A2B3'); t.x = 48; t.y = 496; fr.appendChild(t);
+  const t = T('TASK FLOWS', 'ovl', '#94A3B8'); t.x = 48; t.y = 496; fr.appendChild(t);
 }
 const flowY = 520, flowH = 560, flowW = 308, gap = 16;
 const flows = [
@@ -142,14 +142,14 @@ const flows = [
     'Copy from… staging → prod',
     'each copy = its own audited change',
   ]],
-  ['Kill switch', '#F04438', 'on-call — disable a prod flag fast', [
+  ['Kill switch', '#EF4444', 'on-call — disable a prod flag fast', [
     'incident: open flag → prod tab',
     'Enabled toggle → off',
     'Save (PO may do this, FR-59)',
     'confirm sync: stale → synced',
     'audit row proves who / when',
   ]],
-  ['Test as user', '#2E6BFF', 'FR-44 — evaluate before rollout', [
+  ['Test as user', '#2563EB', 'FR-44 — evaluate before rollout', [
     'from flags list or editor → Playground',
     'pick project + flag + env',
     'set targeting key + context JSON',
@@ -159,8 +159,8 @@ const flows = [
   ['Invite', '#4F46E5', 'FR-57 — scoped user onboarding (admin)', [
     'Members → Invite user',
     'email + global role + per-project roles',
-    'temp password shown once (hashed)',
-    'user signs in → scoped session',
+    'temp password shown once · status Pending',
+    'user signs in · status Active (scoped session)',
     're-invite updates roles + reissues pw',
   ]],
   ['API keys', '#4F46E5', 'FR-45 — machine access (admin)', [
@@ -173,13 +173,13 @@ const flows = [
 ];
 flows.forEach(([title, color, sub, steps], fi) => {
   const x = 48 + fi * (flowW + gap);
-  const head = box(x, flowY, flowW, 64, title, '', { bg: '#F6F7F9', border: color, titleColor: color });
-  const st = T(sub, 'cap', '#667085', flowW - 24);
+  const head = box(x, flowY, flowW, 64, title, '', { bg: '#F8FAFC', border: color, titleColor: color });
+  const st = T(sub, 'cap', '#64748B', flowW - 24);
   st.x = x; st.y = flowY + 76; fr.appendChild(st);
   steps.forEach((s, si) => {
     const y = flowY + 108 + si * 88;
     const row = figma.createAutoLayout('VERTICAL', { itemSpacing: 4, paddingLeft: 14, paddingRight: 12, paddingTop: 10, paddingBottom: 10 });
-    row.fills = [F('#FFFFFF')]; row.strokes = [F('#E4E7EC')]; row.strokeWeight = 1; row.cornerRadius = 8;
+    row.fills = [F('#FFFFFF')]; row.strokes = [F('#E2E8F0')]; row.strokeWeight = 1; row.cornerRadius = 8;
     row.x = x; row.y = y; row.resize(flowW, 72);
     row.primaryAxisSizingMode = 'FIXED'; row.counterAxisSizingMode = 'FIXED';
     const num = figma.createAutoLayout('HORIZONTAL', { itemSpacing: 8, counterAxisAlignItems: 'CENTER' });
@@ -188,9 +188,9 @@ flows.forEach(([title, color, sub, steps], fi) => {
     const nt = T(String(si + 1), 'caps', '#4338CA');
     d.appendChild(nt);
     row.appendChild(num);
-    row.appendChild(T(s, 'cap', '#475467', flowW - 48));
+    row.appendChild(T(s, 'cap', '#475569', flowW - 48));
     fr.appendChild(row);
-    if (si < steps.length - 1) arrowD(x + flowW / 2, y + 72, y + 88, '#D0D5DD');
+    if (si < steps.length - 1) arrowD(x + flowW / 2, y + 72, y + 88, '#CBD5E1');
   });
 });
 return out;

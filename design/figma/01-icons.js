@@ -73,7 +73,7 @@ function buildSet(tone, secName, y) {
   sec.name = secName;
   sec.x = 0; sec.y = y;
   sec.resize(10 * 52 + 40, 4 * 52 + 60);
-  sec.fills = [F('#F6F7F9')];
+  sec.fills = [F('#F8FAFC')];
   page.appendChild(sec);
   out.sections.push(secName + ':' + sec.id);
   ICONS.forEach(([name, draw], i) => {
@@ -84,6 +84,6 @@ function buildSet(tone, secName, y) {
     out.created++;
   });
 }
-buildSet('#475467', 'Icons · on light', 0);
+buildSet('#475569', 'Icons · on light', 0);
 buildSet('#9AA5B8', 'Icons · on dark', 320);
 return out;

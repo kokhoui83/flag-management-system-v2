@@ -11,7 +11,7 @@ and the change-event requirements §4.10 (FR-50…FR-52).
 | Page | Contents |
 | --- | --- |
 | `00 · Design System` | Token collections (FMS Color / Spacing / Radius), text styles, icon + component library |
-| `01 · Screens` | Nine screen frames: Login, Projects, Flags, Flag Editor, Playground, API Keys, Audit, Members + role-variant notes |
+| `01 · Screens` | Ten screen frames: Login, Projects, Flags, Flag Editor, Playground, API Keys, Audit, Members, Roles & Permissions, Project Access |
 | `02 · User Flow` | Role-based user-flow diagram (main loop + branches) |
 
 > **Status note (2026-11-09):** the Figma canvas build is partially complete — pages, token
@@ -21,10 +21,22 @@ and the change-event requirements §4.10 (FR-50…FR-52).
 > call quota (20/month on a View seat). See
 > [§8 — Figma build & resume](#8-figma-build--resume) to finish the canvas.
 
+> **Visual reference (2026-11-09):** the screen language was revised against a
+> "FlagOps" reference file (read-only — reviewed from a PNG export, never edited).
+> Adopted: light shell with white app rail, `#F8FAFC` canvas + slate neutrals, indigo
+> `#4F46E5` accent, card-grid project browsing, per-environment summary cards, inline
+> ON/OFF state pills (click-to-toggle), side-drawer flag creation, member Active/Pending
+> statuses, and dedicated Roles & Permissions + Project Access screens. Kept
+> FMS-specific: per-env versions (FR-41), observed-vs-stored sync health (FR-47), SSE
+> live pill (FR-52), definition editor with all-at-once validation (FR-42/FR-14),
+> copy-from (FR-43), playground (FR-44), API keys (FR-45), audit (FR-46), invite-only
+> auth (FR-57). Palette values marked *sampled* were measured from the export; the rest
+> are Tailwind-slate equivalents.
+
 ## 1. Design goals
 
-1. **Modern & organized** — a calm, dense-but-breathable operator surface: dark app rail,
-   white content canvas, one accent (indigo), strict type scale, consistent 8-pt grid.
+1. **Modern & organized** — a calm, light shell (white app rail on a `#F8FAFC` canvas,
+   reference style), one accent (indigo), strict type scale, consistent 8-pt grid.
 2. **Intuitive** — the mental model follows the domain hierarchy:
    `project → environment → flag → definition`. Navigation mirrors this hierarchy exactly,
    so users never guess where something lives.
@@ -68,42 +80,62 @@ Navigation model (mirrors `web/src/router/index.ts` hash routes):
 | `#/audit` | Audit log | admin only |
 | `#/guide` | User guide | all roles |
 | — (planned) | Members & invites | admin only |
+| — (planned) | Roles & permissions (capability matrix) | admin only |
+| — (planned) | Project access (`#/projects/:projectId/access`) | admin only |
 
 Shell layout (all authenticated screens):
 
-- **App rail** (232 px, dark `#0B1220`): logo, `Projects`, `Playground`; section **ADMIN**
-  (admin only): `API Keys`, `Audit Log`, `Members`; bottom: `User guide`, user card
-  (avatar, name, global role tag, sign out).
-- **Top bar** (56 px): breadcrumb (`Projects / Checkout Web / new-payment-flow`), right
-  cluster: `● Live` SSE pill (FR-52), project sync badge, avatar menu.
-- **Content** (1168 px, canvas `#F6F7F9`, padding 32).
+- **App rail** (232 px, white `bg/surface`, right hairline `border/default`; light shell
+  adopted from the reference): logo row, `Projects`, `Playground`; section **ADMIN**
+  (admin only): `API Keys`, `Audit Log`, `Members`, `Roles & permissions`; bottom:
+  `User guide`, user card (avatar, name, global role tag, sign out). Items 36 px,
+  radius 8: default `ink/3` text on transparent, active `side/active` (`#F8FAFC`) bg +
+  `ink/1` text.
+- **Top bar** (56 px, white, bottom hairline `border/default`): breadcrumb
+  (`Projects / Checkout Web / new-payment-flow`), right cluster: `● Live` SSE pill
+  (FR-52), project sync badge, avatar menu.
+- **Content** (1168 px, canvas `bg/canvas` `#F8FAFC`, padding 32).
 
 ## 3. Design tokens
 
 ### 3.1 Color (Figma collection `FMS Color`)
 
+Reference palette (slate neutrals + indigo accent). *sampled* = measured from the
+FlagOps PNG export; the rest are Tailwind-slate equivalents.
+
 | Token | Hex | Use |
 | --- | --- | --- |
-| `bg/canvas` | `#F6F7F9` | content background |
-| `bg/surface` | `#FFFFFF` | cards, top bar, inputs |
-| `bg/sunken` | `#F2F4F7` | inset areas, table zebra (optional) |
-| `border/default` | `#E4E7EC` | card & input borders |
-| `border/strong` | `#D0D5DD` | focus-adjacent, dividers in dark-on-light |
-| `border/subtle` | `#EAECF0` | hairline row separators |
-| `ink/1` | `#101828` | primary text |
-| `ink/2` | `#475467` | secondary text, icon default |
-| `ink/3` | `#667085` | tertiary text |
-| `ink/4` | `#98A2B3` | placeholders, disabled text |
-| `brand/600` | `#4F46E5` | primary buttons, active states, links |
+| `bg/canvas` | `#F8FAFC` *sampled* | content background |
+| `bg/surface` | `#FFFFFF` *sampled* | cards, top bar, rail, inputs |
+| `bg/sunken` | `#F1F5F9` | inset areas, table header rows |
+| `border/default` | `#E2E8F0` *sampled* | card, input, rail hairlines |
+| `border/strong` | `#CBD5E1` | secondary buttons, dividers |
+| `border/subtle` | `#EEF2F6` | hairline row separators |
+| `ink/1` | `#0F172A` | primary text |
+| `ink/2` | `#475569` | secondary text, icon default |
+| `ink/3` | `#64748B` | tertiary text, muted icons |
+| `ink/4` | `#94A3B8` *sampled* | placeholders, disabled, rail text |
+| `ink/5` | `#CBD5E1` | faintest dividers |
+| `brand/600` | `#4F46E5` *sampled* | primary buttons, active states, links |
 | `brand/700` | `#4338CA` | primary hover |
-| `brand/50` | `#EEF2FF` | active nav bg, selected chips |
-| `ok/600` / `ok/50` | `#12B76A` / `#ECFDF3` | enabled, synced, success |
-| `warn/600` / `warn/50` | `#F79009` / `#FFFAEB` | stale sync, warnings |
-| `bad/600` / `bad/50` | `#F04438` / `#FEF2F2` | errors, destructive, prod env |
-| `env/dev` / `-soft` | `#2E6BFF` / `#EEF4FF` | dev environment |
-| `env/staging` / `-soft` | `#F79009` / `#FFFAEB` | staging environment |
-| `env/prod` / `-soft` | `#F04438` / `#FEF2F2` | prod environment |
-| `side/bg` … `side/active` | `#0B1220` … `#1D2A44` | app rail surface / item states |
+| `brand/50` | `#EEF2FF` | selected chips, focus tint |
+| `brand/100` | `#E0E7FF` | hover tint on selected chips |
+| `ok/600` / `ok/100` | `#10B981` *sampled* / `#D1FAE5` *sampled* | ON pill, synced dots, success |
+| `ok/700` | `#047857` | text on ok-100 (badges, checks) |
+| `warn/600` / `warn/100` | `#D97706` / `#FEF3C7` | stale sync, warnings, pending |
+| `warn/700` | `#B45309` | text on warn-100 |
+| `bad/600` / `bad/100` | `#EF4444` *sampled* / `#FEE2E2` *sampled* | OFF pill, errors, destructive |
+| `bad/700` | `#B91C1C` | text on bad-100 |
+| `env/dev` / `-soft` | `#2563EB` / `#DBEAFE` *sampled* | dev environment |
+| `env/staging` / `-soft` | `#D97706` / `#FEF3C7` | staging environment |
+| `env/prod` / `-soft` | `#DC2626` / `#FEE2E2` | prod environment |
+| `role/admin` / `-soft` | `#047857` / `#D1FAE5` *sampled* | admin role tag |
+| `role/developer` / `-soft` | `#2563EB` / `#DBEAFE` *sampled* | developer role tag |
+| `role/product-owner` / `-soft` | `#7C3AED` / `#F3E8FF` *sampled* | product-owner role tag |
+| `status/active` / `-soft` | `#047857` / `#D1FAE5` | signed in at least once |
+| `status/pending` / `-soft` | `#B45309` / `#FEF3C7` | invited, temp password not yet used |
+| `side/active` | `#F8FAFC` *sampled* | active rail item bg (rail itself is `bg/surface`) |
+| `code/bg` / `code/ink` | `#0F172A` / `#E2E8F0` | JSON panels, mono code |
 
 Environment identity is consistent everywhere: chips, dots, table columns, editor tabs,
 playground selects, audit rows.
@@ -132,10 +164,11 @@ cards 12, pills full.
 | --- | --- |
 | `Icon/*` (30 × 2 tones) | Flag, Grid, Play, Key, History, Users, Book, Search, Plus, ChevronDown/Right, Copy, Trash, Check, X, Warning, ArrowRight, Filter, Grip, Eye, Bolt, Logout, Shield, Pencil, External, Refresh, Clock, Inbox, Dot, Promote — tones: on-light `#475467`, on-dark `#9AA5B8` |
 | `Button` | Primary, Secondary (bordered), Ghost, Danger; sizes md 36 / sm 30; radius 8; optional 16 px icon |
-| `Badge` | Enabled, Disabled, Synced, Stale, Error, Live, Active, Revoked — pill, 11 px semibold, 6 px status dot |
+| `Badge` | Enabled, Disabled, Synced, Stale, Error, Live, Active, Revoked, Pending — pill, 11 px semibold, 6 px status dot (soft bg + `-700` text) |
+| `Pill/ON` · `Pill/OFF` | env state cells (§5.3, click-to-toggle): `ok/100`+`ok/600` · `bad/100`+`bad/600` |
 | `EnvChip` | Dev / Staging / Prod — env-soft bg, env-color dot + label |
-| `RoleTag` | Admin (brand), Developer (info), Product Owner (purple) |
-| `Toggle` | On (brand track) / Off (neutral) — 36×20 |
+| `RoleTag` | Admin (emerald), Developer (blue), Product Owner (violet) — §3.1 role tokens |
+| `Toggle` | On (brand track) / Off (`border/strong`) — 36×20 |
 | `Input` / `Select` / `SearchBox` | 36 h, radius 8, label above; Select adds chevron; SearchBox 32 h with icon |
 | `Tab` | Active (ink/1 + 2 px brand underline) / Inactive (ink/3) |
 | `Card` | surface, 1 px border, radius 12 |
@@ -156,37 +189,56 @@ cards 12, pills full.
 - Title `Sign in`, sub `Use your FMS account for this instance`.
 - Fields: **Email** (bootstrap admin = env-configured identity, FR-30), **Password**
   (show/hide). Inline field errors; form-level error banner for RFC 9457 problems
-  (e.g. `401 invalid_credentials`).
+  (e.g. `401 invalid_credentials`). Caption under the form: "No self-signup — accounts
+  are created by admin invite (FR-57)." (deliberate contrast with the reference, which
+  ships a create-account screen).
 - Primary button `Sign in`; footer: `Self-hosted instance` + `Need help? Open the user guide`.
 - On success: redirect to `#/projects` (existing router behavior).
 
 ### 5.2 Projects — `#/projects` (FR-53, FR-55, FR-56)
 
-- Page title `Projects` + `New project` (admin only; caption note for other roles:
-  “Creating projects requires the admin role”).
-- Toolbar: SearchBox, caption `N projects`.
-- Table columns: **Project** (name `h3` + key mono-soft), **Environments** (EnvChips,
-  default `dev staging prod` seeded per FR-6/FR-55 plus any custom), **Flags** (count),
-  **Sync** (per-env mini dots: ok/warn/bad + tooltip “staging flagd observed v8, stored v9”),
-  **Last change** (time + actor caption).
-- Row click → `#/projects/:id/flags`. Row menu: Open flags, Open playground (admin/dev).
+Card grid (adopted from the reference): 3-per-row grid of project cards on the canvas.
+Toolbar row: page title `Projects` + SearchBox + `N projects` caption; `New project`
+primary button (admin only; caption note for other roles: "Creating projects requires
+the admin role").
+
+- **Project card** (surface, `border/default`, radius 12): name `h3` + key (mono,
+  `ink/4`) with copy icon; EnvChip row (`dev staging prod` seeded per FR-6/FR-55 plus
+  any custom); hairline divider; footer: flag count (`24 flags`), per-env sync mini
+  dots (ok/warn/bad, tooltip "staging flagd observed v8, stored v9"), last change
+  (time + actor, caption).
+- Card click → `#/projects/:id/flags`. Card menu (⋯): Open flags, Open playground
+  (admin/dev).
 - Empty state: Flag icon + `No projects yet` + `Create your first project` (admin) /
   `Ask an admin to create a project` (others).
 
-### 5.3 Flags — `#/projects/:projectId/flags` (FR-41, FR-47, FR-52, FR-56)
+### 5.3 Flags — `#/projects/:projectId/flags` (FR-41, FR-47, FR-52, FR-56, FR-59)
 
-- Breadcrumb `Projects / {project}`.
-- **Project header card**: name, key (mono), EnvChip row with per-env flag counts,
-  `Sync health` strip — one SyncBadge per env: “flagd observed v12 = stored v12” vs
-  “observed v8 ≠ stored v9 (stale since 12:02)” (FR-47); `● Live` pill top-right
-  (FR-52, updates list & badges without polling).
-- Toolbar: SearchBox (`Search flags…`), env filter segment (All / Dev / Staging / Prod →
-  “enabled in env” filter), `New flag` button (admin/dev; disabled + note for PO).
-- Table columns (FR-41): **Flag key** (mono + copy icon), **Description** (body, ellipsis),
-  per-env status columns **Dev / Staging / Prod** (+ one column per custom env):
-  filled dot = enabled, outline dot = disabled, version mono `v12` beneath;
-  **Updated** (time + actor caption); **Actions** (menu: Open, Copy to…, Delete [dev+]).
-- Row click → editor. Rows whose env is stale show a warn dot ring on that env cell.
+- Breadcrumb `Projects / {project}` + `● Live` pill top-right (FR-52 — the list, pills,
+  and sync cards update without polling).
+- **Environment summary cards** (one card per environment; adopted from the reference,
+  reworded to sync-health semantics): EnvChip, enabled count (`12 of 24 enabled`), and
+  the env's SyncBadge — `Synced v12` (“flagd observed v12 = stored v12”) vs
+  `Stale v8 ≠ v9` (“flagd last observed 12:02”, FR-47) vs `Error`.
+- Toolbar: SearchBox (`Search flags…`), env filter segment (All / Enabled in dev / …),
+  `New flag` button (admin/dev; disabled + note for PO) — opens the **Create flag
+  drawer** below.
+- **Flag list** (FR-41), one row per flag — flags are project-level and exist in every
+  environment (FR-56); state is per-env:
+  - **Flag key** (mono + copy icon), **Description** (body, ellipsis).
+  - Per-environment **state cell** (Dev / Staging / Prod + custom envs): an inline
+    `ON` pill (`ok/100` bg, `ok/600` text) or `OFF` pill (`bad/100` bg, `bad/600` text)
+    with the per-env version `v12` (mono) beneath — FR-41. The pill is the inline
+    toggle: for roles allowed to toggle (admin, developer, product-owner — FR-58/FR-59)
+    a click flips the state and saves; for other roles it is disabled with a 403 note.
+    Stale envs get a warn ring on the pill.
+  - **Updated** (time + actor), **Actions** (menu: Open, Copy to…, Delete [admin]).
+  - Row click (key) → editor. This keeps the kill-switch path two clicks from the list.
+- **Create flag drawer** (side drawer over the list; adopted from the reference):
+  `Name` input with a **live auto-generated key preview** (mono, kebab-case —
+  `New payment flow` → `new-payment-flow`), editable, unique per project (409 on
+  clash); `Description` textarea; `Create` → opens the editor for the new flag
+  (all envs start disabled, FR-56). The list stays visible behind the drawer.
 
 ### 5.4 Flag editor — `#/projects/:projectId/flags/:flagKey` (FR-42, FR-43, FR-14, FR-59)
 
@@ -257,9 +309,11 @@ Two cards side by side (55% / 45%):
 
 ### 5.8 Members & invites — admin only (FR-57, FR-54)
 
-- Header + `Invite user`. Table: **User** (avatar + email), **Global role** (RoleTag),
-  **Project roles** (chips `checkout-web: developer`, …), **Last active**,
-  **Actions** (`Re-invite` — reissues temp password).
+- Header + `Invite user`. Table: **User** (avatar + email), **Status** — `Active`
+  (signed in at least once) / `Pending` (invited, temp password not yet used; amber),
+  **Global role** (RoleTag), **Project roles** (chips `checkout-web: developer`, …),
+  **Last active**, **Actions** (`Re-invite` — reissues temp password; updates global
+  role + memberships per FR-57).
 - **Invite modal**: Email input; **Global role** Select (admin / developer /
   product-owner); **Project roles** matrix — rows = projects, columns =
   `admin | developer | product-owner | —` (radio per row); submit.
@@ -269,6 +323,48 @@ Two cards side by side (55% / 45%):
 - Caption under the table: the full capability matrix from FR-54/FR-58/FR-59 (link out to
   the requirements doc) — this is also the reference for disabled-control states in other
   screens.
+
+### 5.9 Roles & permissions — admin only (FR-54, FR-58, FR-59)
+
+A dedicated, read-only capability-matrix screen (adopted from the reference; cells
+corrected to the requirements). Rows = capabilities with scope, columns = the three
+global roles. This is the in-product source of truth for what each role can do —
+disabled controls on other screens mirror these cells.
+
+| Capability | Scope | admin | developer | product-owner |
+| --- | --- | --- | --- | --- |
+| Create projects | global | ✓ | — | — |
+| Invite members / assign projects | global | ✓ | — | — |
+| Manage API keys | global | ✓ | — | — |
+| Read audit | global | ✓ | — | — |
+| Create project environments | project | ✓ | ✓ | — |
+| Create flags, edit description | project | ✓ | ✓ | — |
+| Delete flags | project | ✓ | — | — |
+| Create / edit / copy definitions (variants, rules, default) | project | ✓ | ✓ | — |
+| Toggle a flag's `enabled` state | project | ✓ | ✓ | ✓ |
+| View flags and definitions | project | ✓ | ✓ | ✓ |
+| Evaluate flags (playground/API) | project | ✓ | ✓ | ✓ |
+
+✓ = allowed (soft-emerald check cell), — = not allowed. Footer note: "Effective
+permission = global role ∪ per-project grants — a membership can elevate a user on
+that project but never reduce the global role (FR-54). Product-owner toggles change
+`enabled` only (FR-59). Full matrix:
+[01-requirements.md §4.9.1](01-requirements.md)."
+
+### 5.10 Project access — `#/projects/:projectId/access`, admin only (FR-54, FR-57)
+
+Per-project membership management (adopted from the reference's project-access screen):
+
+- **Policy card** (top, shield icon): "Restricted by default — only invited members
+  with a role on this project can act on it. Effective permission is the union of the
+  global role and this project's role; a project role can elevate, never reduce
+  (FR-54). A project `admin` role grants project-scoped admin only."
+- **Member table**: **User** (avatar + email), **Status** (Active/Pending),
+  **Global role** (RoleTag), **Role on this project** — a per-member Select
+  (`admin | developer | product-owner | no access`); this is the per-project grant,
+  independent of the global role (FR-57). **Actions**: `Remove from project`.
+- `Add member` → modal: pick an existing user **or** type a new email (goes through
+  the standard invite — one-time temp password, FR-57) + the role for this project.
 
 ## 6. User flows
 
@@ -322,8 +418,8 @@ flowchart LR
   end
   subgraph Invite ["Invite · FR-57"]
     I1["Admin → Members"] --> I2["Invite: email +<br/>global + per-project roles"]
-    I2 --> I3["Temp password shown once"]
-    I3 --> I4["User logs in →<br/>scoped session FR-53"]
+    I2 --> I3["Temp password shown once<br/>status: Pending"]
+    I3 --> I4["User signs in → scoped session FR-53<br/>status: Active"]
   end
   subgraph Keys ["API keys · FR-45"]
     A1["Admin → API Keys"] --> A2["Create: name + scopes"]
@@ -364,10 +460,10 @@ flowchart LR
 | FR-47 | §5.3 per-env sync badges (observed vs stored version, stale indicator) |
 | FR-52 | §2 `● Live` pill; §5.3/§5.4 list + badge live update without polling |
 | FR-53 | §5.1 login per user; §5.8 invites create scoped sessions |
-| FR-54 | §5.8 role tags + capability matrix caption; disabled-control states everywhere |
+| FR-54 | §5.9 capability-matrix screen (correct cells + scope column); §5.8/§5.10 role tags & per-project grants; disabled-control states everywhere |
 | FR-55 | §5.2 project env chips (seeded dev/staging/prod + custom) |
 | FR-56 | §5.3/§5.4 project-scoped flags with per-env unique state |
-| FR-57 | §5.8 invite modal (global + per-project roles, one-time temp password) |
+| FR-57 | §5.8 invite modal + Active/Pending statuses; §5.10 add-member / per-project role override (one-time temp password) |
 | FR-58 | §5.3/§5.4 developer: create envs/flags, edit definitions, toggle |
 | FR-59 | §5.4 PO: enabled toggle only, other controls disabled + note; 403 state |
 
@@ -381,7 +477,7 @@ The canvas is built with the Figma MCP `use_figma` tool. What is already on canv
 file linked above:
 
 - Pages `00 · Design System`, `01 · Screens`, `02 · User Flow`
-- Variable collections: `FMS Color` (35 tokens), `FMS Spacing` (8), `FMS Radius` (5)
+- Variable collections: `FMS Color` (pre-reference values — `00-tokens.js` refreshes them), `FMS Spacing` (8), `FMS Radius` (5)
 - Text styles: `display h1 h2 h3 body body-sm caption caption-strong overline mono mono-sm`
 
 Remaining build, as ready-to-run scripts in [`design/figma/`](../design/figma/) (run in
@@ -389,13 +485,15 @@ order; each script is a single `use_figma` `code` payload, idempotent where prac
 
 | Script | Builds |
 | --- | --- |
+| `00-tokens.js` | Refresh `FMS Color` values to the reference palette (find-by-name, add missing, drop deprecated) |
 | `01-icons.js` | 30 icon components × 2 tones in sections on `00` |
-| `02-atoms.js` | Button, Badge, EnvChip, RoleTag, Toggle, Input/Select/SearchBox, Tab, Card, StatCard, SyncBadge, LivePill, Avatar, EmptyState, DiffRow |
-| `03-shell.js` | App rail, Top bar, `AppShell` composed frame (1440×900) |
-| `04-screens-a.js` | Login, Projects, Flags frames |
+| `02-atoms.js` | Button, Badge (+Pending), Pill/ON·OFF, EnvChip, RoleTag, Toggle, Input/Select/SearchBox, Tab, Card, StatCard, LivePill, Avatar, EmptyState, DiffRow |
+| `03-shell.js` | Light `Rail`, `Topbar`, `AppShell` composed frame (1440×900) |
+| `04-screens-a.js` | Login, Projects (card grid), Flags (env summary cards + inline ON/OFF pills + create-flag drawer) |
 | `05-screens-b.js` | Flag editor, Playground frames |
-| `06-screens-c.js` | API keys, Audit, Members frames |
-| `07-user-flow.js` | Role-based flow diagram on `02 · User Flow` |
+| `06-screens-c.js` | API keys, Audit, Members (Active/Pending) frames |
+| `07-screens-d.js` | Roles & permissions matrix, Project access frames |
+| `08-user-flow.js` | Role-based flow diagram on `02 · User Flow` |
 
 > These scripts target the exact Figma Plugin API revision observed in this file
 > (notably: `createVariable(name, collection, type)` + `setValueForMode`, vector paths as

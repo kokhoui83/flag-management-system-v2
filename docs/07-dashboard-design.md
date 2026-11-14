@@ -1,33 +1,35 @@
 # 07 — Dashboard Design
 
 Design specification for the FMS web dashboard (M4 and beyond). The visual design is being
-built in Figma; this document is the source of truth for information architecture, screen
+built in FigCraft; this document is the source of truth for information architecture, screen
 specs, component inventory, design tokens, and user flows. Every screen is traced to the
 functional requirements in [01-requirements.md](01-requirements.md) §4.9 / §4.9.1 (FR-40…FR-59)
 and the change-event requirements §4.10 (FR-50…FR-52).
 
-**Figma file:** [FMS Dashboard — Design](https://www.figma.com/design/EQJ5mH28fzRW9qzwS8O0Lf)
+**FigCraft draft:** [`design/figcraft/fms-dashboard.figcraft`](../design/figcraft/fms-dashboard.figcraft).
+The earlier [Figma file](https://www.figma.com/design/EQJ5mH28fzRW9qzwS8O0Lf) is retained
+as a historical reference, not the current build.
 
 | Page | Contents |
 | --- | --- |
-| `00 · Design System` | Token collections (FMS Color / Spacing / Radius), text styles, icon + component library |
-| `01 · Screens` | Ten screen frames: Login, Projects, Flags, Flag Editor, Playground, API Keys, Audit, Members, Roles & Permissions, Project Access |
-| `02 · User Flow` | Role-based user-flow diagram (main loop + branches) |
+| `00 · Design System` | Palette, typography and visual examples; a subset of color variables |
+| `01 · Screens` | Ten screen frames and three additional states |
+| `02 · User Flow` | Draft main journey and role-gated branches |
 
-> **Status note (2026-11-09):** the Figma canvas build is partially complete — pages, token
-> collections, and text styles are on canvas. The remaining build (icons, components,
-> screens, flow diagram) is ready-to-run as MCP scripts in
-> [`design/figma/`](../design/figma/) and is blocked only by the Figma Starter-plan MCP
-> call quota (20/month on a View seat). See
-> [§8 — Figma build & resume](#8-figma-build--resume) to finish the canvas.
+> **Status (2026-11-14):** FigCraft contains a first-pass desktop visual draft and
+> navigation links. It is not a complete interactive prototype: most form actions,
+> confirmations, validation, empty/error states, responsive layouts, and the full
+> component/token library remain to be designed and verified. See
+> [§8 — FigCraft build & status](#8-figcraft-build--status).
 
 > **Visual reference (2026-11-09):** the screen language was revised against a
 > "FlagOps" reference file (read-only — reviewed from a PNG export, never edited).
-> Adopted: light shell with white app rail, `#F8FAFC` canvas + slate neutrals, indigo
+> Adapted: a light shell with a white app rail (the screenshots use a dark rail),
+> `#F8FAFC` canvas + slate neutrals, indigo
 > `#4F46E5` accent, card-grid project browsing, per-environment summary cards, inline
 > ON/OFF state pills (click-to-toggle), side-drawer flag creation, member Active/Pending
 > statuses, and dedicated Roles & Permissions + Project Access screens. Kept
-> FMS-specific: per-env versions (FR-41), observed-vs-stored sync health (FR-47), SSE
+> FMS-specific: per-environment status and observed-vs-stored sync health (FR-41/47), SSE
 > live pill (FR-52), definition editor with all-at-once validation (FR-42/FR-14),
 > copy-from (FR-43), playground (FR-44), API keys (FR-45), audit (FR-46), invite-only
 > auth (FR-57). Palette values marked *sampled* were measured from the export; the rest
@@ -43,9 +45,9 @@ and the change-event requirements §4.10 (FR-50…FR-52).
 3. **Safe by default** — every mutation is verifiable: sync-health state is always visible,
    the audit trail is one click away, and role boundaries are shown (disabled controls with
    an explanatory note) rather than hidden.
-4. **Fast for on-call** — the kill-switch path (open flag → toggle env → save → confirm
-   synced) is the shortest flow in the product and must never require more than three
-   clicks from the flag list.
+4. **Fast for on-call** — the kill-switch path is a direct inline toggle from the flag
+   list when a definition exists, followed by sync confirmation; the editor remains an
+   alternative. Neither path should require more than three clicks from the flag list.
 
 ## 2. Information architecture
 
@@ -66,7 +68,7 @@ flowchart LR
   end
 ```
 
-Navigation model (mirrors `web/src/router/index.ts` hash routes):
+Navigation model (current hash routes plus planned surfaces):
 
 | Route | Screen | Access (FR-54 matrix) |
 | --- | --- | --- |
@@ -85,8 +87,8 @@ Navigation model (mirrors `web/src/router/index.ts` hash routes):
 
 Shell layout (all authenticated screens):
 
-- **App rail** (232 px, white `bg/surface`, right hairline `border/default`; light shell
-  adopted from the reference): logo row, `Projects`, `Playground`; section **ADMIN**
+- **App rail** (232 px, white `bg/surface`, right hairline `border/default`; a light
+  adaptation of the reference): logo row, `Projects`, `Playground`; section **ADMIN**
   (admin only): `API Keys`, `Audit Log`, `Members`, `Roles & permissions`; bottom:
   `User guide`, user card (avatar, name, global role tag, sign out). Items 36 px,
   radius 8: default `ink/3` text on transparent, active `side/active` (`#F8FAFC`) bg +
@@ -98,7 +100,7 @@ Shell layout (all authenticated screens):
 
 ## 3. Design tokens
 
-### 3.1 Color (Figma collection `FMS Color`)
+### 3.1 Color (planned `FMS Color` collection)
 
 Reference palette (slate neutrals + indigo accent). *sampled* = measured from the
 FlagOps PNG export; the rest are Tailwind-slate equivalents.
@@ -145,7 +147,7 @@ playground selects, audit rows.
 Spacing: `4 8 12 16 24 32 48 64` (xs…4xl). Radius: `4 8 12 16 full` — inputs/buttons 8,
 cards 12, pills full.
 
-### 3.3 Type (Figma text styles)
+### 3.3 Type (planned text styles)
 
 | Style | Font | Use |
 | --- | --- | --- |
@@ -158,7 +160,7 @@ cards 12, pills full.
 | `overline` 11/Semibold +0.8% | Inter | section labels |
 | `mono` 13 / `mono-sm` 12 | JetBrains Mono | flag keys, envs, versions, JSON, API keys, audit actions |
 
-## 4. Component inventory (Figma page `00 · Design System`)
+## 4. Planned component inventory (`00 · Design System`)
 
 | Component | Variants / notes |
 | --- | --- |
@@ -187,7 +189,7 @@ cards 12, pills full.
 
 - Centered 400 px card on canvas; logo mark + wordmark `FMS — Flag Management`.
 - Title `Sign in`, sub `Use your FMS account for this instance`.
-- Fields: **Email** (bootstrap admin = env-configured identity, FR-30), **Password**
+- Fields: **Username** (bootstrap admin = env-configured identity, FR-30), **Password**
   (show/hide). Inline field errors; form-level error banner for RFC 9457 problems
   (e.g. `401 invalid_credentials`). Caption under the form: "No self-signup — accounts
   are created by admin invite (FR-57)." (deliberate contrast with the reference, which
@@ -205,10 +207,11 @@ the admin role").
 - **Project card** (surface, `border/default`, radius 12): name `h3` + key (mono,
   `ink/4`) with copy icon; EnvChip row (`dev staging prod` seeded per FR-6/FR-55 plus
   any custom); hairline divider; footer: flag count (`24 flags`), per-env sync mini
-  dots (ok/warn/bad, tooltip "staging flagd observed v8, stored v9"), last change
-  (time + actor, caption).
+  dots (aggregate status, with flag-specific observed/stored details), last change
+  (time + actor, caption). Counts, aggregate health, and last-change actor require
+  additional data or queries beyond the current project-list response.
 - Card click → `#/projects/:id/flags`. Card menu (⋯): Open flags, Open playground
-  (admin/dev).
+  (all roles with project access).
 - Empty state: Flag icon + `No projects yet` + `Create your first project` (admin) /
   `Ask an admin to create a project` (others).
 
@@ -216,29 +219,38 @@ the admin role").
 
 - Breadcrumb `Projects / {project}` + `● Live` pill top-right (FR-52 — the list, pills,
   and sync cards update without polling).
-- **Environment summary cards** (one card per environment; adopted from the reference,
-  reworded to sync-health semantics): EnvChip, enabled count (`12 of 24 enabled`), and
-  the env's SyncBadge — `Synced v12` (“flagd observed v12 = stored v12”) vs
-  `Stale v8 ≠ v9` (“flagd last observed 12:02”, FR-47) vs `Error`.
+- **Environment summary cards** (one card per environment; adapted from the reference):
+  EnvChip, enabled count (`12 of 24 enabled`), and an aggregate health indicator based
+  on individual flags. The stored version belongs to a **flag**, not an environment:
+  show an observed-versus-stored comparison such as `v8 ≠ v9` for the relevant flag and
+  environment, not as a single environment-wide version.
 - Toolbar: SearchBox (`Search flags…`), env filter segment (All / Enabled in dev / …),
   `New flag` button (admin/dev; disabled + note for PO) — opens the **Create flag
   drawer** below.
 - **Flag list** (FR-41), one row per flag — flags are project-level and exist in every
   environment (FR-56); state is per-env:
   - **Flag key** (mono + copy icon), **Description** (body, ellipsis).
-  - Per-environment **state cell** (Dev / Staging / Prod + custom envs): an inline
-    `ON` pill (`ok/100` bg, `ok/600` text) or `OFF` pill (`bad/100` bg, `bad/600` text)
-    with the per-env version `v12` (mono) beneath — FR-41. The pill is the inline
-    toggle: for roles allowed to toggle (admin, developer, product-owner — FR-58/FR-59)
-    a click flips the state and saves; for other roles it is disabled with a 403 note.
-    Stale envs get a warn ring on the pill.
-  - **Updated** (time + actor), **Actions** (menu: Open, Copy to…, Delete [admin]).
-  - Row click (key) → editor. This keeps the kill-switch path two clicks from the list.
+  - **Stored flag version** (mono), plus a per-environment **state cell** (Dev / Staging /
+    Prod + custom envs): `ON`, `OFF`, or `Not configured` when no definition exists
+    (FR-7). An existing definition's pill is the planned inline toggle for authorized
+    roles. An absent definition must not be treated as disabled or toggled without
+    creating a valid definition; product owners cannot create definitions.
+  - Per-environment observed versions and stale/error states are associated with that
+    flag (FR-47); compare each to its stored flag version. Unknown observations must not
+    be presented as synced.
+  - **Updated** (time; actor where available), **Actions** (menu: Open, Copy to…,
+    Delete [global or project-scoped admin]).
+  - Row click (key) → editor; inline toggle is the shorter kill-switch path.
+- **Version-model gap:** FR-41 refers to per-environment versions, while the current
+  data model stores one version per flag and the observed endpoint returns a version
+  per environment. A separate stored per-environment version requires a requirements
+  and data-model/API decision; do not present one as currently available.
 - **Create flag drawer** (side drawer over the list; adopted from the reference):
   `Name` input with a **live auto-generated key preview** (mono, kebab-case —
   `New payment flow` → `new-payment-flow`), editable, unique per project (409 on
-  clash); `Description` textarea; `Create` → opens the editor for the new flag
-  (all envs start disabled, FR-56). The list stays visible behind the drawer.
+  clash); `Description` textarea; `Create` → opens the editor for the new flag.
+  The flag is available across the project, but environments start without definitions
+  until configured (FR-7/FR-56). The list stays visible behind the drawer.
 
 ### 5.4 Flag editor — `#/projects/:projectId/flags/:flagKey` (FR-42, FR-43, FR-14, FR-59)
 
@@ -246,29 +258,32 @@ Two-column layout: **left rail 280 px** (flag meta), **main column** (definition
 
 Left rail `Flag` card:
 - Key (mono, copy), Description textarea (admin/dev editable), meta rows: Version `v9`,
-  Project, Created. Danger zone: `Delete flag` (admin/dev only) with confirm.
+  Project, Created. Danger zone: `Delete flag` (global or project-scoped admin) with
+  confirm.
 
 Main column:
 1. **Env tabs** (dev / staging / prod / custom) — switching tabs never affects other envs
-   (FR-8 isolation); tab shows enabled dot + version.
+   (FR-8 isolation); each tab shows enabled/disabled or not configured. Show the stored
+   flag version once and any environment-specific observed version separately.
 2. **Definition card** for selected env:
-   - Header: `Definition · staging` + **Enabled** Toggle (right). PO may use this toggle
-     only (FR-59); all other controls disabled for PO with note
+   - Header: `Definition · staging` + **Enabled** Toggle (right). A user whose effective
+     project role is product-owner may use this toggle only (FR-59); all other controls
+     are disabled with note
      “Product owner access: you can change the enabled state only.”
    - **Variants** table: name (mono), value (mono), type badge (boolean|string|number),
      add-row / delete-row (dev+).
    - **Default variant** Select (fallback for unmatched rules, FR-42).
    - **Rules** (ordered list, FR-42): each row = Grip (reorder) + rule name + condition
-     chips (`email ends-with @acme.com`) or `Percentage split 50% · key user_id` +
+     chips (`email ends-with @acme.com`) or `Percentage split 50% · targetingKey` +
      target variant Select + delete; `Add rule` button (dev+).
 3. **Copy from… [dev ▾]** menu next to `Save` (FR-43/FR-9) — full replacement of the
    target definition, audited as its own change; confirm dialog states the target.
 4. **Sticky save bar**: `Discard` ghost + `Save changes` primary. On invalid submit the
    bar expands into an **all-at-once validation panel** (FR-14): numbered error list
-   (e.g. “Rule 2: attribute `plan` is not an allowed context key”,
+   (e.g. “Rule 2: attribute must not start with `$`”,
    “Default variant must be one of the defined variants”) — no single-error-at-a-time.
-5. After save: toast `Saved · staging v9 → v10` and sync badges flip to *pending → synced*
-   as flagd observes the model (FR-52).
+5. After save: toast `Saved · flag v9 → v10` and sync badges for the affected environment
+   change as flagd observes the model (FR-52).
 
 ### 5.5 Evaluate playground — `#/playground` (FR-44)
 
@@ -287,34 +302,36 @@ Two cards side by side (55% / 45%):
 
 ### 5.6 API keys — `#/api-keys` (FR-45, admin only)
 
-- Header + `Create key`. Caption: “Keys authenticate `sync` and `evaluate` endpoints for
-  flagd and SDK clients.”
-- Table: **Name**, **Scope** (badges `sync` / `evaluate`), **Created**, **Last used**
+- Header + `Create key`. Caption: “Keys authenticate `manage`, `sync`, and `evaluate`
+  operations for management, flagd and SDK clients.”
+- Table: **Name**, **Scope** (`manage`, `sync`, `evaluate`, or `all`), **Created**, **Last used**
   (`2 min ago` / `—`), **Status** (`Active` / `Revoked`), **Actions** (`Revoke` danger,
   confirm dialog).
-- **Create flow**: modal (name + scope checkboxes) → success state replaces modal content:
+- **Create flow**: modal (name + single scope selector) → success state replaces modal content:
   one-time plaintext key (mono, Select-all, Copy button) + warning banner
   “This is the only time the key is shown — its hash is stored (FR-45).”
 
 ### 5.7 Audit log — `#/audit` (FR-46, admin only)
 
-- Filter bar: Actor, Action, Entity, Environment Selects + date range.
+- Filter bar: Actor, Action, Entity (supported by the current API). Environment and date
+  filters require API support before they can be used across the full audit log.
 - Table: **Time** (mono), **Actor** (avatar + name), **Action** (mono badge,
   e.g. `flag.definition.update`), **Entity** (flag key / project / user), **Env**
   (EnvChip or —), **Diff** (expand chevron).
 - Expanded row: two-column before/after mono diff (red/green), e.g.
   `enabled: true → false` or rule-list changes.
-- Pagination footer: `1–20 of 214 · Prev / 1 2 3 … / Next`.
+- Cursor-based pagination: `Previous` / `Next`; page counts and numbered jumps require
+  additional API support.
 - Append-only: no edit/delete affordances anywhere in the view.
 
 ### 5.8 Members & invites — admin only (FR-57, FR-54)
 
-- Header + `Invite user`. Table: **User** (avatar + email), **Status** — `Active`
+- Header + `Invite user`. Table: **User** (username), **Status** — `Active`
   (signed in at least once) / `Pending` (invited, temp password not yet used; amber),
   **Global role** (RoleTag), **Project roles** (chips `checkout-web: developer`, …),
   **Last active**, **Actions** (`Re-invite` — reissues temp password; updates global
   role + memberships per FR-57).
-- **Invite modal**: Email input; **Global role** Select (admin / developer /
+- **Invite modal**: Username input; **Global role** Select (admin / developer /
   product-owner); **Project roles** matrix — rows = projects, columns =
   `admin | developer | product-owner | —` (radio per row); submit.
 - **Success state**: one-time temporary password (mono, Copy) + banner
@@ -323,6 +340,8 @@ Two cards side by side (55% / 45%):
 - Caption under the table: the full capability matrix from FR-54/FR-58/FR-59 (link out to
   the requirements doc) — this is also the reference for disabled-control states in other
   screens.
+- Status and last-active data are proposed UI features: the current user model and member
+  API do not expose first/last sign-in state. Do not infer pending status from invite creation.
 
 ### 5.9 Roles & permissions — admin only (FR-54, FR-58, FR-59)
 
@@ -345,7 +364,9 @@ disabled controls on other screens mirror these cells.
 | View flags and definitions | project | ✓ | ✓ | ✓ |
 | Evaluate flags (playground/API) | project | ✓ | ✓ | ✓ |
 
-✓ = allowed (soft-emerald check cell), — = not allowed. Footer note: "Effective
+✓ = allowed (soft-emerald check cell), — = not allowed. The admin column for
+project-scoped capabilities includes project-scoped admins; global capabilities require a
+global admin. Footer note: "Effective
 permission = global role ∪ per-project grants — a membership can elevate a user on
 that project but never reduce the global role (FR-54). Product-owner toggles change
 `enabled` only (FR-59). Full matrix:
@@ -355,16 +376,18 @@ that project but never reduce the global role (FR-54). Product-owner toggles cha
 
 Per-project membership management (adopted from the reference's project-access screen):
 
-- **Policy card** (top, shield icon): "Restricted by default — only invited members
-  with a role on this project can act on it. Effective permission is the union of the
+- **Policy card** (top, shield icon): "Restricted by default — non-global-admin users
+  need a role on this project to act on it. Effective permission is the union of the
   global role and this project's role; a project role can elevate, never reduce
   (FR-54). A project `admin` role grants project-scoped admin only."
-- **Member table**: **User** (avatar + email), **Status** (Active/Pending),
+- **Member table**: **User** (username), **Status** (Active/Pending; requires backend support),
   **Global role** (RoleTag), **Role on this project** — a per-member Select
   (`admin | developer | product-owner | no access`); this is the per-project grant,
-  independent of the global role (FR-57). **Actions**: `Remove from project`.
-- `Add member` → modal: pick an existing user **or** type a new email (goes through
-  the standard invite — one-time temp password, FR-57) + the role for this project.
+  independent of the global role (FR-57). A standalone role change or removal needs a
+  corresponding API; the current invite upserts listed memberships and does not remove
+  unlisted memberships.
+- `Add member` → modal: enter a username and global/project roles through the standard
+  invite, which reissues a one-time temporary password even for an existing user (FR-57).
 
 ## 6. User flows
 
@@ -384,7 +407,7 @@ flowchart TD
   J -- test as user --> K["Playground<br/>#/playground · FR-44"]
   J -- trust state --> L([Done])
   K --> L
-  I -- stale? --> M["Wait / check audit · FR-46"]
+  I -- stale? --> M["Wait / ask admin to check audit · FR-46"]
   M --> I
 ```
 
@@ -393,9 +416,10 @@ flowchart TD
 ```mermaid
 flowchart TD
   B["Login"] --> R{"Global role +<br/>project memberships"}
-  R -- admin --> AM["Full nav: projects, flags, editor,<br/>playground, API keys, audit, members"]
-  R -- developer --> DV["Projects, flags, editor (full defn),<br/>playground · no admin nav · 403 guard"]
-  R -- product-owner --> PO["Flags (view + enabled toggle only),<br/>playground · no admin nav · 403 guard"]
+  R -- global admin --> AM["Full nav: projects, flags, editor,<br/>playground, API keys, audit, members"]
+  R -- effective developer --> DV["Assigned project: flags, editor (full defn),<br/>playground · no global admin nav"]
+  R -- effective product-owner --> PO["Assigned project: flags (view + toggle only),<br/>playground · no global admin nav"]
+  R -- project admin --> PA["Assigned project: project-scoped<br/>admin capabilities; no global admin nav"]
   PO --> POX["Any other edit attempt →<br/>403 + explanatory state (FR-59)"]
 ```
 
@@ -414,22 +438,22 @@ flowchart LR
     K2 --> K3["Enabled toggle → off"]
     K3 --> K4["Save"]
     K4 --> K5["Confirm synced<br/>(stale → synced)"]
-    K5 --> K6["Audit row proves<br/>who/when"]
+    K5 --> K6["Admin checks audit row<br/>for who/when"]
   end
   subgraph Invite ["Invite · FR-57"]
-    I1["Admin → Members"] --> I2["Invite: email +<br/>global + per-project roles"]
-    I2 --> I3["Temp password shown once<br/>status: Pending"]
-    I3 --> I4["User signs in → scoped session FR-53<br/>status: Active"]
+    I1["Admin → Members"] --> I2["Invite: username +<br/>global + per-project roles"]
+    I2 --> I3["Temp password shown once"]
+    I3 --> I4["User signs in → scoped session FR-53"]
   end
   subgraph Keys ["API keys · FR-45"]
-    A1["Admin → API Keys"] --> A2["Create: name + scopes"]
+    A1["Admin → API Keys"] --> A2["Create: name + scope"]
     A2 --> A3["Plaintext shown once"]
     A3 --> A4["flagd sync / SDK evaluate<br/>use the key"]
     A4 --> A5["Revoke when rotated"]
   end
   subgraph NewProject ["New project · FR-55"]
     N1["Admin → Projects → New"] --> N2["name + key (unique, 409 on clash)"]
-    N2 --> N3["Seeded dev/staging/prod<br/>+ optional custom envs"]
+    N2 --> N3["Seeded dev/staging/prod<br/>custom envs added separately"]
     N3 --> N4["Create first flag"]
   end
 ```
@@ -451,7 +475,7 @@ flowchart LR
 | Req | Surface in the design |
 | --- | --- |
 | FR-40 | §5.1 Login (form → session cookie, error banner) |
-| FR-41 | §5.3 flag table: key, description, per-env enabled + version |
+| FR-41 | §5.3 flag table: key, description, stored flag version and per-env status |
 | FR-42 | §5.4 editor: toggle, variant table, default selector, ordered rules, all-at-once validation panel |
 | FR-43 | §5.4 “Copy from…” menu + confirm (full replacement, own audit entry) |
 | FR-44 | §5.5 playground: flag+env, targetingKey, context JSON → value/variant/reason; key-required hint |
@@ -463,7 +487,7 @@ flowchart LR
 | FR-54 | §5.9 capability-matrix screen (correct cells + scope column); §5.8/§5.10 role tags & per-project grants; disabled-control states everywhere |
 | FR-55 | §5.2 project env chips (seeded dev/staging/prod + custom) |
 | FR-56 | §5.3/§5.4 project-scoped flags with per-env unique state |
-| FR-57 | §5.8 invite modal + Active/Pending statuses; §5.10 add-member / per-project role override (one-time temp password) |
+| FR-57 | §5.8 invite modal + one-time temp password; §5.10 project roles. Active/Pending and standalone role changes need backend support |
 | FR-58 | §5.3/§5.4 developer: create envs/flags, edit definitions, toggle |
 | FR-59 | §5.4 PO: enabled toggle only, other controls disabled + note; 403 state |
 
@@ -471,10 +495,28 @@ Out-of-scope visuals (v1 non-goals, §2 of the requirements): no scheduling UI, 
 approval workflows, no flag ownership, no observability dashboards, no browser-side
 evaluation client UI.
 
-## 8. Figma build & resume
+## 8. FigCraft build & status
 
-The canvas is built with the Figma MCP `use_figma` tool. What is already on canvas in the
-file linked above:
+The editable draft and its repeatable build instructions are in
+[`design/figcraft/`](../design/figcraft/). Its screen frames use editable layers and
+include a main-flow starting point and selected navigation links. The examples are
+static design data, not a connected dashboard. DejaVu Sans is used for the draft
+because it is available in the FigCraft CLI container; the target typography remains
+Inter and JetBrains Mono (§3.3).
+
+Still needed: full token and reusable-component libraries, more complete screen and
+interaction states (including validation, confirmations, invite and key creation),
+responsive and accessibility review, and verification of the prototype in a FigCraft
+viewer. The design system examples are not yet reusable FigCraft components.
+The draft still labels login as email and illustrates per-environment stored versions and
+Active/Pending member statuses; these are not aligned with the current API and need
+revision before handoff. Its creation drawer also incorrectly says all environments
+start disabled rather than without definitions.
+
+### Historical Figma build
+
+The historical Figma canvas was built with the Figma MCP `use_figma` tool. The following
+was recorded as present on 2026-11-09; its current state has not been verified:
 
 - Pages `00 · Design System`, `01 · Screens`, `02 · User Flow`
 - Variable collections: `FMS Color` (pre-reference values — `00-tokens.js` refreshes them), `FMS Spacing` (8), `FMS Radius` (5)

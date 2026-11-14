@@ -1,11 +1,14 @@
 # Figma build — resume kit
 
-Ready-to-run `use_figma` scripts that complete the FMS dashboard design in
+This is the historical Figma build kit. The current FigCraft draft and its build
+instructions live in [`design/figcraft/`](../figcraft/).
+
+Historical `use_figma` scripts intended to build the FMS dashboard design in
 ["FMS Dashboard — Design"](https://www.figma.com/design/EQJ5mH28fzRW9qzwS8O0Lf).
 The screen specs these scripts implement live in
 [`docs/07-dashboard-design.md`](../../docs/07-dashboard-design.md).
 
-## What is already on canvas (verified 2026-11-09)
+## What was recorded on canvas (2026-11-09)
 
 - Pages: `00 · Design System`, `01 · Screens`, `02 · User Flow`
 - Variable collections: `FMS Color` (pre-reference values — step 0 refreshes them to the
@@ -50,5 +53,5 @@ quota (20/month on a View seat). The screen language was then revised against th
 carry that revision (light shell, slate palette, status pills, card grid, drawer, matrix,
 project access).
 
-Resume the build once the quota resets or the seat is upgraded to Full/Dev (200 calls/day),
-then take one screenshot pass over the `01 · Screens` frames to verify.
+The current canvas and quota have not been reverified. These scripts are retained for
+reference; the current design work continues in FigCraft.

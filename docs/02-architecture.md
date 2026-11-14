@@ -309,7 +309,8 @@ sequenceDiagram
 
 - Events are emitted on **observed** provider changes, never on commit alone (ADR-0008).
 - `provider-ready` / `provider-error` fire on per-(project, env) provider state transitions
-  (the same states `readyz` reports) — the dashboard's sync-health badge uses them (FR-52).
+  (the same states `readyz` reports); the dashboard is intended to use them for sync health
+  (FR-52). Its event subscription is not yet started by the UI.
 - No replay: a disconnect loses in-flight events; reconnect + re-fetch state reconciles.
 - Auth: `evaluate` scope or session ([04-api.md §1](04-api.md)).
 
@@ -373,11 +374,12 @@ terminating proxy), rate limiting, PII redaction in audit.
   flagd: { <flagSetId>: "READY"|"STALE"|"ERROR" } }` — `db` from a pool ping, `flagd` derived
   from OpenFeature provider state events per (project, environment), keyed by flag-set ID
   (naming per OQ-6). `readyz` is 503 when the DB is down or any provider is not READY.
-- **Sync health in the UI** (FR-47): the dashboard compares stored flag `version` with the
+- **Sync health in the UI** (FR-47, target): the dashboard compares stored flag `version` with the
   `version` in flagd flag metadata (exposed by the provider on evaluated flags; a
   `/api/v1/projects/:projectId/flags/:key/observed` helper reads it via a probe evaluation
   per (project, env)) and shows a stale badge when they differ; the badge refreshes on SSE
-  events (FR-52) rather than polling.
+  events (FR-52) rather than polling. The current UI does not start the SSE subscription or
+  load observed status for every flag on the initial list; these remain M4 work.
 - **flagd metrics** (8017, Prometheus) are available but not wired into FMS in v1 (non-goal).
 
 ## 8. Failure modes & behavior
@@ -424,9 +426,10 @@ Dev loop: `npm run dev` (API, watch) + `npm run dev:web` (Vite dev server on :51
 the API runs as a Node process (keeps the dev loop simple; a container image for the API is
 a v1.1 candidate).
 
-Dashboard browser E2E: the M4 manual checklist is adopted as the Playwright suite
-(`web/e2e/*.spec.ts` + `web/playwright.config.ts`) that runs against the compose stack
-(API + MariaDB + flagd + built `web/dist`).
+Dashboard browser E2E uses Playwright (`web/e2e/*.spec.ts` + `web/playwright.config.ts`)
+against a running API, MariaDB and built `web/dist`; flagd is required for live-sync and
+evaluation checks. Existing scenarios cover only part of M4 and include API-driven steps.
+M4.5 adds design, responsive and accessibility verification after M4 functional acceptance.
 
 **Later (out of scope for v1):** API container image, TLS termination, Postgres, multi-instance
 FMS (incl. boot-time migration locking), multiple flagd instances (see §11).

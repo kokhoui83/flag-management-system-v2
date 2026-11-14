@@ -1,10 +1,14 @@
 # 07 — Dashboard Design
 
-Design specification for the FMS web dashboard (M4 and beyond). The visual design is being
+Design specification for the FMS web dashboard (M4 and M4.5). The visual design is being
 built in FigCraft; this document is the source of truth for information architecture, screen
 specs, component inventory, design tokens, and user flows. Every screen is traced to the
 functional requirements in [01-requirements.md](01-requirements.md) §4.9 / §4.9.1 (FR-40…FR-59)
 and the change-event requirements §4.10 (FR-50…FR-52).
+
+M4 completes the functional dashboard requirements; M4.5 applies the approved FigCraft design
+to those flows before M5 hardening. Design preparation may overlap M4, but does not replace its
+acceptance criteria. See the [roadmap](06-roadmap.md#m45--figcraft-dashboard-implementation).
 
 **FigCraft draft:** [`design/figcraft/fms-dashboard.figcraft`](../design/figcraft/fms-dashboard.figcraft).
 The earlier [Figma file](https://www.figma.com/design/EQJ5mH28fzRW9qzwS8O0Lf) is retained

@@ -55,17 +55,17 @@ per-environment state (FR-56), admin invites (FR-57), developer and product-owne
 (FR-58/FR-59) — see [docs/01-requirements.md §4.9.1](docs/01-requirements.md). Implementation lands in
 M4 per [docs/06-roadmap.md](docs/06-roadmap.md).
 
-**M4 — Dashboard (implemented).** The full operator surface now ships in the browser: Vue 3 +
-Naive UI dashboard in `web/` (login gate with session bootstrap via `GET /api/v1/auth/session`,
-project list/create, per-project flag list/editor, evaluate playground, API keys, audit,
-sync-health badge, SSE live refresh, and the in-app HTML user guide at `/guide`). The management API
-gained the `GET /api/v1/auth/session` identity surface; the capability vocabulary lives in
-`@fms/shared` as the single source for server and dashboard (FR-54). Web unit tier is green (Vitest +
-happy-dom + `@vue/test-utils`, 10 dashboard tests); bundle budget recorded at 659.28 kB JS /
-197.33 kB gzip. The M4 manual checklist is adopted as the Playwright browser E2E plan (UF-1…UF-9)
-over the docker compose stack; a demo client app is **not** required for the M4 flag-behaviour
-verification (the dashboard evaluate playground + API evaluate cover it). See
-[docs/06-roadmap.md](docs/06-roadmap.md) §M4 and the in-app user guide.
+**M4 — Dashboard (partially implemented, not accepted).** The Vue 3 + Naive UI dashboard
+has login, projects, flags, playground, API-key, audit and guide views. Member and environment
+management, full role gating, live sync and other operator flows remain incomplete. On
+2026-11-14, 14 web component tests and eight Playwright scenarios passed, but the browser run
+used API requests for some flows and did not run flagd; it does not establish M4 acceptance.
+See [docs/06-roadmap.md](docs/06-roadmap.md) §M4 for the gaps and test conditions.
+
+**M4.5 — FigCraft dashboard implementation (planned).** After M4 functional acceptance, apply
+the [FigCraft design](docs/07-dashboard-design.md) to those workflows before M5 hardening;
+design preparation may overlap M4. The current FigCraft file is a first-pass draft, not an
+implemented dashboard.
 
 ## Documentation
 
@@ -126,7 +126,9 @@ scenarios, plus the integration tier against testcontainers MariaDB (FR-26/FR-27
 backend (evaluate, readiness, SSE, latency) is implemented and integration-tested; its E2E
 scenarios (`npm run test:e2e`) are green against the real flagd engine via testcontainers.
 
-**M4 dashboard testing:** the §2.6 multi-user UI scenarios run as Vitest + `@vue/test-utils`
-component tests in the `web/` workspace (API client mocked), and the manual M4 checklist is adopted
-as the Playwright browser E2E suite (`npm run test:e2e:web`, specs in `web/e2e/*.spec.ts`) that
-drives the dashboard against the running docker compose stack.
+**Dashboard testing:** component tests run with `npm test -w web`; the existing Playwright suite
+(`npm run test:e2e:web`, specs in `web/e2e/*.spec.ts`) requires a running API, database and built
+dashboard. Some scenarios exercise APIs directly; M4 coverage is incomplete. M4.5 also requires
+design, accessibility and responsive checks and browser sync tests with flagd running. See
+[05-testing.md §2.6](docs/05-testing.md#26-multi-user-projects--environments-dashboard) and the
+[roadmap](docs/06-roadmap.md).

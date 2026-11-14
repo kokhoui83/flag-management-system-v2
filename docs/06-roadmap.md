@@ -5,8 +5,8 @@ milestone is TDD-shaped per [05-testing.md](05-testing.md): the behavior specs f
 are written (failing) before its implementation. Acceptance criteria reference
 [01-requirements.md](01-requirements.md) (`FR-n`, `NFR-n`).
 
-> Scope note: M1–M5 deliver v1 as specified. Items marked _v1.1_ are explicitly deferred and
-> do not block "done".
+> Scope note: M1–M5, including M4.5, deliver v1 as specified. Items marked _v1.1_ are
+> explicitly deferred and do not block "done".
 
 Requirement coverage by milestone (details in [01-requirements.md](01-requirements.md)):
 
@@ -17,6 +17,7 @@ Requirement coverage by milestone (details in [01-requirements.md](01-requiremen
 | M2        | FR-26–FR-29                                                                                            | NFR-1 (sync latency), NFR-9                                                |
 | M3        | FR-21–FR-25, FR-50–FR-51                                                                               | NFR-1 (evaluate latency), NFR-3, NFR-7 (readiness)                         |
 | M4        | FR-40–FR-47, FR-52, FR-53–FR-59 (UI)                                                                   | NFR-7 (sync-health badge)                                                  |
+| M4.5      | FigCraft-based presentation of the M4 dashboard flows                                                  | Responsive and accessible dashboard experience                             |
 | M5        | FR-25 (client guide)                                                                                   | NFR-1–NFR-9 verification, NFR-9 (OpenAPI completeness)                     |
 
 ---
@@ -253,7 +254,7 @@ provider state.
 
 ## M4 — Dashboard
 
-**Goal:** the full operator surface in the browser (FR-40–FR-47, FR-53–FR-59).
+**Goal:** the full operator surface in the browser (FR-40–FR-47, FR-52–FR-59).
 
 - Vue 3 dashboard in `web/` (Naive UI, Pinia, hash router; built assets served by the API);
   cookie auth; login view (FR-40).
@@ -279,48 +280,51 @@ provider state.
 - Live updates: subscribe to `GET /api/v1/events` (`EventSource`, session cookie); flag list
   - sync-health badge refresh on `flag-changed` / `provider-ready` (FR-52).
 
-**Implementation status (2026-11-07):** the M4 dashboard surface is implemented in `web/` (Vue 3 +
-Naive UI + Pinia + hash router; Vite dev proxy `/api` → `:3000`; prod build served by the API at
-`/`). Built assets: 659.28 kB JS / 197.33 kB gzip (bundle budget, M4 note). A Playwright browser
-E2E setup is adopted as the executable form of the M4 manual checklist (§2.6); a demo client app
-is **not** required for the M4 flag-behaviour verification (the dashboard evaluate playground +
-API evaluate cover it).
+**Implementation status (reviewed 2026-11-15):** M4 is **partially implemented, not accepted**.
+`web/` contains Vue 3, Naive UI, Pinia and hash-router views for login, projects, flags, the
+playground, API keys, audit and guide. These views do not yet provide the complete operator
+journey or meet all acceptance criteria. The [FigCraft dashboard design](07-dashboard-design.md)
+is a first-pass draft, separate from the implemented application.
 
-- FR-40: login view + session bootstrap (`GET /api/v1/auth/session`, cookie/Bearer).
-- FR-41/42/47/52: flag list + editor (env tabs from the project's env set, enable toggle, variant
-  table, default variant, ordered rule editor, copy-from-env, all-at-once error display, pre-submit
-  validation via `@fms/shared` — ADR-0006), sync-health badge, SSE refresh.
-- FR-44: evaluate playground (project/flag + env picker, targeting key, context JSON, result).
-- FR-45/46: API keys view (create once / revoke) and audit view (list + before/after diff).
-- FR-52: `EventSource('/api/v1/events')` refresh of flag list/detail and sync badge.
+Remaining work includes:
+
+- Add member invitation and environment-creation UI, dashboard navigation and logout; restore
+  an existing session on page reload.
+- Complete flag editing, including variant management and reliable creation of definitions in
+  environments without one. Gate copy and other controls according to the capability matrix,
+  including project-scoped admins and product owners.
+- Load playground flags and definitions for the selected project and flag so the options and
+  percentage-rule targeting-key guard do not depend on previously visited views.
+- Keep newly created API-key plaintext visible for its one-time display; add audit before/after
+  diffs and preserve filters when loading older entries.
+- Start the existing SSE subscription and load observed status for flag-list badges so live
+  sync-health updates work without first opening each flag.
 
 **Acceptance**
 
-- [x] Every UI-scoped requirement (FR-40–FR-47, FR-52–FR-59) exercisable in the UI; manual
-      checklist committed to the M4 note — adopted as the Playwright browser E2E plan
-      (UF-1…UF-9) over the docker compose stack; FR-50 (client-side OpenFeature events) and
-      FR-51 (SSE API) are API/provider requirements verified in M3, not UI acceptance criteria.
-- [x] UI-level [05-testing.md §2.6](05-testing.md) scenarios green (login gate, assigned-project
-      visibility, developer create env/flag, 409 duplicate env, unassigned 403, product-owner
-      toggle, per-environment isolation, duplicate project name) — component scenarios via
-      Vitest + `@vue/test-utils` with the API client mocked, browser scenarios via Playwright
-      against the compose stack; final green run via `npm run test:e2e:web` (Playwright against the
-      docker compose stack): **UF-1…UF-8 all passed (8/8)** as of 2026-11-08.
+- [ ] Every UI-scoped requirement (FR-40–FR-47, FR-52–FR-59) exercisable in the UI.
+      FR-50 (client-side OpenFeature events) and FR-51 (SSE API) are API/provider requirements
+      verified in M3, not UI acceptance criteria.
+- [ ] UI-level [05-testing.md §2.6](05-testing.md) scenarios fully covered and green, including
+      member invites, environment creation, assigned-project visibility, role restrictions and
+      per-environment isolation. The existing eight browser scenarios cover only part of this
+      scope; some use API requests rather than the UI.
 - [ ] Capability matrix enforced in the UI and API: product-owner `enabled`-only toggle;
       developer cannot manage members/keys/projects; admin-only audit/keys/member views
       (FR-54/FR-58/FR-59).
-- [x] Sync-health badge consumes `GET …/flags/:key/observed` and refreshes on
+- [ ] Sync-health badge consumes `GET …/flags/:key/observed` and refreshes on
       `flag-changed`/`provider-ready` (FR-47/FR-52).
-- [x] No validation/compilation logic reimplemented in dashboard code (`shared/` imports
-      only); component tests (Vitest + @vue/test-utils) for the rule editor and diff view — the
-      rule editor and diff view component tests are green in the final web unit run (10/10).
+- [ ] Verify no validation/compilation logic is reimplemented in dashboard code (`shared/`
+      imports only) and exercise the rule editor and audit diff in their actual UI flows.
 - [x] Bundle budget (Vue + Naive UI, gzip) recorded in the M4 note.
 
-**M4 note (implementation record, 2026-11-07):** the dashboard implementation is complete for the
-auth → projects → flags → evaluate → keys → audit → sync → guide user flows listed above; the
-manual E2E checklist on a running stack (docker compose) — adopted as the Playwright browser E2E
-plan (UF-1…UF-9) — was closed out as the final M4 acceptance step on 2026-11-08 (final green run via
-`npm run test:e2e:web`: **UF-1…UF-8 all passed, 0 failed**).
+**M4 verification (2026-11-14):** web component tests passed (14/14) and web type-check passed.
+The eight existing Playwright scenarios passed (8/8) against a built dashboard, API and isolated
+MariaDB; flagd was not running. The run required an unsaved local installation of `argon2`,
+which is imported by the server but not declared in its package manifest; that installation also
+changed local dependency versions. The browser suite includes API-driven setup and assertions
+(including environment creation) and does not establish full UI acceptance or flagd live sync.
+The production dashboard build measured 659.27 kB JS / 197.33 kB gzip.
 
 **M4 integration fixes (2026-11-07, via the Playwright browser E2E):** the first green UF-1 run
 surfaced two M4-blocking integration bugs, both fixed:
@@ -341,7 +345,7 @@ green UF-1…UF-8 run surfaced two further M4-blocking UI bugs, both fixed:
   initial flag load, leaving an overlay that intercepted pointer events. The spinner is now cleared
   after the load settles.
 
-**M4 E2E status (2026-11-08, via `npm run test:e2e:web`):** the Playwright browser E2E suite is green
+**M4 historical E2E status (2026-11-08, via `npm run test:e2e:web`):** the Playwright browser E2E suite reported green
 for UF-1 (login gate), UF-2 (admin → `/projects`), UF-3 (developer env `qa` + flag `new-thing`),
 UF-4 (developer duplicate env → `409`), UF-5 (unassigned developer flag create → `403`), UF-6
 (product owner toggle in `staging` via UI), UF-7 (admin flag creation via UI) and UF-8 (admin
@@ -358,6 +362,55 @@ both fixed:
 - The enable switch bound `:checked` / `@update:checked`, but Naive UI controls the switch through
   the `value` / `onUpdate:value` props — the toggle never reflected the flag state, and the save
   sent an unchanged definition (no version bump). Rebound through `:value` / `@update:value`.
+
+---
+
+## M4.5 — FigCraft dashboard implementation
+
+**Goal:** apply the approved [dashboard design](07-dashboard-design.md) to the working M4
+operator flows without weakening their behavior or role boundaries. M4 remains responsible for
+functional acceptance; M4.5 follows it and precedes M5. Design preparation may overlap M4,
+but a passing M4.5 does not substitute for M4 acceptance.
+
+**Implementation sequence**
+
+1. **Design baseline:** correct the FigCraft draft's username login, flag-level stored versions,
+   missing definitions and unsupported member statuses. Complete the responsive layouts,
+   loading/empty/error states, confirmations and interaction details before design handoff.
+2. **Foundation:** implement the light app shell, navigation, breadcrumbs and shared tokens and
+   controls in the existing Vue/Naive UI application. Preserve session and role-gating behavior.
+3. **Operator journeys:** apply the design to login, projects, flag list and creation drawer,
+   flag editor, playground and live sync states. Preserve existing definitions, environment
+   isolation, validation, version semantics and authorized toggle/copy behavior.
+4. **Administration:** apply the design to member invites, roles and permissions, project
+   access, API keys and audit, using the existing capability matrix and available API operations.
+   One-time passwords and API keys must remain visible for their intended one-time display.
+5. **API-dependent design decisions:** explicitly defer unsupported features or add their
+   backend contracts and tests before exposing them. This includes member Active/Pending and
+   last-active data, standalone project-role changes/removal, extended audit filters and
+   additional project-card metrics. Do not infer or fabricate unavailable data. Resolve the
+   FR-41 per-environment-version wording against the flag-level stored version before changing
+   the model or presenting an environment-level stored version.
+6. **Verification:** compare implemented screens and states with the approved FigCraft baseline;
+   exercise keyboard navigation, focus, responsive layouts and real browser journeys. Test live
+   updates with the API, isolated database and flagd running.
+
+**Acceptance**
+
+- [ ] M4 functional acceptance is complete; the updated FigCraft draft and screen states are
+      reviewed and consistent with the requirements and supported API.
+- [ ] Supported operator and administration screens follow the approved design on desktop and
+      mobile, including loading, empty, error, disabled and confirmation states.
+- [ ] Global admin, project-scoped admin, developer and product-owner journeys retain the
+      capability matrix; unauthorized actions are unavailable and rejected by the API.
+- [ ] Browser tests exercise real UI journeys, including invitation, environment creation,
+      flag editing and toggling, one-time secrets, audit and role restrictions; sync tests use
+      a running flagd and verify stale-to-synced and disconnected states.
+- [ ] Keyboard operation, visible focus, labels and responsive layouts are verified; visual
+      comparisons cover the approved desktop and mobile designs.
+- [ ] Unit/component tests, web type-check, build and relevant browser tests pass with a
+      reproducible dependency setup. API-dependent features are implemented and tested or
+      explicitly deferred; no unsupported status or version is presented as fact.
 
 ---
 

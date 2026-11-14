@@ -95,10 +95,11 @@ Bearer token).
 - `username` / `globalRole` / `isBootstrapAdmin` describe the caller; `assignments` list the
   per-project roles of the caller (from the global role, the caller only sees assignments whose
   projects they hold).
-- The dashboard derives the effective per-project capability with the union semantics (FR-54,
-  §4.9.1) and gates its surfaces from it.
-- API-key callers never receive assignments; the dashboard treats API-key scopes as the
-  capability level directly.
+- The dashboard derives effective per-project capabilities using union semantics (FR-54,
+  §4.9.1), but its UI gating is incomplete; see [M4 status](06-roadmap.md#m4--dashboard).
+- For an API-key caller, this endpoint returns the key name as `username`, its scope as
+  `globalRole`, `isBootstrapAdmin: false` and no assignments. The current dashboard login
+  flow uses user sessions; it does not implement a separate API-key login flow.
 
 ## 4. Flags (project-scoped)
 
@@ -341,7 +342,9 @@ basis of the dashboard's stale indicator, FR-47).
 
 `targetingKey` is optional for flags without a percentage rule. For a flag whose definition
 contains a percentage rule, omitting it yields flagd's single deterministic bucket (FR-19);
-the dashboard playground blocks evaluation until a targeting key is supplied (FR-44).
+FR-44 requires the dashboard playground to block evaluation until a targeting key is supplied.
+The current guard depends on previously loaded flag detail and is not reliable for every
+project/flag selection; completing it remains M4 work.
 
 ## 8. API keys
 

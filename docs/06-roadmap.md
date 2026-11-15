@@ -405,7 +405,8 @@ both fixed:
 - Optimistic locking (`If-Match` on flag version) for concurrent edits.
 - "Advanced JSONLogic" escape hatch for power users (OQ-4).
 - Scheduled rollouts via `$flagd.timestamp` (OQ-3).
-- Container image for the management API; TLS guidance; Postgres port (OQ-5); multi-instance
+- Running the API image in `docker-compose.yml` (the image itself is published, see
+  [02-architecture.md §10](02-architecture.md#10-deployment)); TLS guidance; Postgres port (OQ-5); multi-instance
   FMS (incl. boot-time migration locking); flagd replicas / LB (architecture §11).
 - Browser-side evaluation pattern hardening (OQ-2).
 - Rate limiting + Prometheus wiring of flagd metrics.

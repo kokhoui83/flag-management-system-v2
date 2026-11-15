@@ -6,6 +6,8 @@ export const INSECURE_ADMIN_USERNAME = 'admin';
 export const INSECURE_ADMIN_PASSWORD = 'dev-insecure-password';
 
 export const DEFAULT_PORT = 3000;
+// Loopback by default (ADR-0007); a container image sets HOST=0.0.0.0 to be reachable.
+export const DEFAULT_HOST = 'localhost';
 export const DEFAULT_FLAGD_HOST = 'localhost';
 export const DEFAULT_FLAGD_PORT = 8013;
 export const DEFAULT_ENVS = ['dev', 'staging', 'prod'];
@@ -18,6 +20,7 @@ export const DEFAULT_WEB_DIST = path.resolve(
 
 export interface AppConfig {
   port: number;
+  host: string;
   nodeEnv: 'development' | 'production';
   databaseUrl: string;
   adminUsername: string;
@@ -126,6 +129,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   }
 
   const port = readInt(env, 'PORT', DEFAULT_PORT);
+  const host = readString(env, 'HOST', DEFAULT_HOST);
   const databaseUrl = env.DATABASE_URL ?? INSECURE_DATABASE_URL;
   const adminUsername = readString(
     env,
@@ -154,6 +158,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
   return {
     port,
+    host,
     nodeEnv,
     databaseUrl,
     adminUsername,

@@ -379,3 +379,21 @@ toggle flows.
   require the Playwright browser E2E (`web/e2e/*.spec.ts` against the docker compose stack) to be
   green before M4 is closed.
 - Docs updated for any user-visible change (AGENTS.md documentation rule).
+
+## 5. Continuous integration
+
+GitHub Actions workflows live in [`.github/workflows/`](../.github/workflows/). Every job
+installs with `npm ci` and generates the Prisma client (`npx prisma generate`) first.
+
+| Workflow     | Trigger                                                 | Runs                                                                                                                                         |
+| ------------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`     | pull requests, pushes to `main`, manual                 | `checks`: `npm run lint`, `npm run typecheck`, `npm test`, `npm test -w web`, `npm run build:web`; `integration`: `npm run test:integration` |
+| `e2e.yml`    | manual only (choose `all`, `browser` or `flagd`)        | `browser`: `npm run test:e2e:web` against compose MariaDB and the API serving the built dashboard (no flagd); `flagd`: `npm run test:e2e`    |
+| `docker.yml` | pull requests (build only), pushes to `main`, `v*` tags | Builds the API image and, except on pull requests, publishes it to GHCR ([02-architecture.md §10](02-architecture.md#10-deployment))         |
+
+The E2E suites are manual because they need Docker services and the flagd suite takes several
+minutes and asserts latency bounds that can vary on shared runners. Run them from the
+Actions tab or with `gh workflow run e2e.yml -f suite=all`.
+
+`npm run format:check` is not run in CI: the repository is not yet Prettier-clean, so the
+check would fail on unrelated files.

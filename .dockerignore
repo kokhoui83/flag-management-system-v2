@@ -1,0 +1,15 @@
+.git
+.github
+.env
+node_modules
+**/node_modules
+**/dist
+design
+docs
+graphify-out
+flagd
+web/e2e
+web/test-results
+web/playwright-report
+server/test
+**/*.test.ts

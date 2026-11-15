@@ -119,6 +119,12 @@ npm test               # unit tier (vitest; server + shared)
 npm run test:integration  # integration tier (testcontainers MariaDB) — M1 flags/definitions suite
 ```
 
+Pull requests and pushes to `main` are checked by GitHub Actions (lint, type-check, unit and
+integration tests); E2E suites run on manual dispatch. Pushes to `main` and `v*` tags publish
+the API image to `ghcr.io/kokhoui83/flag-management-system-v2`. See
+[05-testing.md §5](docs/05-testing.md#5-continuous-integration) and
+[02-architecture.md §10](docs/02-architecture.md#10-deployment).
+
 The full milestone plan lives in [docs/06-roadmap.md](docs/06-roadmap.md); the M2 acceptance
 checks are green per [05-testing.md](docs/05-testing.md) §2.2 (compiler/ETag) and the sync-scope
 scenarios, plus the integration tier against testcontainers MariaDB (FR-26/FR-27/FR-28). The M3

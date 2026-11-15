@@ -131,7 +131,7 @@ Layout: one source per (project, environment). With per-project environments (FR
 source count grows with projects × environments; URI and `flagSetId` naming follow the OQ-6
 resolution (`<projectKey>:<env>`, see [06-roadmap.md](06-roadmap.md) M2).
 
-**Compose topology note:** In the v1 local deployment the management API runs as a host Node process and flagd runs in a Docker container (the API container image is a v1.1 candidate; see [06-roadmap.md](06-roadmap.md) M0). Inside a container, `localhost` refers to the container itself, so the flagd sync source URIs must point at the host: `http://host.docker.internal:3000/api/v1/sync/checkout/<env>` (Docker Desktop) or the compose service name (e.g. `http://api:3000/api/v1/sync/checkout/<env>`) once the API runs in a container.
+**Compose topology note:** In the v1 local deployment the management API runs as a host Node process and flagd runs in a Docker container (a container image is also published; see [§10](#10-deployment)). Inside a container, `localhost` refers to the container itself, so the flagd sync source URIs must point at the host: `http://host.docker.internal:3000/api/v1/sync/checkout/<env>` (Docker Desktop) or the compose service name (e.g. `http://api:3000/api/v1/sync/checkout/<env>`) once the API runs in a container.
 
 Notes (verified against current flagd docs):
 
@@ -402,6 +402,7 @@ terminating proxy), rate limiting, PII redaction in audit.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP port (API + dashboard + sync) |
+| `HOST` | `localhost` | Listen address; the container image sets `0.0.0.0` |
 | `NODE_ENV` | `development` | `production` enforces no insecure defaults |
 | `DATABASE_URL` | dev default matching compose (`mysql://fms:***@127.0.0.1:3306/fms`; refused in production) | MariaDB connection |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | dev defaults (refused in production) | Login credentials |
@@ -423,8 +424,23 @@ npm run start -w server        # API + dashboard on :3000
 
 Dev loop: `npm run dev` (API, watch) + `npm run dev:web` (Vite dev server on :5173, proxying
 `/api` → :3000). `docker-compose.yml` ships with the repo and contains **flagd and mariadb**;
-the API runs as a Node process (keeps the dev loop simple; a container image for the API is
-a v1.1 candidate).
+the API runs as a Node process (keeps the dev loop simple).
+
+**Container image:** the root `Dockerfile` packages the API and the built dashboard. The
+[Docker image workflow](../.github/workflows/docker.yml) publishes it to
+`ghcr.io/kokhoui83/flag-management-system-v2` on pushes to `main` (tags `main`, `sha-<commit>`)
+and on `v*` tags (semver tags and `latest`). The image runs with `NODE_ENV=production`, so
+`DATABASE_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` and `JWT_SECRET` must be set (§9); it listens
+on `0.0.0.0:3000`, applies pending migrations at boot and exposes `/healthz` as its health
+check. MariaDB and flagd are not included; flagd's sync sources must point at the API's
+address. The compose file does not run this image.
+
+```bash
+docker run -p 3000:3000 \
+  -e DATABASE_URL=mysql://<user>:<password>@<host>:3306/fms \
+  -e ADMIN_USERNAME=<name> -e ADMIN_PASSWORD=<password> -e JWT_SECRET=<secret> \
+  ghcr.io/kokhoui83/flag-management-system-v2:main
+```
 
 Dashboard browser E2E uses Playwright (`web/e2e/*.spec.ts` + `web/playwright.config.ts`)
 against a running API, MariaDB and built `web/dist`; flagd is required for live-sync and

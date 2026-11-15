@@ -11,6 +11,7 @@ describe('config (architecture §9)', () => {
     const config = loadConfig({ NODE_ENV: 'development' });
 
     expect(config.port).toBe(3000);
+    expect(config.host).toBe('localhost');
     expect(config.nodeEnv).toBe('development');
     expect(config.databaseUrl).toBe(INSECURE_DATABASE_URL);
     expect(config.adminUsername).toBe(INSECURE_ADMIN_USERNAME);
@@ -32,6 +33,7 @@ describe('config (architecture §9)', () => {
     const config = loadConfig({
       NODE_ENV: 'production',
       PORT: '8080',
+      HOST: '0.0.0.0',
       DATABASE_URL: 'mysql://fms:secret@10.0.0.5:3306/fms',
       ADMIN_USERNAME: 'ops',
       ADMIN_PASSWORD: 's3cret',
@@ -44,6 +46,7 @@ describe('config (architecture §9)', () => {
     });
 
     expect(config.port).toBe(8080);
+    expect(config.host).toBe('0.0.0.0');
     expect(config.databaseUrl).toBe('mysql://fms:secret@10.0.0.5:3306/fms');
     expect(config.adminUsername).toBe('ops');
     expect(config.adminPassword).toBe('s3cret');

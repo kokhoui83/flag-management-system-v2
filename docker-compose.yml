@@ -1,6 +1,6 @@
 # M0 compose topology (architecture §10, compose topology note): the management API
 # runs as a host Node process; flagd (evaluation engine) and mariadb (system of record)
-# run as containers. The API container image is a v1.1 candidate (deferred).
+# run as containers. The published API image (Dockerfile) is not part of this topology.
 services:
   mariadb:
     image: mariadb:11.8

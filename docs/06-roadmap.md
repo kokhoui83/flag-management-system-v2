@@ -321,8 +321,8 @@ Remaining work includes:
 **M4 verification (2026-11-14):** web component tests passed (14/14) and web type-check passed.
 The eight existing Playwright scenarios passed (8/8) against a built dashboard, API and isolated
 MariaDB; flagd was not running. The run required an unsaved local installation of `argon2`,
-which is imported by the server but not declared in its package manifest; that installation also
-changed local dependency versions. The browser suite includes API-driven setup and assertions
+which the server imported without declaring it in its package manifest (declared since in
+`server/package.json`); that installation also changed local dependency versions. The browser suite includes API-driven setup and assertions
 (including environment creation) and does not establish full UI acceptance or flagd live sync.
 The production dashboard build measured 659.27 kB JS / 197.33 kB gzip.
 
@@ -458,7 +458,8 @@ but a passing M4.5 does not substitute for M4 acceptance.
 - Optimistic locking (`If-Match` on flag version) for concurrent edits.
 - "Advanced JSONLogic" escape hatch for power users (OQ-4).
 - Scheduled rollouts via `$flagd.timestamp` (OQ-3).
-- Container image for the management API; TLS guidance; Postgres port (OQ-5); multi-instance
+- Running the API image in `docker-compose.yml` (the image itself is published, see
+  [02-architecture.md §10](02-architecture.md#10-deployment)); TLS guidance; Postgres port (OQ-5); multi-instance
   FMS (incl. boot-time migration locking); flagd replicas / LB (architecture §11).
 - Browser-side evaluation pattern hardening (OQ-2).
 - Rate limiting + Prometheus wiring of flagd metrics.

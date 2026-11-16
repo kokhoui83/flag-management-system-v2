@@ -102,7 +102,7 @@ test('the playground result uses the enabled development example', () => {
     )
     .map((step) => step.params.text);
   expect(labels).toContain('Development  ▾');
-  expect(labels).toContain('dev · v12 · 8 ms');
+  expect(labels).toContain('dev · flag v12');
 });
 
 test('the project header does not claim everything is synced while staging is stale', () => {
@@ -113,8 +113,9 @@ test('the project header does not claim everything is synced while staging is st
         step.params?.parent?.$ref === 'flags' && step.params?.type === 'text',
     )
     .map((step) => step.params.text);
-  expect(labels).toContain('Stale v8 ≠ v9');
-  expect(labels.filter((value) => value === 'Synced v12')).toHaveLength(2);
+  expect(labels).toContain('Stale · 1 flag');
+  // Environment cards aggregate flags; the stored version belongs to a flag, not an environment.
+  expect(labels.filter((value) => value === 'Synced')).toHaveLength(2);
 });
 
 test('only the project with a matching example detail screen opens that screen', () => {
@@ -134,4 +135,83 @@ test('only the project with a matching example detail screen opens that screen',
     ),
   );
   expect(linkedCards.map((card) => card.params.name)).toEqual(['Checkout Web']);
+});
+
+const allText = () =>
+  buildDesign()
+    .filter((step) => step.params?.type === 'text')
+    .map((step) => step.params.text);
+
+test('the baseline presents only what the API supports', () => {
+  const text = allText().join('\n');
+  for (const supported of [
+    'Username',
+    'Not configured',
+    'Stored version',
+    'Each environment starts without a definition until it is configured.',
+    'ROLE ON THIS PROJECT',
+  ]) {
+    expect(text).toContain(supported);
+  }
+  for (const unsupported of [
+    'Email',
+    '@example.com',
+    'Pending',
+    'Last active',
+    'starts disabled',
+    'ON · v',
+    'OFF · v',
+    ' ms',
+  ]) {
+    expect(text).not.toContain(unsupported);
+  }
+});
+
+test('environment tabs show state, not a per-environment stored version', () => {
+  const editorText = buildDesign()
+    .filter(
+      (step) =>
+        step.params?.parent?.$ref === 'editor' && step.params?.type === 'text',
+    )
+    .map((step) => step.params.text);
+  expect(editorText).toContain('dev  ·  on');
+  expect(editorText).toContain('staging  ·  off');
+  expect(editorText).toContain('prod  ·  not configured');
+  expect(editorText.some((value) => /·\s+v\d+$/.test(value))).toBe(false);
+});
+
+test('the design covers loading, empty, error and confirmation states', () => {
+  const frames = buildDesign().filter(
+    (step) => step.command === 'node.create' && step.params.type === 'frame',
+  );
+  for (const state of [
+    'Flags · loading',
+    'Flags · empty',
+    'Flags · error',
+    'Confirm · turn flag off',
+    'Confirm · delete flag',
+    'Validation · all problems',
+    'Invite · temporary password',
+  ]) {
+    const frame = frames.find((step) => step.params.name === state);
+    expect(frame).toBeTruthy();
+    expect(frame.params.width).toBe(1440);
+  }
+});
+
+test('the design covers the mobile layouts', () => {
+  const frames = buildDesign().filter(
+    (step) => step.command === 'node.create' && step.params.type === 'frame',
+  );
+  for (const screen of [
+    'Mobile · Login',
+    'Mobile · Navigation',
+    'Mobile · Projects',
+    'Mobile · Flags',
+    'Mobile · Flag editor',
+  ]) {
+    const frame = frames.find((step) => step.params.name === screen);
+    expect(frame).toBeTruthy();
+    expect(frame.params.width).toBe(390);
+  }
 });

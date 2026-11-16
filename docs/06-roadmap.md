@@ -280,45 +280,93 @@ provider state.
 - Live updates: subscribe to `GET /api/v1/events` (`EventSource`, session cookie); flag list
   - sync-health badge refresh on `flag-changed` / `provider-ready` (FR-52).
 
-**Implementation status (reviewed 2026-11-15):** M4 is **partially implemented, not accepted**.
-`web/` contains Vue 3, Naive UI, Pinia and hash-router views for login, projects, flags, the
-playground, API keys, audit and guide. These views do not yet provide the complete operator
-journey or meet all acceptance criteria. The [FigCraft dashboard design](07-dashboard-design.md)
-is a first-pass draft, separate from the implemented application.
+**Implementation status (2026-11-16):** M4 is **implemented; every acceptance criterion below
+is verified** by component tests and by browser journeys that drive the real UI against the API,
+an isolated MariaDB and a running flagd. The work that was open on 2026-11-15 landed as follows:
 
-Remaining work includes:
+- **Shell and session:** authenticated views render inside an app shell with role-gated
+  navigation, the signed-in identity and sign-out; a page reload restores the session from the
+  cookie (`GET /api/v1/auth/session`); admin-only routes redirect other roles.
+- **Members and environments:** an admin-only Members view (`#/members`) invites users with a
+  global role and independent per-project roles and keeps the temporary password on screen
+  until dismissed; admins and developers add environments from the project's flag list.
+- **Flag editing:** variant table (name, value, shared value type; add/remove/rename), default
+  variant, ordered rule editor (attribute conditions incl. operator and value editing,
+  percentage splits, reorder), all-at-once problem list, description editing, copy-from with a
+  confirmation, flag deletion for (project-scoped) admins, and creation of definitions in
+  environments that have none. Product owners can only toggle `enabled` on an existing
+  definition; unsaved edits survive a concurrent server-side change with a warning.
+- **Playground:** loads the flags of the selected project and the definition of the selected
+  flag itself, so the options and the percentage-rule targeting-key guard work on a fresh page.
+- **API keys and audit:** the one-time plaintext stays visible until dismissed; revoke asks for
+  confirmation; the audit table expands rows into before/after diffs and keeps the applied
+  filters (actor, action, entity) when loading older entries.
+- **Live sync:** the shell opens the SSE subscription; the flag list loads the observed status
+  of every flag and refreshes on `flag-changed` / `provider-ready` / `provider-error`. A failed
+  or missing observation is never shown as synced. After a change the acting client re-probes
+  a few times (1 s, 2 s, 4 s, 8 s) so the badge settles even if a live event is missed.
 
-- Add member invitation and environment-creation UI, dashboard navigation and logout; restore
-  an existing session on page reload.
-- Complete flag editing, including variant management and reliable creation of definitions in
-  environments without one. Gate copy and other controls according to the capability matrix,
-  including project-scoped admins and product owners.
-- Load playground flags and definitions for the selected project and flag so the options and
-  percentage-rule targeting-key guard do not depend on previously visited views.
-- Keep newly created API-key plaintext visible for its one-time display; add audit before/after
-  diffs and preserve filters when loading older entries.
-- Start the existing SSE subscription and load observed status for flag-list badges so live
-  sync-health updates work without first opening each flag.
+**Defects found and fixed while completing M4 (each with a failing test first):**
+
+- The dashboard API client declared a JSON content type on body-less requests, which the API
+  rejects with `400` — flag deletion, API-key revocation and the server-side logout never
+  succeeded from the UI (the cookie survived a "logout").
+- `GET /api/v1/audit` returned the _newest_ entry of a page as `nextBefore` and never `null`,
+  so a second page overlapped the first. The cursor is now the oldest entry of the page and
+  `null` at the end, as [04-api.md](04-api.md) specifies.
+- `GET /api/v1/events` sent nothing until the first event or keepalive, so a browser
+  `EventSource` stayed "connecting" for up to 15 s; the stream now opens with an SSE comment.
+- Each SSE connection drained the shared change queue itself, so with several dashboards open
+  only the oldest connection received `flag-changed`. Changes are now drained once and fanned
+  out to every connected client.
+- Invited global admins (role stored as `ADMIN`) were not recognised as admins by the
+  dashboard; roles are normalised through `normalizeRole` in `shared/`.
+- The rule editor bound Naive UI events that do not exist (`update:model-value`), so operator,
+  value, weight and served-variant edits were silently dropped.
+- **Sync document left stale (found via the M4.5 flagd-down journey).** `server/src/index.ts`
+  gave the store one model memo and let the app create another for the sync route, so store
+  invalidations never reached the document served to flagd; and the memo treated "highest flag
+  version unchanged" as "nothing changed". A flag added or changed below the highest version of
+  its flag set was therefore never sent to flagd (and raised no change event). The memo is now
+  keyed by the flag state itself and the entry point shares one memo.
+- **`…/observed` echoed the stored version.** For a disabled definition, or when flagd returned
+  no version, the probe reported the *stored* version — so such flags always looked synced,
+  even with flagd stopped. The endpoint now asks flagd in every case and reports
+  `version: null` when flagd does not serve the flag.
+
+**Known limitation (not an M4 acceptance item; candidate for M5 hardening):**
+
+- flagd only syncs the sources listed in its configuration, so projects created at runtime are
+  evaluated and observed only after their sync sources are added to `flagd/config.yaml`. Until
+  then their sync badge reads `Sync unavailable`.
 
 **Acceptance**
 
-- [ ] Every UI-scoped requirement (FR-40–FR-47, FR-52–FR-59) exercisable in the UI.
+- [x] Every UI-scoped requirement (FR-40–FR-47, FR-52–FR-59) exercisable in the UI.
       FR-50 (client-side OpenFeature events) and FR-51 (SSE API) are API/provider requirements
       verified in M3, not UI acceptance criteria.
-- [ ] UI-level [05-testing.md §2.6](05-testing.md) scenarios fully covered and green, including
+- [x] UI-level [05-testing.md §2.6](05-testing.md) scenarios fully covered and green, including
       member invites, environment creation, assigned-project visibility, role restrictions and
-      per-environment isolation. The existing eight browser scenarios cover only part of this
-      scope; some use API requests rather than the UI.
-- [ ] Capability matrix enforced in the UI and API: product-owner `enabled`-only toggle;
+      per-environment isolation — all through the UI; API requests are used only to assert that
+      the API rejects what the UI does not offer.
+- [x] Capability matrix enforced in the UI and API: product-owner `enabled`-only toggle;
       developer cannot manage members/keys/projects; admin-only audit/keys/member views
       (FR-54/FR-58/FR-59).
-- [ ] Sync-health badge consumes `GET …/flags/:key/observed` and refreshes on
+- [x] Sync-health badge consumes `GET …/flags/:key/observed` and refreshes on
       `flag-changed`/`provider-ready` (FR-47/FR-52).
-- [ ] Verify no validation/compilation logic is reimplemented in dashboard code (`shared/`
-      imports only) and exercise the rule editor and audit diff in their actual UI flows.
+- [x] No validation/compilation logic is reimplemented in dashboard code (`validateDefinition`,
+      `validateFlagKey`, `validateEnvName`, `normalizeRole`, `effectiveCapability` come from
+      `shared/`); the rule editor and the audit diff are exercised in their actual UI flows.
 - [x] Bundle budget (Vue + Naive UI, gzip) recorded in the M4 note.
 
-**M4 verification (2026-11-14):** web component tests passed (14/14) and web type-check passed.
+**M4 verification (2026-11-16):** web tests 153/153, server unit tests 88/88, shared 21/21,
+integration suites and the real-flagd server E2E green, lint and type-check clean.
+`npm run test:e2e:web:stack` runs the browser journeys against a freshly provisioned stack
+(isolated MariaDB, the API serving the built dashboard, flagd syncing project `checkout`); see
+the M4.5 verification below for the current count. The production dashboard build measured
+649 kB JS / 195 kB gzip.
+
+**M4 historical verification (2026-11-14):** web component tests passed (14/14) and web type-check passed.
 The eight existing Playwright scenarios passed (8/8) against a built dashboard, API and isolated
 MariaDB; flagd was not running. The run required an unsaved local installation of `argon2`,
 which the server imported without declaring it in its package manifest (declared since in
@@ -395,22 +443,71 @@ but a passing M4.5 does not substitute for M4 acceptance.
    exercise keyboard navigation, focus, responsive layouts and real browser journeys. Test live
    updates with the API, isolated database and flagd running.
 
+**Implementation status (2026-11-16):** M4.5 is **implemented and verified, pending design
+review by the project owner** (the first acceptance item asks for a reviewed draft; that review
+is a human decision and has not happened).
+
+1. **Design baseline** — `design/figcraft/build.mjs` now uses a username login, shows the stored
+   version per flag (environments show ON / OFF / Not configured and aggregate health), drops the
+   unsupported member Active/Pending and last-active columns and the project-access remove
+   action, and states that environments start without a definition. Seven state frames
+   (loading, empty, error, two confirmations, all-at-once validation, one-time password) and
+   five 390 px mobile frames were added. The rebuilt file and 25 previews are committed.
+2. **Foundation** — design tokens (`web/src/styles/tokens.css`), shared styles, a Naive UI theme,
+   and the light shell: app rail with role-gated navigation and user card, top bar with
+   breadcrumb and live pill, skip link; below 960 px the rail is an off-canvas menu.
+3. **Operator journeys** — login, project card grid with search, flag list with environment
+   summary cards, search/filter, confirmed inline ON/OFF toggle and the create-flag drawer
+   (live key preview), two-column editor with a sticky save bar and discard, two-card
+   playground.
+4. **Administration** — members with an invite dialog (one-time password replaces the form),
+   the read-only Roles & permissions matrix (derived from the rules that gate the UI), Project
+   access (members of one project, add member), API keys with a create dialog, audit with
+   red/green diffs.
+5. **API-dependent decisions** — explicitly deferred, not presented: member Active/Pending and
+   last-active, the global role of other members, standalone project-role change and removal,
+   audit environment/date filters and page counts, project-card flag counts and last change,
+   the editor's "Copy OpenFeature snippet". FR-41's per-environment version wording is resolved
+   in favour of the existing model: one stored version per flag, compared per environment with
+   what flagd serves ([07-dashboard-design.md §5.3](07-dashboard-design.md)).
+6. **Verification** — see below.
+
 **Acceptance**
 
 - [ ] M4 functional acceptance is complete; the updated FigCraft draft and screen states are
-      reviewed and consistent with the requirements and supported API.
-- [ ] Supported operator and administration screens follow the approved design on desktop and
+      reviewed and consistent with the requirements and supported API. _M4 is complete and the
+      draft is corrected and rebuilt; the owner's design review is outstanding._
+- [x] Supported operator and administration screens follow the approved design on desktop and
       mobile, including loading, empty, error, disabled and confirmation states.
-- [ ] Global admin, project-scoped admin, developer and product-owner journeys retain the
+- [x] Global admin, project-scoped admin, developer and product-owner journeys retain the
       capability matrix; unauthorized actions are unavailable and rejected by the API.
-- [ ] Browser tests exercise real UI journeys, including invitation, environment creation,
+- [x] Browser tests exercise real UI journeys, including invitation, environment creation,
       flag editing and toggling, one-time secrets, audit and role restrictions; sync tests use
       a running flagd and verify stale-to-synced and disconnected states.
-- [ ] Keyboard operation, visible focus, labels and responsive layouts are verified; visual
-      comparisons cover the approved desktop and mobile designs.
-- [ ] Unit/component tests, web type-check, build and relevant browser tests pass with a
+- [x] Keyboard operation, visible focus, labels and responsive layouts are verified; visual
+      comparisons cover the approved desktop and mobile designs. _Comparison is by review of
+      captured screens against the FigCraft previews, not automated pixel diffing; FigCraft
+      has no frame for six of the mobile screens._
+- [x] Unit/component tests, web type-check, build and relevant browser tests pass with a
       reproducible dependency setup. API-dependent features are implemented and tested or
       explicitly deferred; no unsupported status or version is presented as fact.
+
+**M4.5 verification (2026-11-16):** `npm run test:e2e:web:stack` — 33/33 browser journeys on a
+freshly provisioned stack with flagd running, and 33/33 again when re-run against the same,
+already used stack. The real-flagd server E2E (`npm run test:e2e`, 8/8) and the integration
+tier (111/111) are green with the server fixes above; the server E2E now retries flagd's start
+when Docker's host relay refuses its first sync. The browser
+journeys cover every screen at 1440×900 and 390×844 (no horizontal page overflow; every visible control
+has an accessible name), the mobile menu, keyboard-only sign-in, skip link, visible focus and
+dialog focus trapping, the kill switch (admin and product owner), the project-scoped admin,
+stale → synced after a save, and flagd stopped → `Sync unavailable` → recovered. Implemented
+screens are captured in [`design/implemented/`](../design/implemented/) (13 desktop, 13 mobile)
+next to the FigCraft previews in [`design/figcraft/previews/`](../design/figcraft/previews/).
+
+Known deviations from the draft: environment cards are labelled with the environment chip
+rather than a long name; the editor's variant table edits in place and carries an explicit
+value-type selector; Inter and JetBrains Mono are used when installed and fall back to system
+fonts (no web fonts are bundled); the audit log pages with "Load older" only.
 
 ---
 

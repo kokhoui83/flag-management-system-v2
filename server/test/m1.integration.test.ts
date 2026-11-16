@@ -583,6 +583,39 @@ describe('M1 — Flags & definitions core (integration: MariaDB via testcontaine
     expect(delB.statusCode).toBe(403);
   });
 
+  it('pages the audit log newest-first with disjoint pages and a null cursor at the end (FR-38)', async () => {
+    const token = await adminToken();
+    // Five more logins guarantee at least six `auth.login` entries for the admin actor.
+    for (let i = 0; i < 5; i += 1) await adminToken();
+    const page = async (query: string) => {
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/v1/audit?action=auth.login&actor=admin&${query}`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(response.statusCode).toBe(200);
+      return response.json() as { entries: Array<{ id: string }>; nextBefore: string | null };
+    };
+
+    const all = await page('limit=200');
+    expect(all.entries.length).toBeGreaterThanOrEqual(6);
+    expect(all.nextBefore).toBeNull();
+    const expectedIds = all.entries.map((entry) => entry.id);
+
+    const collected: string[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const next = await page(`limit=4${cursor ? `&before=${cursor}` : ''}`);
+      collected.push(...next.entries.map((entry) => entry.id));
+      cursor = next.nextBefore;
+      pages += 1;
+    } while (cursor !== null && pages < 100);
+
+    expect(collected).toEqual(expectedIds);
+    expect(new Set(collected).size).toBe(collected.length);
+  });
+
   it('records the authenticated actor on the project.environment.create audit entry (FR-36)', async () => {
     const token = await adminToken();
     const created = await createProject(token, 'audit-actor', 'Audit Actor');

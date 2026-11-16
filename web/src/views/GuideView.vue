@@ -1,148 +1,165 @@
 <template>
-  <main class="guide-page">
-    <n-page-header
-      title="User guide"
-      subtitle="How to operate the Flag Management System dashboard (FR-40–FR-47, FR-52–FR-59)."
-    />
+  <main class="page guide-page">
+    <header class="page-header">
+      <div>
+        <h1 class="page-title">User guide</h1>
+        <p class="page-subtitle">How to operate the dashboard, task by task.</p>
+      </div>
+    </header>
 
-    <section class="guide-section">
-      <h1>Flag Management System — User Guide</h1>
-
-      <h2>1. Sign in and session bootstrap</h2>
-      <p>
-        Open the dashboard and sign in with a username and password. The first
-        credential pair is the bootstrap admin (FR-30); invited users receive a
-        temporary password from an admin invite (FR-57).
-      </p>
+    <section class="card" aria-labelledby="guide-signin">
+      <h2 id="guide-signin" class="section-title">Sign in and out</h2>
       <ol>
         <li>
-          Enter credentials on the login screen; the session cookie is issued
-          automatically (FR-40).
+          Sign in with your username and password. Accounts are created by an
+          admin invite; there is no self-signup.
         </li>
         <li>
-          The dashboard loads your projects via
-          <code>GET /api/v1/auth/session</code> and the project list.
+          Your session survives a page reload. Use <strong>Sign out</strong> in
+          the navigation to end it.
         </li>
         <li>
-          Log out via the session endpoint; the cookie is cleared (FR-31).
+          The navigation shows only what your role may use. Your global role is
+          shown next to your name.
         </li>
       </ol>
+    </section>
 
-      <h2>2. Projects</h2>
-      <p>
-        Each project groups flags by product area and carries an environment set
-        (for example <code>dev</code>, <code>staging</code>, <code>prod</code>).
-        Admins can create projects; the create returns <code>409</code> when the
-        name or key already exists.
-      </p>
-      <ul>
-        <li>Open a project to list its flags.</li>
+    <section class="card" aria-labelledby="guide-projects">
+      <h2 id="guide-projects" class="section-title">
+        Projects and environments
+      </h2>
+      <ol>
         <li>
-          Admins manage members per project (global role + per-project
-          assignment, temporary password shown once) and can add environments.
-        </li>
-      </ul>
-
-      <h2>3. Flags and definitions</h2>
-      <p>
-        Each flag version stores, per environment, an enablement switch,
-        variants with values, and targeting rules.
-      </p>
-      <ul>
-        <li>
-          <strong>Toggle enablement per environment</strong> (FR-42) — the
-          definition is replaced all-at-once and validated before save (FR-14).
-        </li>
-        <li><strong>Edit variants and default variant</strong> (FR-5).</li>
-        <li>
-          <strong>Edit targeting rules</strong>: attribute conditions
-          (<code>eq</code>, <code>neq</code>, <code>in</code>,
-          <code>starts_with</code>, <code>ends_with</code>, <code>gt</code>,
-          <code>gte</code>, <code>lt</code>, <code>lte</code>,
-          <code>exists</code>) and percentage splits with weights (FR-19).
+          <strong>Projects</strong> lists the projects you are assigned to
+          (admins see all). Admins create projects with
+          <strong>New project</strong>; a project starts with the environments
+          dev, staging and prod.
         </li>
         <li>
-          <strong>Copy from another environment</strong> into the selected
-          environment (FR-9).
+          Open a project to see one summary card per environment: how many flags
+          are enabled and whether flagd serves the stored versions.
         </li>
-      </ul>
+        <li>
+          Admins and developers add an environment with
+          <strong>Add environment</strong> (lowercase letters, digits and
+          hyphens; unique within the project).
+        </li>
+      </ol>
+    </section>
 
-      <h2>4. Sync health</h2>
-      <p>
-        The sync badge compares the stored flag version with the version
-        observed by the flag engine per environment (FR-47). A mismatch means
-        the stored definition changed after the last sync; the badge refreshes
-        automatically on the <code>flag-changed</code> event and on
-        <code>provider-ready</code> (FR-52).
-      </p>
+    <section class="card" aria-labelledby="guide-flags">
+      <h2 id="guide-flags" class="section-title">Flags</h2>
+      <ol>
+        <li>
+          <strong>New flag</strong> opens a drawer: enter a name, check the
+          suggested key and create. The flag exists in every environment of the
+          project, but each environment has no definition until you save one.
+        </li>
+        <li>
+          Each row shows the stored flag version and one state per environment:
+          <strong>ON</strong>, <strong>OFF</strong> or
+          <strong>Not configured</strong>.
+        </li>
+        <li>
+          Kill switch: click an ON/OFF pill and confirm to flip that
+          environment. Every project role may do this, including product owners.
+        </li>
+        <li>
+          The sync badge compares what flagd serves with the stored version:
+          <em>Synced</em>, <em>Stale</em> (flagd is behind),
+          <em>Sync unknown</em> (not observed yet) or
+          <em>Sync unavailable</em> (flagd could not be reached).
+        </li>
+      </ol>
+    </section>
 
-      <h2>5. Evaluate playground</h2>
-      <p>
-        Call the management API evaluation proxy with a targeting key and
-        context to inspect flag evaluation (FR-22 / FR-44). A targeting key is
-        required for flags with a percentage rule (FR-19).
-      </p>
+    <section class="card" aria-labelledby="guide-editor">
+      <h2 id="guide-editor" class="section-title">Editing a definition</h2>
+      <ol>
+        <li>
+          Open a flag and pick an environment tab. Environments are independent:
+          a change in one never affects another.
+        </li>
+        <li>
+          Set the enabled switch, the variants (all of one value type), the
+          default variant and the ordered rules. Rules are checked top to
+          bottom; a percentage rule must be last and needs a targeting key at
+          evaluation time.
+        </li>
+        <li>
+          <strong>Save changes</strong> checks the whole definition and lists
+          every problem at once. A successful save shows the new flag version;
+          saving an unchanged definition does not change the version.
+        </li>
+        <li>
+          <strong>Copy from…</strong> replaces the whole definition of the
+          selected environment with another environment's, after confirmation.
+        </li>
+        <li>
+          Product owners can change the enabled switch of an existing definition
+          only. Deleting a flag is reserved for admins of the project.
+        </li>
+      </ol>
+    </section>
 
-      <h2>6. API keys and audit</h2>
+    <section class="card" aria-labelledby="guide-playground">
+      <h2 id="guide-playground" class="section-title">Playground</h2>
       <p>
-        Admins create API keys (scopes <code>manage</code> |
-        <code>evaluate</code> | <code>sync</code> | <code>all</code>) and revoke
-        them; the plaintext is shown once (FR-45). The audit view lists
-        management actions with before/after context (FR-46).
+        Pick a project, flag and environment, optionally a targeting key and a
+        context JSON object, then <strong>Evaluate</strong>. The result shows
+        the value, variant, reason and the flag version flagd evaluated.
+        Evaluation needs flagd to sync the project.
       </p>
+    </section>
 
-      <h2>7. Roles and capability matrix</h2>
-      <p>
-        The effective capability per project is the union of the global role and
-        the per-project membership (FR-54). Admins manage; developers author
-        flags; product owners toggle <code>enabled</code> only.
-      </p>
+    <section v-if="session.isAdmin" class="card" aria-labelledby="guide-admin">
+      <h2 id="guide-admin" class="section-title">Administration</h2>
+      <ol>
+        <li>
+          <strong>Members</strong>: invite a user with a global role and a role
+          per project. The temporary password is shown once. Invite a user again
+          to change roles; this issues a new temporary password.
+        </li>
+        <li>
+          <strong>Project access</strong> (from a project): who holds a role on
+          that project.
+        </li>
+        <li>
+          <strong>API keys</strong>: create keys for flagd (sync) and SDK
+          clients (evaluate). The key is shown once; revoking takes effect
+          immediately.
+        </li>
+        <li>
+          <strong>Audit log</strong>: every change with actor, action and
+          entity; expand a row to see the before/after difference.
+        </li>
+        <li>
+          <strong>Roles &amp; permissions</strong>: the full capability matrix.
+        </li>
+      </ol>
     </section>
   </main>
 </template>
 
 <script setup lang="ts">
-import { NPageHeader } from 'naive-ui';
+import { useSessionStore } from '../stores/session';
+
+const session = useSessionStore();
 </script>
 
 <style scoped>
 .guide-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  max-width: 820px;
 }
-.guide-section {
-  max-width: 860px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  font-size: 14px;
-}
-.guide-section h1 {
-  font-size: 24px;
+.guide-page ol {
   margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: var(--space-sm);
 }
-.guide-section h2 {
-  font-size: 18px;
-  margin: 8px 0 0;
-}
-.guide-section h3 {
-  font-size: 15px;
-  margin: 4px 0 0;
-}
-.guide-section p,
-.guide-section li {
-  line-height: 1.6;
-}
-.guide-section ul,
-.guide-section ol {
-  padding-left: 24px;
-  margin: 4px 0;
-}
-.guide-section code {
-  background: #f1f5f9;
-  border-radius: 4px;
-  padding: 1px 4px;
-  font-size: 13px;
+.guide-page p,
+.guide-page li {
+  color: var(--ink-2);
 }
 </style>

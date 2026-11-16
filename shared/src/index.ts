@@ -31,13 +31,20 @@ const CAPABILITY_LADDER: readonly EffectiveRole[] = [
   'admin',
 ];
 
-function rankOf(role: string | null | undefined): number {
+/**
+ * Canonical role name for any accepted spelling (`ADMIN`, `PRODUCT_OWNER`, `product-owner`, …);
+ * `null` when the input is not a role. Stored roles are upper-snake, API/UI roles lower-kebab.
+ */
+export function normalizeRole(role: string | null | undefined): Role | null {
   const normalized = (role ?? '').trim().toLowerCase().replace(/_/g, '-');
-  const index =
-    normalized === ''
-      ? -1
-      : CAPABILITY_LADDER.indexOf(normalized as EffectiveRole);
-  return index;
+  return (ROLES as readonly string[]).includes(normalized)
+    ? (normalized as Role)
+    : null;
+}
+
+function rankOf(role: string | null | undefined): number {
+  const normalized = normalizeRole(role);
+  return normalized === null ? -1 : CAPABILITY_LADDER.indexOf(normalized);
 }
 
 /**

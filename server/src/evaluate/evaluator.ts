@@ -9,6 +9,8 @@ import { unavailableError } from '../http/problem';
 import { LatencyTracker } from './latency';
 import type {
   FlagEvaluationInput,
+  FlagObservation,
+  FlagObservationInput,
   FlagEvaluationResult,
   ProviderRuntimeState,
 } from './types';
@@ -21,6 +23,11 @@ import type { FlagdProviderRegistry } from './providers';
  */
 export interface FlagEvaluator {
   resolve(input: FlagEvaluationInput): Promise<FlagEvaluationResult>;
+  /**
+   * Ask flagd what it serves for a flag (FR-47). Unlike `resolve`, this never short-circuits
+   * on stored state and never substitutes the stored version: the answer is flagd's own.
+   */
+  observe(input: FlagObservationInput): Promise<FlagObservation>;
 }
 
 /**
@@ -73,15 +80,7 @@ export class OpenFeatureFlagEvaluator implements FlagEvaluator {
         flagVersion: input.version,
       };
     }
-    const state: ProviderRuntimeState = this.registry.getState(input.flagSetId);
-    if (state !== 'READY') {
-      this.logger?.error?.(
-        `flag evaluation skipped: provider ${input.flagSetId} state=${state}`,
-      );
-      throw unavailableError(
-        `Flagd provider '${input.flagSetId}' is not ready`,
-      );
-    }
+    this.requireReady(input.flagSetId);
     const startedAt = performance.now();
     const details = await this.resolveViaOpenFeature(input);
     // NFR-1: measure the flag evaluation latency and feed the sample into the warm-up/protocol tracker.
@@ -95,8 +94,34 @@ export class OpenFeatureFlagEvaluator implements FlagEvaluator {
     };
   }
 
+  async observe(input: FlagObservationInput): Promise<FlagObservation> {
+    this.requireReady(input.flagSetId);
+    const details = await this.resolveViaOpenFeature(input);
+    const raw = details.flagMetadata?.version;
+    const version = typeof raw === 'number' ? raw : Number(raw);
+    const served = Number.isFinite(version) && version > 0;
+    return {
+      version: served ? version : null,
+      enabled: served && details.reason !== 'DISABLED',
+    };
+  }
+
+  /** FR-24: a provider that is not READY yields the 503 `unavailable` problem, never a default. */
+  private requireReady(flagSetId: string): void {
+    const state: ProviderRuntimeState = this.registry.getState(flagSetId);
+    if (state !== 'READY') {
+      this.logger?.error?.(
+        `flag evaluation skipped: provider ${flagSetId} state=${state}`,
+      );
+      throw unavailableError(`Flagd provider '${flagSetId}' is not ready`);
+    }
+  }
+
   private async resolveViaOpenFeature(
-    input: FlagEvaluationInput,
+    input: FlagObservationInput & {
+      targetingKey?: string;
+      context?: Record<string, unknown>;
+    },
   ): Promise<ResolutionDetails<boolean | number | string>> {
     const client = this.openFeature().getClient(input.flagSetId);
     const context: EvaluationContext = {

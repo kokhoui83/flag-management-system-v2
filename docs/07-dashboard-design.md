@@ -17,13 +17,15 @@ as a historical reference, not the current build.
 | Page | Contents |
 | --- | --- |
 | `00 · Design System` | Palette, typography and visual examples; a subset of color variables |
-| `01 · Screens` | Ten screen frames and three additional states |
+| `01 · Screens` | Ten screen frames, ten state frames and five mobile frames |
 | `02 · User Flow` | Draft main journey and role-gated branches |
 
-> **Status (2026-11-14):** FigCraft contains a first-pass desktop visual draft and
-> navigation links. It is not a complete interactive prototype: most form actions,
-> confirmations, validation, empty/error states, responsive layouts, and the full
-> component/token library remain to be designed and verified. See
+> **Status (2026-11-16):** the FigCraft draft is aligned with the supported API (username
+> login, flag-level stored versions, "Not configured" environments, no member status) and now
+> includes state frames (loading, empty, error, confirmations, validation, one-time password)
+> and 390 px mobile frames. The dashboard implements this design (M4.5); captured screens are
+> in [`design/implemented/`](../design/implemented/). The draft is still a static visual
+> reference, not an interactive prototype, and awaits the owner's design review. See
 > [§8 — FigCraft build & status](#8-figcraft-build--status).
 
 > **Visual reference (2026-11-09):** the screen language was revised against a
@@ -72,22 +74,21 @@ flowchart LR
   end
 ```
 
-Navigation model (current hash routes plus planned surfaces):
+Navigation model (hash routes; flags are created in a drawer on the flags list):
 
 | Route | Screen | Access (FR-54 matrix) |
 | --- | --- | --- |
 | `#/login` | Login | public |
 | `#/projects` | Projects (home) | all roles |
 | `#/projects/:projectId/flags` | Flags list | all roles (project-scoped) |
-| `#/projects/:projectId/flags/new` | Flag editor (create) | admin, developer |
 | `#/projects/:projectId/flags/:flagKey` | Flag editor | all roles (controls gated) |
 | `#/playground` | Evaluate playground | all roles (project-scoped) |
 | `#/api-keys` | API keys | admin only |
 | `#/audit` | Audit log | admin only |
 | `#/guide` | User guide | all roles |
-| — (planned) | Members & invites | admin only |
-| — (planned) | Roles & permissions (capability matrix) | admin only |
-| — (planned) | Project access (`#/projects/:projectId/access`) | admin only |
+| `#/members` | Members & invites | admin only |
+| `#/roles` | Roles & permissions (capability matrix) | admin only |
+| `#/projects/:projectId/access` | Project access | admin only |
 
 Shell layout (all authenticated screens):
 
@@ -508,14 +509,31 @@ static design data, not a connected dashboard. DejaVu Sans is used for the draft
 because it is available in the FigCraft CLI container; the target typography remains
 Inter and JetBrains Mono (§3.3).
 
-Still needed: full token and reusable-component libraries, more complete screen and
-interaction states (including validation, confirmations, invite and key creation),
-responsive and accessibility review, and verification of the prototype in a FigCraft
-viewer. The design system examples are not yet reusable FigCraft components.
-The draft still labels login as email and illustrates per-environment stored versions and
-Active/Pending member statuses; these are not aligned with the current API and need
-revision before handoff. Its creation drawer also incorrectly says all environments
-start disabled rather than without definitions.
+The generator is covered by `design/figcraft/build.test.mjs`, which also guards the baseline
+against presenting unsupported data (per-environment stored versions, member status,
+last-active, email login).
+
+Still needed in the draft: bound color variables and reusable components (the examples are
+plain layers), interactive prototype states, and mobile frames for the playground and the
+administration screens (the implementation covers them; see `design/implemented/mobile/`).
+
+### 8.1 Implementation notes (M4.5)
+
+| Design item | Implementation |
+| --- | --- |
+| Tokens (§3) | `web/src/styles/tokens.css`; Naive UI theme in `web/src/theme.ts` |
+| Shell (§2) | `AppShell.vue`: rail, top bar, breadcrumb, live pill, skip link; off-canvas menu below 960 px |
+| Type (§3.3) | Inter / JetBrains Mono when installed, otherwise system fonts — no web fonts are bundled |
+| Sync badge | `Synced vN` · `Stale · env vX ≠ vN` (or `not served`) · `Sync unknown` · `Sync unavailable` |
+| Inline toggle (§5.3) | ON/OFF pill with a confirmation; available to every project role |
+| Create flag (§5.3) | Side drawer with a live key suggestion; opens the editor of the new flag |
+| Capability matrix (§5.9) | Derived from the function that gates controls (`capabilityMatrix.ts`) |
+
+Deferred until the API supports them (not shown in the UI): member Active/Pending and
+last-active, the global role of other members, standalone project-role change and member
+removal, audit environment/date filters and numbered pages, project-card flag counts, sync dots
+and last change, row-level "Copy to…" and delete in the flag list (both are in the editor), and
+the playground's "Copy OpenFeature snippet".
 
 ### Historical Figma build
 

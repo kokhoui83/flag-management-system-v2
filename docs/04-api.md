@@ -181,21 +181,24 @@ Flag routes live under the owning project (`flags.project_id` is NOT NULL — 03
 
 ### `GET /api/v1/projects/:projectId/flags/:key/observed`
 
-Internal helper backing the dashboard sync-health badge (FR-47; architecture §7). Runs a probe
-evaluation for each environment of the project via the per-(project, env) flagd provider and
-returns the flagd-observed version and enablement for each environment:
+Internal helper backing the dashboard sync-health badge (FR-47; architecture §7). For each
+environment that has a definition it asks flagd, through the per-(project, env) provider, what
+it serves for the flag:
 
 ```json
 {
   "key": "new-checkout",
   "observed": {
     "dev": { "version": 7, "enabled": true, "variantType": "boolean" },
-    "staging": { "version": 7, "enabled": true, "variantType": "boolean" }
+    "staging": { "version": null, "enabled": false, "variantType": "boolean" }
   }
 }
 ```
 
-Environments with no definition are omitted (FR-7). Requires `evaluate` scope or a session.
+`version` is the flag version in flagd's model, or `null` when flagd does not serve the flag
+(not synced yet); it is never derived from the stored state. `enabled` is flagd's own state.
+Environments with no definition are omitted (FR-7). `503` when a provider is not ready.
+Requires `evaluate` scope or a session.
 
 ### `PUT /api/v1/projects/:projectId/flags/:key`
 
@@ -342,9 +345,8 @@ basis of the dashboard's stale indicator, FR-47).
 
 `targetingKey` is optional for flags without a percentage rule. For a flag whose definition
 contains a percentage rule, omitting it yields flagd's single deterministic bucket (FR-19);
-FR-44 requires the dashboard playground to block evaluation until a targeting key is supplied.
-The current guard depends on previously loaded flag detail and is not reliable for every
-project/flag selection; completing it remains M4 work.
+FR-44 requires the dashboard playground to block evaluation until a targeting key is supplied;
+the playground loads the selected flag's definition itself to apply that guard.
 
 ## 8. API keys
 
@@ -482,10 +484,10 @@ Semantics (ADR-0008):
   There is no early window.
 - No replay: events are not retained. After a disconnect, reconnect and re-fetch state to
   reconcile (FR-51).
-- `provider-ready` / `provider-error` fire on per-(project, env) provider state transitions
-  — the same states `readyz` reports (architecture §7).
-- The stream carries only flag keys + versions: nothing beyond what the management API
-  already exposes to the same credential.
+- The stream opens with an SSE comment (`: connected`) so clients see the connection
+  established immediately; comments (also `: keepalive` every 15 s) carry no event.
+- Every connected client receives each event; a change is drained from the queue once and
+  fanned out.
 
 ## 13. Projects, users & multi-user access
 

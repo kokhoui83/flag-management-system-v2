@@ -877,17 +877,21 @@ export function createStore(
     },
 
     listAudit: async (query) => {
-      const entries = await prisma.auditLog.findMany({
+      const rows = await prisma.auditLog.findMany({
         where: {
           ...(query.action ? { action: query.action } : {}),
           ...(query.entity ? { entity: query.entity } : {}),
           ...(query.actor ? { actorName: { contains: query.actor } } : {}),
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        take: query.limit,
+        // One extra row tells whether an older page exists without a second query.
+        take: query.limit + 1,
         ...(query.before ? { cursor: { id: query.before }, skip: 1 } : {}),
       });
-      const nextBefore = entries.length > 0 ? entries[0]!.id : null;
+      const hasOlder = rows.length > query.limit;
+      const entries = hasOlder ? rows.slice(0, query.limit) : rows;
+      // Cursor = the oldest entry of this page; `null` at the end of the listing (FR-38).
+      const nextBefore = hasOlder ? entries[entries.length - 1]!.id : null;
       return { entries, nextBefore };
     },
 

@@ -1,158 +1,263 @@
 <template>
-  <main class="api-keys-page">
-    <n-page-header
-      title="API keys"
-      subtitle="Machine credentials for flagd consumers (FR-32 / FR-33 / FR-53)."
-    />
+  <main class="page">
+    <header class="page-header">
+      <div>
+        <h1 class="page-title">API keys</h1>
+        <p class="page-subtitle">
+          Keys authenticate manage, sync and evaluate operations for management,
+          flagd and SDK clients.
+        </p>
+      </div>
+      <n-button type="primary" data-testid="api-key-new" @click="openCreate"
+        >Create key</n-button
+      >
+    </header>
 
     <n-alert
-      v-if="errorMessage"
+      v-if="errorMessageText && !dialogOpen"
       type="error"
       :show-icon="true"
-      :title="errorMessage"
+      :title="errorMessageText"
+      role="alert"
     />
 
-    <n-card v-if="createdKey" title="API key created" type="success">
-      <n-text strong
-        >Copy the key now — it is shown only once: {{ createdKey.key }}</n-text
+    <div v-if="loaded && keys.length === 0" class="card empty-state">
+      <strong>No API keys yet</strong>
+      <span>Create a key for flagd (sync) or an SDK client (evaluate).</span>
+    </div>
+    <div v-if="keys.length > 0" class="table-card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Scope</th>
+            <th scope="col">Created</th>
+            <th scope="col">Last used</th>
+            <th scope="col">Status</th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="key in keys" :key="key.id" :data-key-name="key.name">
+            <th scope="row">
+              {{ key.name }}
+              <code class="key-prefix">{{ key.prefix }}…</code>
+            </th>
+            <td>
+              <code>{{ key.scope.toLowerCase() }}</code>
+            </td>
+            <td :title="formatTimestamp(key.createdAt)">
+              {{ formatRelative(key.createdAt) }}
+            </td>
+            <td :title="key.lastUsedAt ? formatTimestamp(key.lastUsedAt) : ''">
+              {{ key.lastUsedAt ? formatRelative(key.lastUsedAt) : 'never' }}
+            </td>
+            <td data-testid="api-key-status">
+              <span
+                v-if="key.revokedAt"
+                class="pill pill--muted"
+                :title="formatTimestamp(key.revokedAt)"
+                >Revoked</span
+              >
+              <span v-else class="pill pill--ok">Active</span>
+            </td>
+            <td>
+              <n-popconfirm
+                v-if="!key.revokedAt"
+                positive-text="Revoke key"
+                negative-text="Cancel"
+                @positive-click="revoke(key)"
+              >
+                <template #trigger>
+                  <n-button
+                    size="small"
+                    type="error"
+                    quaternary
+                    :aria-label="`Revoke ${key.name}`"
+                    >Revoke</n-button
+                  >
+                </template>
+                Revoke “{{ key.name }}”? Clients using it are rejected
+                immediately.
+              </n-popconfirm>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <app-dialog
+      :show="dialogOpen"
+      :title="createdKey ? 'API key created' : 'Create API key'"
+      @update:show="closeDialog"
+    >
+      <section
+        v-if="createdKey"
+        class="secret-panel"
+        role="status"
+        data-testid="api-key-created"
       >
-    </n-card>
-
-    <n-button type="primary" @click="creatingKey = true">Create key</n-button>
-
-    <n-card v-if="creatingKey">
-      <n-form class="create-form" @submit.prevent="create">
+        <p>
+          Key <strong>{{ createdKey.name }}</strong> ({{ createdKey.scope }}):
+        </p>
+        <code class="secret-value" data-testid="api-key-plaintext">{{
+          createdKey.key
+        }}</code>
+        <p class="banner">
+          This is the only time the key is shown — only its hash is stored. Copy
+          it now.
+        </p>
+        <div class="form-actions">
+          <n-button type="primary" @click="closeDialog(false)"
+            >I have copied the key</n-button
+          >
+        </div>
+      </section>
+      <form v-else class="form create-form" @submit.prevent="create">
         <n-form-item label="Key name">
-          <n-input v-model:value="newKeyName" placeholder="billing-service" />
+          <n-input
+            v-model:value="newKeyName"
+            placeholder="billing-service"
+            data-testid="api-key-name"
+          />
         </n-form-item>
-        <n-form-item label="Scope">
-          <n-select v-model:value="newKeyScope" :options="scopeOptions" />
+        <n-form-item label="Scope" :feedback="scopeHint">
+          <n-select
+            v-model:value="newKeyScope"
+            :options="scopeOptions"
+            data-testid="api-key-scope"
+          />
         </n-form-item>
-        <n-button type="primary" :loading="creating" @click="create"
-          >Create</n-button
-        >
-        <n-button :disabled="creating" @click="cancelCreate">Cancel</n-button>
-      </n-form>
-    </n-card>
-
-    <n-card v-for="key in keys" :key="key.id" class="key-card">
-      <n-page-header
-        :title="key.name"
-        :subtitle="`prefix: ${key.prefix} · scope: ${key.scope}`"
-      >
-        <n-button
-          size="small"
+        <n-alert
+          v-if="errorMessageText"
           type="error"
-          quaternary
-          :disabled="key.revokedAt !== null"
-          @click="revoke(key)"
-          >Revoke</n-button
-        >
-      </n-page-header>
-      <n-descriptions :columns="2">
-        <n-descriptions-item label="createdAt">{{
-          key.createdAt
-        }}</n-descriptions-item>
-        <n-descriptions-item label="lastUsedAt">{{
-          key.lastUsedAt ?? 'never'
-        }}</n-descriptions-item>
-        <n-descriptions-item label="revokedAt">{{
-          key.revokedAt ?? '—'
-        }}</n-descriptions-item>
-      </n-descriptions>
-    </n-card>
+          :show-icon="true"
+          :title="errorMessageText"
+          role="alert"
+        />
+        <div class="form-actions">
+          <n-button
+            type="primary"
+            attr-type="submit"
+            :loading="creating"
+            data-testid="api-key-create"
+            >Create</n-button
+          >
+          <n-button :disabled="creating" @click="closeDialog(false)"
+            >Cancel</n-button
+          >
+        </div>
+      </form>
+    </app-dialog>
   </main>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
   NAlert,
   NButton,
-  NCard,
-  NDescriptions,
-  NDescriptionsItem,
-  NForm,
   NFormItem,
   NInput,
-  NPageHeader,
+  NPopconfirm,
   NSelect,
 } from 'naive-ui';
+import { API_KEY_SCOPES } from '@fms/shared';
 import { api } from '../api/client';
+import { errorMessage } from '../api/errors';
 import type { ApiKeyCreated, ApiKeyRecord } from '../api/types';
+import { formatRelative, formatTimestamp } from '../format';
+import AppDialog from '../components/AppDialog.vue';
 
 const keys = ref<ApiKeyRecord[]>([]);
+const loaded = ref(false);
+/** One-time plaintext (FR-45): stays on screen until the admin dismisses it. */
 const createdKey = ref<ApiKeyCreated | null>(null);
 const creatingKey = ref(false);
 const newKeyName = ref('');
-const newKeyScope = ref('evaluate');
+const newKeyScope = ref<string>('evaluate');
 const creating = ref(false);
-const errorMessage = ref<string | null>(null);
+const errorMessageText = ref<string | null>(null);
 
-const scopeOptions = ref<Array<{ label: string; value: string }>>([
-  { label: 'evaluate', value: 'evaluate' },
-  { label: 'sync', value: 'sync' },
-  { label: 'manage', value: 'manage' },
-  { label: 'all', value: 'all' },
-]);
+const scopeOptions = API_KEY_SCOPES.map((scope) => ({
+  label: scope,
+  value: scope,
+}));
+
+const SCOPE_HINTS: Record<string, string> = {
+  manage: 'Management API: flags, definitions, projects, keys and audit.',
+  sync: 'flagd reads flag sets from the sync endpoint.',
+  evaluate: 'SDK clients evaluate flags and subscribe to change events.',
+  all: 'Every operation — use only where a narrower scope cannot work.',
+};
+const scopeHint = computed(() => SCOPE_HINTS[newKeyScope.value] ?? '');
+
+/** The dialog shows the form, then — after a create — the one-time plaintext (FR-45). */
+const dialogOpen = computed(
+  () => creatingKey.value || createdKey.value !== null,
+);
+
+function openCreate(): void {
+  errorMessageText.value = null;
+  newKeyName.value = '';
+  creatingKey.value = true;
+}
+
+function closeDialog(show: boolean): void {
+  if (show) return;
+  creatingKey.value = false;
+  createdKey.value = null;
+  errorMessageText.value = null;
+}
 
 async function loadKeys(): Promise<void> {
   try {
     keys.value = (await api.listApiKeys()).keys;
-    createdKey.value = null;
+    loaded.value = true;
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : 'Failed to load API keys';
+    errorMessageText.value = errorMessage(error, 'Failed to load API keys');
   }
 }
 
 async function create(): Promise<void> {
+  if (newKeyName.value.trim().length === 0) {
+    errorMessageText.value = 'A key name is required';
+    return;
+  }
   creating.value = true;
   try {
-    const created = await api.createApiKey(newKeyName.value, newKeyScope.value);
-    createdKey.value = created;
+    createdKey.value = await api.createApiKey(
+      newKeyName.value.trim(),
+      newKeyScope.value,
+    );
     creatingKey.value = false;
     newKeyName.value = '';
+    errorMessageText.value = null;
     await loadKeys();
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : 'Failed to create API key';
+    errorMessageText.value = errorMessage(error, 'Failed to create API key');
   } finally {
     creating.value = false;
   }
 }
 
-function cancelCreate(): void {
-  creatingKey.value = false;
-}
-
 async function revoke(key: ApiKeyRecord): Promise<void> {
   try {
     await api.revokeApiKey(key.id);
+    errorMessageText.value = null;
     await loadKeys();
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : 'Failed to revoke API key';
+    errorMessageText.value = errorMessage(error, 'Failed to revoke API key');
   }
 }
 
-void loadKeys();
+onMounted(loadKeys);
 </script>
 
 <style scoped>
-.api-keys-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.key-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.create-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.key-prefix {
+  margin-left: var(--space-sm);
+  color: var(--ink-3);
+  font-weight: 400;
 }
 </style>

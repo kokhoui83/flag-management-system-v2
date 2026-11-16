@@ -1,21 +1,24 @@
 <template>
   <div class="diff-view">
-    <n-text v-if="diffs.length === 0" depth="2">No differences.</n-text>
-    <template v-else>
-      <ul class="diff-list">
-        <li v-for="row in diffs" :key="row.key" class="diff-row">
-          <n-text strong>{{ row.key }}</n-text>
-          <n-text depth="2">before: {{ formatValue(row.before) }}</n-text>
-          <n-text depth="2">after: {{ formatValue(row.after) }}</n-text>
-        </li>
-      </ul>
-    </template>
+    <p v-if="diffs.length === 0" class="caption">No differences.</p>
+    <ul v-else class="diff-list">
+      <li v-for="row in diffs" :key="row.key" class="diff-row">
+        <code class="diff-key">{{ row.key }}</code>
+        <code class="diff-line diff-line--before"
+          ><span aria-hidden="true">− </span>before:
+          {{ formatValue(row.before) }}</code
+        >
+        <code class="diff-line diff-line--after"
+          ><span aria-hidden="true">+ </span>after:
+          {{ formatValue(row.after) }}</code
+        >
+      </li>
+    </ul>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { NText } from 'naive-ui';
 
 export interface DiffRow {
   key: string;
@@ -79,19 +82,39 @@ function formatValue(value: unknown): string {
 </script>
 
 <style scoped>
-.diff-view {
-  font-size: 13px;
-}
 .diff-list {
   list-style: none;
   margin: 0;
   padding: 0;
+  display: grid;
+  gap: var(--space-sm);
 }
 .diff-row {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-  padding: 4px 0;
-  border-bottom: 1px dashed #e2e8f0;
+  display: grid;
+  grid-template-columns: minmax(120px, 220px) 1fr 1fr;
+  gap: var(--space-sm);
+  align-items: start;
+}
+.diff-key {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.diff-line {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
+.diff-line--before {
+  background: var(--bad-100);
+  color: var(--bad-700);
+}
+.diff-line--after {
+  background: var(--ok-100);
+  color: var(--ok-700);
+}
+@media (max-width: 640px) {
+  .diff-row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -12,9 +12,13 @@ import type {
   CopyResult,
   DefinitionPutResult,
   EvaluationResult,
+  CreateEnvironmentResult,
   FlagDetail,
   FlagSummary,
+  InviteRequest,
+  InviteResult,
   LoginResponse,
+  MemberAssignment,
   ObservedResponse,
   ProblemDetails,
   ProjectSummary,
@@ -39,7 +43,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     credentials: 'same-origin',
     ...init,
     headers: {
-      'content-type': 'application/json',
+      // Only a request that carries a body declares one: the API rejects an empty JSON body.
+      ...(init?.body != null ? { 'content-type': 'application/json' } : {}),
       ...(init?.headers ?? {}),
     },
   });
@@ -87,6 +92,36 @@ export const api = {
       body: JSON.stringify({ key, name }),
     });
     return body;
+  },
+
+  async createEnvironment(
+    projectId: string,
+    env: string,
+  ): Promise<CreateEnvironmentResult> {
+    return request(`/projects/${projectId}/environments`, {
+      method: 'POST',
+      body: JSON.stringify({ env }),
+    });
+  },
+
+  /** Members of one project with their role on it (admin only). */
+  async listMembers(projectId: string): Promise<MemberAssignment[]> {
+    const body = await request<{ members: MemberAssignment[] }>(
+      `/projects/${projectId}/members`,
+    );
+    return body.members;
+  },
+
+  /**
+   * Invite (or re-invite) a member (FR-57). The endpoint is project-addressed; the body carries
+   * every per-project assignment, so the first assignment's project addresses the request.
+   */
+  async inviteMember(invite: InviteRequest): Promise<InviteResult> {
+    const addressedProject = invite.projects[0]?.projectId ?? '';
+    return request(`/projects/${addressedProject}/members`, {
+      method: 'POST',
+      body: JSON.stringify(invite),
+    });
   },
 
   async listFlags(projectId: string): Promise<{ flags: FlagSummary[] }> {

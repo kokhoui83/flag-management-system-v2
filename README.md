@@ -55,17 +55,21 @@ per-environment state (FR-56), admin invites (FR-57), developer and product-owne
 (FR-58/FR-59) — see [docs/01-requirements.md §4.9.1](docs/01-requirements.md). Implementation lands in
 M4 per [docs/06-roadmap.md](docs/06-roadmap.md).
 
-**M4 — Dashboard (partially implemented, not accepted).** The Vue 3 + Naive UI dashboard
-has login, projects, flags, playground, API-key, audit and guide views. Member and environment
-management, full role gating, live sync and other operator flows remain incomplete. On
-2026-11-14, 14 web component tests and eight Playwright scenarios passed, but the browser run
-used API requests for some flows and did not run flagd; it does not establish M4 acceptance.
-See [docs/06-roadmap.md](docs/06-roadmap.md) §M4 for the gaps and test conditions.
+**M4 — Dashboard (implemented; acceptance criteria verified 2026-11-16).** The Vue 3 + Naive UI
+dashboard covers the operator surface: login/logout with session restore, role-gated navigation,
+projects, per-project environments, the flag list with per-environment state and sync health,
+the flag editor (variants, ordered rules, copy-from, delete), the evaluate playground, API keys,
+the audit log with before/after diffs, member invites and live updates over SSE. Component tests
+and browser journeys through the real UI (with flagd running) are green; see
+[docs/06-roadmap.md](docs/06-roadmap.md) §M4 for the evidence and known limitations.
 
-**M4.5 — FigCraft dashboard implementation (planned).** After M4 functional acceptance, apply
-the [FigCraft design](docs/07-dashboard-design.md) to those workflows before M5 hardening;
-design preparation may overlap M4. The current FigCraft file is a first-pass draft, not an
-implemented dashboard.
+**M4.5 — FigCraft dashboard implementation (implemented; design review pending).** The
+dashboard follows the [FigCraft design](docs/07-dashboard-design.md): light shell with an app
+rail, breadcrumb and live pill, design tokens, project card grid, flag list with environment
+summaries and a confirmed inline kill switch, create-flag drawer, two-column editor with a
+sticky save bar, and the Members, Roles & permissions and Project access screens. It is
+responsive down to phone width and keyboard operable. 33 browser journeys verify it against a
+running flagd; captured screens are in [design/implemented/](design/implemented/).
 
 ## Documentation
 
@@ -107,12 +111,39 @@ percentage rollouts.
 | Dashboard           | Vue 3 + Vite + TypeScript, Naive UI (built assets served by the API) | Flag CRUD, per-environment editor, evaluate playground, API keys, audit log, live change events |
 | Client applications | Any language with an official OpenFeature SDK + flagd provider       | Evaluate flags at runtime; subscribe to change events                                           |
 
+## Quick start
+
+Run the full local stack (MariaDB → management API → flagd) with Docker Compose — no local Node.js
+toolchain required:
+
+```bash
+docker compose up -d --build   # builds the management API image (serves the built dashboard on :3000) + flagd + mariadb
+docker compose ps               # wait until the api and mariadb services are healthy
+```
+
+Then open:
+
+- Dashboard (web component): <http://localhost:3000> — served by the management API from the built `web/dist`
+- Management API health: <http://localhost:3000/healthz>
+- flagd: <http://localhost:8013>
+
+Sign in with the local-dev bootstrap admin:
+
+- Username: `admin`
+- Password: `dev-insecure-password`
+
+The compose stack pins local-dev credentials via `ADMIN_USERNAME` / `ADMIN_PASSWORD`; the API refuses
+insecure defaults when `NODE_ENV=production`, so these are set explicitly for the local stack.
+
+For the host-process dev loop (Vite dashboard on :5173 proxying `/api` → :3000, tsx API on :3000), see
+[Getting started](#getting-started) below.
+
 ## Getting started
 
 Current state (M2 — model compilation & sync endpoint landed; M3 evaluation path landed):
 
 ```bash
-docker compose up -d   # flagd (pinned image) + mariadb (pinned mariadb:11.8, healthcheck) — see docker-compose.yml
+docker compose up -d   # full stack: mariadb (pinned mariadb:11.8, healthcheck) + api (built from Dockerfile, serves the built dashboard) + flagd (pinned image) — see docker-compose.yml
 npm run build:web      # vite build → web/dist
 npm run dev            # management API (Fastify) on :3000 (tsx watch)
 npm run dev:web        # dashboard dev server on :5173 (Vite proxy /api → :3000)
@@ -132,9 +163,9 @@ scenarios, plus the integration tier against testcontainers MariaDB (FR-26/FR-27
 backend (evaluate, readiness, SSE, latency) is implemented and integration-tested; its E2E
 scenarios (`npm run test:e2e`) are green against the real flagd engine via testcontainers.
 
-**Dashboard testing:** component tests run with `npm test -w web`; the existing Playwright suite
-(`npm run test:e2e:web`, specs in `web/e2e/*.spec.ts`) requires a running API, database and built
-dashboard. Some scenarios exercise APIs directly; M4 coverage is incomplete. M4.5 also requires
-design, accessibility and responsive checks and browser sync tests with flagd running. See
+**Dashboard testing:** component and store tests run with `npm test -w web`. The browser
+journeys (`web/e2e/*.spec.ts`) drive the real UI; `npm run test:e2e:web:stack` provisions an
+isolated stack (MariaDB, the API serving the built dashboard, flagd), runs them and tears the
+stack down. M4.5 adds design, accessibility and responsive checks. See
 [05-testing.md §2.6](docs/05-testing.md#26-multi-user-projects--environments-dashboard) and the
 [roadmap](docs/06-roadmap.md).

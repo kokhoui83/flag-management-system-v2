@@ -26,7 +26,8 @@ const evaluator = new OpenFeatureFlagEvaluator({ openFeature: () => OpenFeature,
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 execSync('npx prisma migrate deploy', { cwd: repoRoot, stdio: 'inherit', env: process.env });
 
-const app = await createApp(config, { store, evaluator, registry, broadcaster });
+// The sync route must read the same memo the store invalidates.
+const app = await createApp(config, { store, memo, evaluator, registry, broadcaster });
 // Materialize one flagd provider per known flag set at boot (FR-24): `/readyz` and evaluation
 // resolve through these bindings; with an empty database there is nothing to bind yet.
 for (const flagSet of await store.listFlagSets()) {

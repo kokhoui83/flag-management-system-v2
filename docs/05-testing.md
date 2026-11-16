@@ -9,34 +9,40 @@ Runner: **Vitest** (server/shared tiers) and **Playwright** (`@playwright/test`)
 browser layer. No test that requires Docker runs in the default `npm test` (unit tier); Docker
 dependent tests live behind `npm run test:integration` (testcontainers MariaDB) and
 `npm run test:e2e` (testcontainers: MariaDB + real flagd engine). The browser E2E tier runs the
-Playwright suite (`web/e2e/*.spec.ts`, config in `web/playwright.config.ts`) against a running
-API, MariaDB and built dashboard (`npm run test:e2e:web`); live-sync and evaluation checks also
-require flagd. The current suite covers only part of the planned dashboard scenarios and uses
-API requests for some setup and assertions.
+Playwright suite (`web/e2e/*.spec.ts`, config in `web/playwright.config.ts`) through the real UI
+against a running API that serves the built dashboard, an isolated MariaDB and a flagd syncing
+project `checkout`. `npm run test:e2e:web:stack` provisions that stack
+(`web/e2e/stack/stack.mjs`), runs the suite and tears the stack down; `npm run test:e2e:web`
+runs the suite against a stack that is already up (`node web/e2e/stack/stack.mjs up`).
 The Given/When/Then specs below are prose specifications, not `.feature` files, and the browser
 tests use Playwright against a running stack rather than a Gherkin parser.
 
 ## 1. Test pyramid
 
-| Layer                 | What                                                                                                                                  | How                                                                                                                           | Docker?              |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| **Unit**              | Domain: validation, rule→flagd compiler, ETag/serialization, config parsing, key hashing, ULID/version logic, event-broadcaster queue | pure functions, no DB, no network                                                                                             | No                   |
-| **Integration (API)** | Routes + middleware + MariaDB + model compilation, with the `FlagEvaluator` seam injected                                             | supertest-style calls against the Fastify app; **testcontainers** MariaDB; evaluator mocked at the `FlagEvaluator` interface  | Yes (testcontainers) |
-| **Contract**          | Published sync documents conform to the official flagd JSON schema; golden-file outputs of the compiler                               | JSON Schema (draft-07) validation + golden files committed to `test/fixtures`                                                 | No                   |
-| **E2E**               | Real flagd in Docker: sync poll, real evaluation incl. `fractional` stickiness, ETag/304                                              | vitest + testcontainers (MariaDB + real flagd engine), retry-until-ready helper, deterministic assertions                     | Yes                  |
-| **Browser E2E**       | Dashboard journeys; existing scenarios cover a subset of M4, with additional UI, sync and design checks planned for M4/M4.5           | `@playwright/test` against a running API, MariaDB and built `web/dist`; flagd is required for live-sync and evaluation checks | Yes                  |
+| Layer                 | What                                                                                                                                  | How                                                                                                                          | Docker?              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| **Unit**              | Domain: validation, rule→flagd compiler, ETag/serialization, config parsing, key hashing, ULID/version logic, event-broadcaster queue | pure functions, no DB, no network                                                                                            | No                   |
+| **Integration (API)** | Routes + middleware + MariaDB + model compilation, with the `FlagEvaluator` seam injected                                             | supertest-style calls against the Fastify app; **testcontainers** MariaDB; evaluator mocked at the `FlagEvaluator` interface | Yes (testcontainers) |
+| **Contract**          | Published sync documents conform to the official flagd JSON schema; golden-file outputs of the compiler                               | JSON Schema (draft-07) validation + golden files committed to `test/fixtures`                                                | No                   |
+| **E2E**               | Real flagd in Docker: sync poll, real evaluation incl. `fractional` stickiness, ETag/304                                              | vitest + testcontainers (MariaDB + real flagd engine), retry-until-ready helper, deterministic assertions                    | Yes                  |
+| **Browser E2E**       | Dashboard journeys through the real UI: session, invites, roles, environments, flag editing, playground, API keys, audit, live sync   | `@playwright/test` against the stack from `web/e2e/stack/stack.mjs` (isolated MariaDB, API + built `web/dist`, flagd)        | Yes                  |
 
 The `FlagEvaluator` seam (architecture §2.1) is what keeps the evaluation path testable without
 flagd: unit/integration tests inject a stub; only E2E uses the real OpenFeature provider.
 
-The `web/` dashboard workspace has its own Vitest + `@vue/test-utils` component tests (rule
-editor, diff view) run by `npm test -w web`; they mock the API client and contain no network
-calls. The shared validators are tested once, in the unit tier, and imported by both sides.
+The `web/` dashboard workspace has its own Vitest + `@vue/test-utils` tests for stores,
+components and views, run by `npm test -w web`; they mock the API client (or `fetch`, for the
+client itself) and contain no network calls. The shared validators are tested once, in the unit tier, and imported by both sides.
 
-The [§2.6](#26-multi-user-projects--environments-dashboard) UI scenarios are the M4 target.
-Existing component tests use Vitest + `@vue/test-utils` with the API client mocked; the existing
-Playwright suite covers some, but not all, of the browser scenarios. M4.5 adds design,
-responsive and accessibility verification without replacing M4 functional acceptance.
+The [§2.6](#26-multi-user-projects--environments-dashboard) UI scenarios are covered by the
+browser suite (`session`, `roles`, `flags`, `admin` and `sync` specs). Each scenario provisions
+its own project and users through the UI; only the live-sync, playground and sync-state
+journeys share the flagd-synced `checkout` project (the sync-state journeys stop and start the
+stack's flagd container). The `design` spec is the M4.5 verification: every screen at desktop
+and phone size (no horizontal page overflow, accessible names on all visible controls),
+keyboard-only operation, visible focus, dialog focus trapping, the kill switch and the
+administration screens. Set `E2E_CAPTURE_DIR` to write full-page screenshots of every screen for
+the design comparison (`design/implemented/` was produced this way).
 
 ## 2. Core behavior specs (Given/When/Then)
 
@@ -307,10 +313,9 @@ Milestone map (used by [06-roadmap.md](06-roadmap.md) acceptance criteria):
 
 Covers the multi-user dashboard requirements FR-53–FR-59 (see [01-requirements.md](01-requirements.md)).
 
-These are intended UI scenarios for component tests in `web/` and Playwright browser tests
-against the running stack. The eight existing Playwright scenarios cover only part of this list;
-some use API requests for setup or assertions, including environment creation. Passing them
-alone does not close M4. See the [roadmap](06-roadmap.md#m4--dashboard) for current status.
+Each scenario is covered by component tests in `web/` and by a Playwright journey that drives
+the real UI (`web/e2e/*.spec.ts`); direct API requests appear only to assert that the API rejects
+what the UI does not offer.
 
 - **G** an unauthenticated visitor opens the dashboard
   **W** they navigate to a flag view
@@ -393,7 +398,7 @@ installs with `npm ci` and generates the Prisma client (`npx prisma generate`) f
 | Workflow     | Trigger                                                 | Runs                                                                                                                                                                          |
 | ------------ | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ci.yml`     | pull requests, pushes to `main`, manual                 | `checks`: `npm run lint`, `npm run typecheck`, `npm test`, `npm test -w web`, the FigCraft design build tests, `npm run build:web`; `integration`: `npm run test:integration` |
-| `e2e.yml`    | manual only (choose `all`, `browser` or `flagd`)        | `browser`: `npm run test:e2e:web` against compose MariaDB and the API serving the built dashboard (no flagd); `flagd`: `npm run test:e2e`                                     |
+| `e2e.yml`    | manual only (choose `all`, `browser` or `flagd`)        | `browser`: `npm run test:e2e:web:stack` (isolated MariaDB, the API serving the built dashboard, flagd); `flagd`: `npm run test:e2e`                                           |
 | `docker.yml` | pull requests (build only), pushes to `main`, `v*` tags | Builds the API image and, except on pull requests, publishes it to GHCR ([02-architecture.md §10](02-architecture.md#10-deployment))                                          |
 
 The E2E suites are manual because they need Docker services and the flagd suite takes several

@@ -1,7 +1,12 @@
 import { defineStore } from 'pinia';
-import { api, ApiError } from '../api/client';
-import { effectiveCapability, type EffectiveRole } from '@fms/shared';
+import { api } from '../api/client';
+import {
+  effectiveCapability,
+  normalizeRole,
+  type EffectiveRole,
+} from '@fms/shared';
 import type { ProjectSummary } from '../api/types';
+import { orderEnvironments } from '../format';
 
 /** Per-project assignment of the caller (FR-54: global role + per-project membership). */
 export interface ProjectAssignment {
@@ -9,9 +14,39 @@ export interface ProjectAssignment {
   role: string;
 }
 
+/** What the caller may do on one project — the project-scoped rows of the capability matrix. */
+export interface ProjectCapabilities {
+  role: EffectiveRole | null;
+  canView: boolean;
+  canToggle: boolean;
+  canEditDefinitions: boolean;
+  canCreateFlags: boolean;
+  canCreateEnvironments: boolean;
+  canDeleteFlags: boolean;
+}
+
+/** Project-scoped capability matrix (FR-54/FR-58/FR-59, docs/01-requirements.md §4.9.1). */
+export function projectCapabilities(
+  role: EffectiveRole | null,
+): ProjectCapabilities {
+  const canEdit = role === 'admin' || role === 'developer';
+  return {
+    role,
+    canView: role !== null,
+    canToggle: role !== null,
+    canEditDefinitions: canEdit,
+    canCreateFlags: canEdit,
+    canCreateEnvironments: canEdit,
+    canDeleteFlags: role === 'admin',
+  };
+}
+
 export const useSessionStore = defineStore('session', {
   state: () => ({
-    token: null as string | null,
+    /** The server accepted the session cookie (the JS-invisible `fms_token`, FR-40). */
+    authenticated: false,
+    /** One `/auth/session` probe per page load decides whether a cookie session exists. */
+    restoreAttempted: false,
     username: null as string | null,
     globalRole: null as string | null,
     isBootstrapAdmin: false,
@@ -20,47 +55,75 @@ export const useSessionStore = defineStore('session', {
     selectedProjectId: null as string | null,
   }),
   getters: {
-    isAuthenticated: (state): boolean => state.token !== null,
+    isAuthenticated: (state): boolean => state.authenticated,
+    /** Global admin capability: projects, members, API keys, audit (capability matrix). */
     isAdmin: (state): boolean =>
-      state.isBootstrapAdmin || state.globalRole === 'admin',
+      state.isBootstrapAdmin || normalizeRole(state.globalRole) === 'admin',
+    capabilitiesFor:
+      (state) =>
+      (projectId: string): ProjectCapabilities =>
+        projectCapabilities(
+          effectiveRoleFor(state.globalRole, state.assignments, projectId),
+        ),
   },
   actions: {
-    /** Login → session identity + project directory (FR-40/FR-53). Returns false on bad credentials. */
+    /** Login → session identity + project directory (FR-40/FR-53). Returns false on failure. */
     async login(username: string, password: string): Promise<boolean> {
       try {
-        const response = await api.login(username, password);
-        this.token = response.token;
-        this.username = username;
-        const identity = await api.session();
-        this.username = identity.username;
-        this.globalRole = identity.globalRole;
-        this.isBootstrapAdmin = identity.isBootstrapAdmin;
-        this.assignments = identity.assignments;
-        await this.loadProjects();
+        await api.login(username, password);
+        await this.loadIdentity();
         return true;
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
-          this.token = null;
-        }
+      } catch {
+        this.clear();
         return false;
       }
     },
-    /** Clear the session (FR-31/FR-40) and drop the selected project. */
+    /**
+     * Re-establish the session from the cookie after a page reload (FR-40). Any failure of the
+     * probe means there is no usable session, so the caller stays signed out and sees the login.
+     */
+    async restore(): Promise<void> {
+      if (this.restoreAttempted) return;
+      this.restoreAttempted = true;
+      try {
+        await this.loadIdentity();
+      } catch {
+        this.clear();
+      }
+    },
+    async loadIdentity(): Promise<void> {
+      const identity = await api.session();
+      this.username = identity.username;
+      this.globalRole = identity.globalRole;
+      this.isBootstrapAdmin = identity.isBootstrapAdmin;
+      this.assignments = identity.assignments;
+      await this.loadProjects();
+      this.authenticated = true;
+      this.restoreAttempted = true;
+    },
+    /** Clear the session (FR-40). Local state is dropped even if the server call fails. */
     async logout(): Promise<void> {
       try {
         await api.logout();
       } finally {
-        this.token = null;
-        this.username = null;
-        this.globalRole = null;
-        this.isBootstrapAdmin = false;
-        this.assignments = [];
-        this.selectedProjectId = null;
+        this.clear();
       }
+    },
+    clear(): void {
+      this.authenticated = false;
+      this.username = null;
+      this.globalRole = null;
+      this.isBootstrapAdmin = false;
+      this.assignments = [];
+      this.projects = [];
+      this.selectedProjectId = null;
     },
     /** Load the projects visible to the caller; keep the current selection when still valid. */
     async loadProjects(): Promise<void> {
-      this.projects = await api.listProjects();
+      this.projects = (await api.listProjects()).map((project) => ({
+        ...project,
+        environments: orderEnvironments(project.environments),
+      }));
       const stillVisible = this.projects.some(
         (project) => project.id === this.selectedProjectId,
       );
@@ -70,6 +133,11 @@ export const useSessionStore = defineStore('session', {
     },
     setSelectedProject(projectId: string): void {
       this.selectedProjectId = projectId;
+    },
+    /** Add an environment to a project (FR-55/FR-58) and refresh the project directory. */
+    async createEnvironment(projectId: string, env: string): Promise<void> {
+      await api.createEnvironment(projectId, env);
+      await this.loadProjects();
     },
   },
 });

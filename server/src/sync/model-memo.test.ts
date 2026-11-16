@@ -58,4 +58,47 @@ describe('domain: sync model memoization (roadmap M2)', () => {
     };
     expect(memo.get(input).version).toBe(9);
   });
+
+  it('recompiles when a flag is added whose version does not exceed the current maximum', () => {
+    const memo = new FlagdModelMemo();
+    const input = { projectId: '01J-project', env: 'staging', flagSetId: 'checkout:staging', flags: [flag()] };
+    memo.get(input);
+
+    const withNewFlag = memo.get({ ...input, flags: [flag(), flag({ key: 'dark-mode', version: 2 })] });
+
+    expect(Object.keys(withNewFlag.document.flags).sort()).toEqual(['dark-mode', 'new-checkout']);
+  });
+
+  it('recompiles when a flag other than the newest one changes', () => {
+    const memo = new FlagdModelMemo();
+    const older = flag({ key: 'dark-mode', version: 2, enabled: true });
+    const input = { projectId: '01J-project', env: 'staging', flagSetId: 'checkout:staging', flags: [flag(), older] };
+    const first = memo.get(input);
+
+    const second = memo.get({ ...input, flags: [flag(), { ...older, version: 3, enabled: false }] });
+
+    expect(second.etag).not.toBe(first.etag);
+    expect(second.document.flags['dark-mode']?.state).toBe('DISABLED');
+  });
+
+  it('recompiles when a flag is removed', () => {
+    const memo = new FlagdModelMemo();
+    const input = { projectId: '01J-project', env: 'staging', flagSetId: 'checkout:staging', flags: [flag(), flag({ key: 'dark-mode', version: 2 })] };
+    memo.get(input);
+
+    const withoutIt = memo.get({ ...input, flags: [flag()] });
+
+    expect(Object.keys(withoutIt.document.flags)).toEqual(['new-checkout']);
+  });
+
+  it('recompiles when a flag is deleted and recreated with different content at the same version', () => {
+    const memo = new FlagdModelMemo();
+    const input = { projectId: '01J-project', env: 'staging', flagSetId: 'checkout:staging', flags: [flag()] };
+    memo.get(input);
+
+    const recreated = memo.get({ ...input, flags: [flag({ defaultVariant: 'on' })] });
+
+    expect(recreated.document.flags['new-checkout']?.defaultVariant).toBe('on');
+  });
 });
+

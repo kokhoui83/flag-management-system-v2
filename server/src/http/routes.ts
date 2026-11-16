@@ -964,26 +964,22 @@ export async function registerRoutes(
         );
       }
       const projectKey = await store.getProjectKeyById(projectId);
+      // What flagd itself serves per environment (FR-47): always asked of flagd, so a flag it
+      // does not (yet) serve reports `version: null` instead of echoing the stored version.
       const observed: Record<
         string,
-        { version: number; enabled: boolean; variantType: string }
+        { version: number | null; enabled: boolean; variantType: string }
       > = {};
       for (const [env, definition] of Object.entries(flag.definitions)) {
-        const result = await evaluator.resolve({
+        const variantType = variantTypeOfVariants(definition.variants);
+        const observation = await evaluator.observe({
           flagSetId: `${projectKey ?? ''}:${env}`,
           flagKey: key,
-          enabled: definition.enabled,
           variants: definition.variants,
           defaultVariant: definition.defaultVariant,
-          variantType: variantTypeOfVariants(definition.variants),
-          version: flag.version,
-          context: {},
+          variantType,
         });
-        observed[env] = {
-          version: result.flagVersion,
-          enabled: result.reason !== 'DISABLED',
-          variantType: variantTypeOfVariants(definition.variants),
-        };
+        observed[env] = { ...observation, variantType };
       }
       return { key, observed };
     },

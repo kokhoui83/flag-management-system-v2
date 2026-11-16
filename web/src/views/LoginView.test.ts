@@ -11,7 +11,7 @@ vi.mock('../api/client', () => ({
   api: {
     login: vi.fn(),
     logout: vi.fn(),
-    listProjects: vi.fn().mockResolvedValue({ projects: [] }),
+    listProjects: vi.fn().mockResolvedValue([]),
     session: vi.fn().mockResolvedValue({
       username: 'admin',
       globalRole: 'admin',
@@ -49,7 +49,7 @@ describe('LoginView (FR-40 / FR-53 session bootstrap)', () => {
     const inputs = wrapper.findAll('input');
     await inputs[0]!.setValue('admin');
     await inputs[1]!.setValue('dev-insecure-password');
-    await wrapper.find('[data-testid="login-submit"]').trigger('click');
+    await wrapper.find('form').trigger('submit');
     await flushPromises();
 
     expect(api.login).toHaveBeenCalledWith('admin', 'dev-insecure-password');
@@ -69,12 +69,23 @@ describe('LoginView (FR-40 / FR-53 session bootstrap)', () => {
     const inputs = wrapper.findAll('input');
     await inputs[0]!.setValue('admin');
     await inputs[1]!.setValue('wrong');
-    await wrapper.find('[data-testid="login-submit"]').trigger('click');
+    await wrapper.find('form').trigger('submit');
     await flushPromises();
     await nextTick();
     const alert = wrapper.find('.n-alert');
     expect(alert.exists()).toBe(true);
     expect(alert.text()).toContain('Invalid username or password');
     expect(useSessionStore().isAuthenticated).toBe(false);
+  });
+
+  it('asks for missing credentials inline without calling the API', async () => {
+    const wrapper = mount(LoginView);
+
+    await wrapper.find('form').trigger('submit');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Enter your username');
+    expect(wrapper.text()).toContain('Enter your password');
+    expect(api.login).not.toHaveBeenCalled();
   });
 });

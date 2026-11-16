@@ -49,7 +49,7 @@ Key properties:
 | Language / runtime | TypeScript on Node.js ≥ 22 (ESM) |
 | HTTP framework | Fastify (structured logging, schema validation, static serving) |
 | Storage | MariaDB via Prisma (driver adapter `@prisma/adapter-mariadb` over the `mariadb` connector, small pool), migrations via `prisma migrate` applied at boot (ADR-0007) |
-| Sync model memo | In-process per (project, env) `{ version, body, etag, variantTypes }`, compiled once per state change and invalidated on commit — steady-state sync polls and the evaluate proxy's variant-type lookup hit memory, not the DB |
+| Sync model memo | In-process per (project, env) `{ version, body, etag, variantTypes }`, keyed by the flag state it was compiled from (a changed state always recompiles; commits also invalidate) — steady-state sync polls and the evaluate proxy's variant-type lookup hit memory, not the DB |
 | Change events | In-process broadcaster: per-(project, env) queue of committed changes, drained onto the SSE stream when that (project, env)'s provider observes the change in flagd (ADR-0008) |
 | Sessions | JWT (HS256), 12 h expiry, `HttpOnly`/`SameSite=Lax` cookie + bearer use |
 | Flag evaluation client | `@openfeature/server-sdk` + `@openfeature/flagd-provider` (gRPC, `rpc` resolver) |
@@ -131,7 +131,7 @@ Layout: one source per (project, environment). With per-project environments (FR
 source count grows with projects × environments; URI and `flagSetId` naming follow the OQ-6
 resolution (`<projectKey>:<env>`, see [06-roadmap.md](06-roadmap.md) M2).
 
-**Compose topology note:** In the v1 local deployment the management API runs as a host Node process and flagd runs in a Docker container (a container image is also published; see [§10](#10-deployment)). Inside a container, `localhost` refers to the container itself, so the flagd sync source URIs must point at the host: `http://host.docker.internal:3000/api/v1/sync/checkout/<env>` (Docker Desktop) or the compose service name (e.g. `http://api:3000/api/v1/sync/checkout/<env>`) once the API runs in a container.
+**Compose topology note:** The local quick start runs the full stack via `docker compose up -d` (mariadb + api + flagd; see [README §Quick start](../README.md#quick-start)). Inside a container, `localhost` refers to the container itself, so the flagd sync source URIs must point at the host: `http://host.docker.internal:3000/api/v1/sync/checkout/<env>` (Docker Desktop) or the compose service name (e.g. `http://api:3000/api/v1/sync/checkout/<env>`) once the API runs in a container.
 
 Notes (verified against current flagd docs):
 
@@ -374,12 +374,13 @@ terminating proxy), rate limiting, PII redaction in audit.
   flagd: { <flagSetId>: "READY"|"STALE"|"ERROR" } }` — `db` from a pool ping, `flagd` derived
   from OpenFeature provider state events per (project, environment), keyed by flag-set ID
   (naming per OQ-6). `readyz` is 503 when the DB is down or any provider is not READY.
-- **Sync health in the UI** (FR-47, target): the dashboard compares stored flag `version` with the
-  `version` in flagd flag metadata (exposed by the provider on evaluated flags; a
-  `/api/v1/projects/:projectId/flags/:key/observed` helper reads it via a probe evaluation
-  per (project, env)) and shows a stale badge when they differ; the badge refreshes on SSE
-  events (FR-52) rather than polling. The current UI does not start the SSE subscription or
-  load observed status for every flag on the initial list; these remain M4 work.
+- **Sync health in the UI** (FR-47): the dashboard compares the stored flag `version` with the
+  `version` in flagd flag metadata. The `/api/v1/projects/:projectId/flags/:key/observed`
+  helper asks flagd per (project, env) and reports flagd's own answer — `null` when flagd does
+  not serve the flag, never the stored version. The badge shows synced, stale, unknown or
+  unavailable; it refreshes on SSE events (FR-52), and the acting client adds a few bounded
+  probes after its own change. The shell starts the SSE subscription and the flag list loads
+  the observed status of every listed flag.
 - **flagd metrics** (8017, Prometheus) are available but not wired into FMS in v1 (non-goal).
 
 ## 8. Failure modes & behavior
@@ -417,14 +418,15 @@ terminating proxy), rate limiting, PII redaction in audit.
 **Local / single-host (v1 target):**
 
 ```
-docker compose up -d            # flagd + mariadb (images pinned; flagd config from flagd/config.yaml)
-npm run build:web               # vite build → web/dist
-npm run start -w server        # API + dashboard on :3000
+docker compose up -d            # full stack: mariadb + api (built from Dockerfile, serves the built dashboard) + flagd (images pinned; flagd config from flagd/config.yaml)
 ```
 
 Dev loop: `npm run dev` (API, watch) + `npm run dev:web` (Vite dev server on :5173, proxying
-`/api` → :3000). `docker-compose.yml` ships with the repo and contains **flagd and mariadb**;
-the API runs as a Node process (keeps the dev loop simple).
+`/api` → :3000). `docker-compose.yml` now runs the full stack (mariadb + api + flagd); the host-process
+dev loop keeps the API as a Node process on :3000 and the dashboard on :5173.
+
+**Quick start:** `docker compose up -d --build` → dashboard on :3000, login `admin` / `dev-insecure-password`
+(see [README §Quick start](../README.md#quick-start)).
 
 **Container image:** the root `Dockerfile` packages the API and the built dashboard. The
 [Docker image workflow](../.github/workflows/docker.yml) publishes it to
@@ -432,8 +434,8 @@ the API runs as a Node process (keeps the dev loop simple).
 and on `v*` tags (semver tags and `latest`). The image runs with `NODE_ENV=production`, so
 `DATABASE_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` and `JWT_SECRET` must be set (§9); it listens
 on `0.0.0.0:3000`, applies pending migrations at boot and exposes `/healthz` as its health
-check. MariaDB and flagd are not included; flagd's sync sources must point at the API's
-address. The compose file does not run this image.
+check. MariaDB and flagd are included by the compose file; flagd's sync sources must point at the
+API's address. The compose file runs this image for the local quick start.
 
 ```bash
 docker run -p 3000:3000 \

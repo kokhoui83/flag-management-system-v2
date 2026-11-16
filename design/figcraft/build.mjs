@@ -247,8 +247,19 @@ export function buildDesign() {
     line(p, 232, 55, 1208);
     text(p, 264, 19, breadcrumb, 12, colors.muted, false, 800);
     badge(p, 1205, 15, '● Live', colors.brandSoft, colors.brand, 76);
-    if (['flags', 'create', 'editor', 'po', 'access'].includes(p)) {
-      badge(p, 1292, 15, 'Stale v8 ≠ v9', colors.amberSoft, colors.amber, 116);
+    if (
+      [
+        'flags',
+        'create',
+        'editor',
+        'po',
+        'access',
+        'confirmToggle',
+        'confirmDelete',
+        'validation',
+      ].includes(p)
+    ) {
+      badge(p, 1292, 15, 'Stale · 1 flag', colors.amberSoft, colors.amber, 116);
     }
     text(p, 264, 87, title, 23, colors.ink, true);
   };
@@ -342,7 +353,7 @@ export function buildDesign() {
     13,
     colors.muted,
   );
-  field('login', 540, 367, 360, 'Email', 'you@example.com');
+  field('login', 540, 367, 360, 'Username', 'admin');
   field('login', 540, 443, 360, 'Password', '••••••••••••');
   const signIn = button('login', 540, 527, 360, 'Sign in');
   nav(signIn, 'projects');
@@ -408,21 +419,21 @@ export function buildDesign() {
       [
         'Development',
         '18 of 24 enabled',
-        'Synced v12',
+        'Synced',
         colors.greenSoft,
         colors.green,
       ],
       [
         'Staging',
         '12 of 24 enabled',
-        'Stale · v8 ≠ v9',
+        'Stale · 1 flag',
         colors.amberSoft,
         colors.amber,
       ],
       [
         'Production',
-        '8 of 24 enabled',
-        'Synced v12',
+        '8 of 24 enabled · 1 not configured',
+        'Synced',
         colors.greenSoft,
         colors.green,
       ],
@@ -453,34 +464,46 @@ export function buildDesign() {
       p,
       264,
       446,
-      [290, 215, 120, 120, 120, 160, 119],
-      ['Flag', 'Description', 'Dev', 'Staging', 'Prod', 'Updated', 'Actions'],
+      [240, 160, 80, 95, 100, 140, 220, 109],
+      [
+        'Flag',
+        'Description',
+        'Version',
+        'Dev',
+        'Staging',
+        'Prod',
+        'Sync',
+        'Actions',
+      ],
       [
         [
           'new-payment-flow',
           'Checkout redesign',
-          status('ON · v12', 'green'),
-          status('OFF · v9', 'red'),
-          status('OFF · v12', 'red'),
-          '2 min ago',
+          'v9',
+          status('ON', 'green'),
+          status('OFF', 'red'),
+          'Not configured',
+          status('Stale · staging v8 ≠ v9', 'amber'),
           'Open',
         ],
         [
           'dark-mode',
           'Theme selection',
-          status('ON · v12', 'green'),
-          status('ON · v9', 'green'),
-          status('ON · v12', 'green'),
-          '1 hour ago',
+          'v12',
+          status('ON', 'green'),
+          status('ON', 'green'),
+          status('ON', 'green'),
+          status('Synced v12', 'green'),
           'Open',
         ],
         [
           'beta-pricing',
           'Pricing rollout',
-          status('ON · v12', 'green'),
-          status('OFF · v9', 'red'),
-          status('OFF · v12', 'red'),
-          'Yesterday',
+          'v4',
+          status('ON', 'green'),
+          status('OFF', 'red'),
+          status('OFF', 'red'),
+          status('Synced v4', 'green'),
           'Open',
         ],
       ],
@@ -528,7 +551,7 @@ export function buildDesign() {
     'create',
     912,
     425,
-    'The flag starts disabled in all environments.',
+    'Each environment starts without a definition until it is configured.',
     12,
     colors.secondary,
     false,
@@ -562,14 +585,16 @@ export function buildDesign() {
       68,
       productOwner,
     );
+    text(p, 284, 430, 'Stored version', 11, colors.muted, true);
+    text(p, 384, 430, 'v9', 12, colors.ink, false, 60);
     text(p, 284, 454, 'Project', 11, colors.muted, true);
     text(p, 284, 476, 'Checkout Web', 12, colors.ink);
     if (!productOwner)
       text(p, 284, 524, 'Delete flag · admin only', 11, colors.red, true);
     box(p, 548, 185, 860, 558, colors.white, colors.border, 12);
-    text(p, 574, 208, 'dev  ·  v12', 12, colors.muted, true);
-    text(p, 708, 208, 'staging  ·  v9', 12, colors.brand, true);
-    text(p, 854, 208, 'prod  ·  v12', 12, colors.muted, true);
+    text(p, 574, 208, 'dev  ·  on', 12, colors.muted, true);
+    text(p, 708, 208, 'staging  ·  off', 12, colors.brand, true);
+    text(p, 854, 208, 'prod  ·  not configured', 12, colors.muted, true);
     box(p, 707, 239, 110, 2, colors.brand, null, 0);
     line(p, 548, 241, 860);
     text(p, 574, 264, 'Definition · staging', 16, colors.ink, true);
@@ -724,7 +749,7 @@ export function buildDesign() {
   badge('playground', 924, 315, 'on', colors.greenSoft, colors.green);
   text('playground', 924, 371, 'Reason', 11, colors.muted, true);
   text('playground', 924, 398, 'MATCHED_RULE · EU users', 13, colors.ink, true);
-  text('playground', 924, 444, 'dev · v12 · 8 ms', 12, colors.muted);
+  text('playground', 924, 444, 'dev · flag v12', 12, colors.muted);
   button('playground', 924, 500, 218, 'Copy OpenFeature snippet', 'secondary');
 
   // API keys
@@ -830,7 +855,7 @@ export function buildDesign() {
         'Nov 13 17:20',
         'Alex Morgan',
         'member.invite',
-        'jordan@example.com',
+        'jordan',
         '—',
         'View diff',
       ],
@@ -858,40 +883,12 @@ export function buildDesign() {
     'members',
     264,
     250,
-    [275, 140, 160, 300, 145, 124],
+    [300, 620, 224],
+    ['User', 'Project roles', 'Actions'],
     [
-      'User',
-      'Status',
-      'Global role',
-      'Project roles',
-      'Last active',
-      'Actions',
-    ],
-    [
-      [
-        'alex@example.com',
-        status('Active', 'green'),
-        'Admin',
-        'All projects',
-        '2 min ago',
-        'Edit',
-      ],
-      [
-        'sam@example.com',
-        status('Active', 'green'),
-        'Developer',
-        'checkout-web: developer',
-        '1 hour ago',
-        'Edit',
-      ],
-      [
-        'jordan@example.com',
-        status('Pending', 'amber'),
-        'Product owner',
-        'checkout-web: product owner',
-        '—',
-        'Re-invite',
-      ],
+      ['alex', 'checkout-web: admin', 'Re-invite'],
+      ['sam', 'checkout-web: developer · mobile-app: developer', 'Re-invite'],
+      ['jordan', 'checkout-web: product owner', 'Re-invite'],
     ],
   );
   text(
@@ -986,35 +983,380 @@ export function buildDesign() {
     'access',
     264,
     382,
-    [260, 140, 180, 280, 160, 124],
-    ['User', 'Status', 'Global role', 'Project role', 'Added', 'Actions'],
+    [520, 624],
+    ['User', 'Role on this project'],
     [
-      [
-        'alex@example.com',
-        status('Active', 'green'),
-        'Admin',
-        'Admin',
-        'Nov 01, 2026',
-        'Remove',
-      ],
-      [
-        'sam@example.com',
-        status('Active', 'green'),
-        'Developer',
-        'Developer  ▾',
-        'Nov 05, 2026',
-        'Remove',
-      ],
-      [
-        'jordan@example.com',
-        status('Pending', 'amber'),
-        'Product owner',
-        'Product owner  ▾',
-        'Nov 14, 2026',
-        'Remove',
-      ],
+      ['alex', status('admin', 'green')],
+      ['sam', status('developer', 'amber')],
+      ['jordan', status('product owner', 'amber')],
     ],
   );
+  text(
+    'access',
+    264,
+    612,
+    'To change a role, add the member again with the new role. Removing a member is not available yet.',
+    12,
+    colors.muted,
+  );
+
+  // ---------------------------------------------------------------- states
+  const stateFrames = [
+    ['flagsLoading', 'Flags · loading'],
+    ['flagsEmpty', 'Flags · empty'],
+    ['flagsError', 'Flags · error'],
+    ['confirmToggle', 'Confirm · turn flag off'],
+    ['confirmDelete', 'Confirm · delete flag'],
+    ['validation', 'Validation · all problems'],
+    ['inviteSuccess', 'Invite · temporary password'],
+  ];
+  for (const [i, [id, name]] of stateFrames.entries()) {
+    frame(
+      null,
+      (i % 3) * 1520,
+      5000 + Math.floor(i / 3) * 1000,
+      1440,
+      900,
+      name,
+      id,
+    );
+  }
+  const flagsHeader = (p) => {
+    shell(p, 'Checkout Web', 'Projects  /  Checkout Web', 'projects');
+    heading(p, 'Environment health and flag status');
+    text(p, 264, 196, 'Flags', 18, colors.ink, true);
+    box(p, 264, 232, 300, 38);
+    text(p, 278, 243, 'Search flags…', 12, colors.faint);
+    button(p, 1252, 232, 156, '+ New flag');
+  };
+  flagsHeader('flagsLoading');
+  box('flagsLoading', 264, 296, 1144, 216, colors.white, colors.border, 10);
+  [0, 1, 2].forEach((row) => {
+    box('flagsLoading', 284, 322 + row * 60, 280, 14, colors.sunken, null, 7);
+    box('flagsLoading', 620, 322 + row * 60, 420, 14, colors.sunken, null, 7);
+    box('flagsLoading', 1120, 322 + row * 60, 120, 14, colors.sunken, null, 7);
+  });
+  text('flagsLoading', 264, 532, 'Loading flags…', 12, colors.muted);
+
+  flagsHeader('flagsEmpty');
+  box('flagsEmpty', 264, 296, 1144, 216, colors.white, colors.border, 12);
+  text('flagsEmpty', 764, 356, 'No flags yet', 15, colors.ink, true, 300);
+  text(
+    'flagsEmpty',
+    700,
+    392,
+    'Create one to start controlling rollout.',
+    12,
+    colors.muted,
+    false,
+    400,
+  );
+
+  flagsHeader('flagsError');
+  box('flagsError', 264, 296, 1144, 76, colors.redSoft, null, 10);
+  text('flagsError', 284, 312, 'Failed to load flags', 13, colors.red, true);
+  text(
+    'flagsError',
+    284,
+    338,
+    'No access to this project. Nothing is shown as empty or synced.',
+    12,
+    colors.red,
+    false,
+    700,
+  );
+  button('flagsError', 1272, 315, 116, 'Retry', 'secondary');
+
+  const confirmCard = (p, x, y, message, action, danger = false) => {
+    box(p, x, y, 330, 124, colors.white, colors.border, 10);
+    text(p, x + 18, y + 18, message, 12, colors.ink, false, 294);
+    button(p, x + 116, y + 70, 86, 'Cancel', 'secondary');
+    const confirm = button(p, x + 212, y + 70, 100, action);
+    if (danger) box(confirm, 0, 0, 100, 38, colors.red, null, 8);
+    if (danger) text(confirm, 12, 10, action, 12, colors.white, true, 80);
+  };
+  flagsScreen('confirmToggle');
+  confirmCard(
+    'confirmToggle',
+    700,
+    552,
+    'Turn “new-payment-flow” off in dev?',
+    'Turn off',
+  );
+  editorScreen('confirmDelete');
+  confirmCard(
+    'confirmDelete',
+    284,
+    552,
+    'Delete “new-payment-flow” in every environment? This cannot be undone.',
+    'Delete flag',
+    true,
+  );
+
+  editorScreen('validation');
+  box('validation', 548, 640, 860, 96, colors.redSoft, null, 10);
+  text(
+    'validation',
+    568,
+    652,
+    '2 problems to fix before saving:',
+    12,
+    colors.red,
+    true,
+  );
+  text(
+    'validation',
+    568,
+    676,
+    '1. /defaultVariant: default variant must be one of the defined variants',
+    12,
+    colors.red,
+    false,
+    820,
+  );
+  text(
+    'validation',
+    568,
+    698,
+    '2. /rules/0/conditions: attribute rule requires a non-empty conditions array',
+    12,
+    colors.red,
+    false,
+    820,
+  );
+
+  shell('inviteSuccess', 'Members', 'Admin  /  Members', 'members');
+  box('inviteSuccess', 460, 240, 520, 330, colors.white, colors.border, 14);
+  text('inviteSuccess', 492, 268, 'User invited', 17, colors.ink, true);
+  text(
+    'inviteSuccess',
+    492,
+    312,
+    'jordan can now sign in with this temporary password.',
+    12,
+    colors.secondary,
+    false,
+    456,
+  );
+  box('inviteSuccess', 492, 344, 456, 44, colors.ink, null, 8);
+  text('inviteSuccess', 508, 357, 'temp-Xk3vQ9mT2pLa', 13, colors.white, true);
+  box('inviteSuccess', 492, 404, 456, 54, colors.amberSoft, null, 8);
+  text(
+    'inviteSuccess',
+    508,
+    414,
+    'Shown once — only its hash is stored. Copy it now and pass it to the user.',
+    12,
+    colors.amber,
+    false,
+    424,
+  );
+  button('inviteSuccess', 492, 486, 230, 'I have copied the password');
+
+  // ---------------------------------------------------------------- mobile (390 × 844)
+  const mobileFrames = [
+    ['mLogin', 'Mobile · Login'],
+    ['mNav', 'Mobile · Navigation'],
+    ['mProjects', 'Mobile · Projects'],
+    ['mFlags', 'Mobile · Flags'],
+    ['mEditor', 'Mobile · Flag editor'],
+  ];
+  for (const [i, [id, name]] of mobileFrames.entries()) {
+    frame(null, i * 470, 8000, 390, 844, name, id);
+  }
+  const mobileTop = (p, crumb, title) => {
+    box(p, 0, 0, 390, 56, colors.white, null, 0);
+    line(p, 0, 55, 390);
+    text(p, 16, 19, 'Menu', 12, colors.ink, true, 50);
+    text(p, 78, 19, crumb, 12, colors.muted, false, 220);
+    badge(p, 310, 15, '● Live', colors.brandSoft, colors.brand, 66);
+    if (title) text(p, 16, 76, title, 19, colors.ink, true, 358);
+  };
+
+  box('mLogin', 16, 150, 358, 500, colors.white, colors.border, 14);
+  box('mLogin', 40, 176, 36, 36, colors.brand, null, 9);
+  text('mLogin', 51, 184, 'F', 16, colors.white, true, 20);
+  text('mLogin', 40, 232, 'Sign in', 19, colors.ink, true, 300);
+  text(
+    'mLogin',
+    40,
+    262,
+    'Use your FMS account for this instance',
+    12,
+    colors.muted,
+    false,
+    310,
+  );
+  field('mLogin', 40, 300, 310, 'Username', 'admin');
+  field('mLogin', 40, 376, 310, 'Password', '••••••••••••');
+  button('mLogin', 40, 460, 310, 'Sign in');
+  text(
+    'mLogin',
+    40,
+    520,
+    'No self-signup — accounts are created by admin invite.',
+    11,
+    colors.muted,
+    false,
+    310,
+  );
+
+  mobileTop('mNav', 'Projects');
+  box('mNav', 0, 0, 390, 844, colors.ink, null, 0);
+  box('mNav', 0, 0, 232, 844, colors.white, null, 0);
+  text('mNav', 20, 28, 'FMS', 16, colors.ink, true, 130);
+  [
+    'Projects',
+    'Playground',
+    'API keys',
+    'Audit log',
+    'Members',
+    'Roles & permissions',
+    'User guide',
+  ].forEach((label, i) => {
+    if (i === 0) box('mNav', 16, 80, 200, 36, colors.brandSoft, null, 8);
+    text(
+      'mNav',
+      28,
+      90 + i * 44,
+      label,
+      12,
+      i === 0 ? colors.brand : colors.secondary,
+      true,
+      190,
+    );
+  });
+  box('mNav', 16, 730, 200, 92, colors.white, colors.border, 8);
+  text('mNav', 28, 744, 'alex', 12, colors.ink, true, 170);
+  badge('mNav', 28, 766, 'admin', colors.greenSoft, colors.green, 60);
+  text('mNav', 28, 798, 'Sign out', 11, colors.secondary, true, 170);
+
+  mobileTop('mProjects', 'Projects', 'Projects');
+  box('mProjects', 16, 120, 358, 38);
+  text('mProjects', 30, 131, 'Search projects…', 12, colors.faint);
+  button('mProjects', 16, 172, 150, '+ New project');
+  [
+    ['Checkout Web', 'checkout-web'],
+    ['Mobile App', 'mobile-app'],
+  ].forEach(([name, key], i) => {
+    const y = 230 + i * 210;
+    box('mProjects', 16, y, 358, 190, colors.white, colors.border, 12);
+    text('mProjects', 36, y + 18, name, 15, colors.ink, true, 300);
+    text('mProjects', 36, y + 44, key, 11, colors.muted, false, 300);
+    badge('mProjects', 36, y + 72, 'dev', colors.blueSoft, colors.blue, 50);
+    badge(
+      'mProjects',
+      94,
+      y + 72,
+      'staging',
+      colors.amberSoft,
+      colors.amber,
+      76,
+    );
+    badge('mProjects', 178, y + 72, 'prod', colors.redSoft, colors.red, 60);
+    line('mProjects', 36, y + 112, 318);
+    button('mProjects', 36, y + 132, 120, 'Open flags', 'secondary');
+  });
+
+  mobileTop('mFlags', 'Projects  /  Checkout Web', 'Checkout Web');
+  [
+    ['dev', '18 of 24 enabled', 'Synced', colors.greenSoft, colors.green],
+    [
+      'staging',
+      '12 of 24 enabled',
+      'Stale · 1 flag',
+      colors.amberSoft,
+      colors.amber,
+    ],
+  ].forEach(([env, count, state, bg, fg], i) => {
+    const y = 120 + i * 112;
+    box('mFlags', 16, y, 358, 100, colors.white, colors.border, 12);
+    text('mFlags', 36, y + 14, env, 12, colors.ink, true, 200);
+    text('mFlags', 36, y + 38, count, 12, colors.muted, false, 300);
+    badge('mFlags', 36, y + 64, state, bg, fg, 120);
+  });
+  box('mFlags', 16, 352, 230, 38);
+  text('mFlags', 30, 363, 'Search flags…', 12, colors.faint);
+  button('mFlags', 258, 352, 116, '+ New flag');
+  box('mFlags', 16, 408, 358, 150, colors.white, colors.border, 10);
+  text('mFlags', 30, 422, 'FLAG', 10, colors.secondary, true, 80);
+  text('mFlags', 150, 422, 'VERSION', 10, colors.secondary, true, 70);
+  text('mFlags', 230, 422, 'DEV', 10, colors.secondary, true, 50);
+  text('mFlags', 300, 422, 'STAGING  ›', 10, colors.secondary, true, 80);
+  line('mFlags', 16, 448, 358);
+  text('mFlags', 30, 466, 'new-payment-flow', 11, colors.ink, true, 110);
+  text('mFlags', 150, 466, 'v9', 11, colors.secondary, false, 40);
+  badge('mFlags', 226, 462, 'ON', colors.greenSoft, colors.green, 46);
+  badge('mFlags', 296, 462, 'OFF', colors.redSoft, colors.red, 50);
+  text(
+    'mFlags',
+    16,
+    572,
+    'The table scrolls sideways inside its card; the page does not.',
+    11,
+    colors.muted,
+    false,
+    358,
+  );
+
+  mobileTop(
+    'mEditor',
+    'Projects  /  …  /  new-payment-flow',
+    'new-payment-flow',
+  );
+  box('mEditor', 16, 120, 358, 150, colors.white, colors.border, 12);
+  text('mEditor', 36, 136, 'Flag details', 14, colors.ink, true, 300);
+  text('mEditor', 36, 168, 'Stored version', 11, colors.muted, true, 120);
+  text('mEditor', 160, 168, 'v9', 12, colors.ink, false, 60);
+  text('mEditor', 36, 196, 'Project', 11, colors.muted, true, 120);
+  text('mEditor', 160, 196, 'Checkout Web', 12, colors.ink, false, 180);
+  text('mEditor', 36, 232, 'Delete flag', 11, colors.red, true, 200);
+  box('mEditor', 16, 286, 358, 420, colors.white, colors.border, 12);
+  text('mEditor', 36, 304, 'dev · on', 11, colors.muted, true, 70);
+  text('mEditor', 110, 304, 'staging · off', 11, colors.brand, true, 90);
+  text(
+    'mEditor',
+    210,
+    304,
+    'prod · not configured',
+    11,
+    colors.muted,
+    true,
+    150,
+  );
+  line('mEditor', 16, 330, 358);
+  text('mEditor', 36, 348, 'Definition · staging', 14, colors.ink, true, 200);
+  text('mEditor', 262, 351, 'Disabled', 11, colors.muted, true, 60);
+  box('mEditor', 322, 346, 36, 20, colors.faint, null, 10);
+  text('mEditor', 36, 390, 'Variants', 12, colors.ink, true, 200);
+  box('mEditor', 36, 414, 318, 78, colors.white, colors.border, 8);
+  text(
+    'mEditor',
+    50,
+    426,
+    'on      true      boolean',
+    11,
+    colors.secondary,
+    false,
+    290,
+  );
+  text(
+    'mEditor',
+    50,
+    456,
+    'off     false     boolean',
+    11,
+    colors.secondary,
+    false,
+    290,
+  );
+  text('mEditor', 36, 512, 'Default variant', 12, colors.ink, true, 200);
+  box('mEditor', 36, 536, 318, 36);
+  text('mEditor', 50, 546, 'off  ▾', 12, colors.muted, false, 100);
+  text('mEditor', 36, 596, 'Rules', 12, colors.ink, true, 200);
+  text('mEditor', 36, 622, '+ Add rule', 12, colors.brand, true, 200);
+  button('mEditor', 16, 724, 110, 'Discard', 'secondary');
+  button('mEditor', 244, 724, 130, 'Save changes');
 
   links.forEach(([node, destination]) => link(node, destination));
   command('proto.flow.add', { start: ref('login'), name: 'FMS main flow' });

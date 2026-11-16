@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory } from 'vue-router';
+import { createRouter, createWebHashHistory, type Router } from 'vue-router';
 import { useSessionStore } from '../stores/session';
 import LoginView from '../views/LoginView.vue';
 import ProjectsView from '../views/ProjectsView.vue';
@@ -8,6 +8,9 @@ import PlaygroundView from '../views/PlaygroundView.vue';
 import ApiKeysView from '../views/ApiKeysView.vue';
 import AuditView from '../views/AuditView.vue';
 import GuideView from '../views/GuideView.vue';
+import MembersView from '../views/MembersView.vue';
+import ProjectAccessView from '../views/ProjectAccessView.vue';
+import RolesView from '../views/RolesView.vue';
 
 // Hash mode (architecture §2.3 / ADR-0006): no server-side history rewrite needed.
 const routes = [
@@ -31,16 +34,16 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
-    path: '/projects/:projectId/flags/new',
-    name: 'flag-new',
-    component: FlagEditorView,
-    meta: { requiresAuth: true },
-  },
-  {
     path: '/projects/:projectId/flags/:flagKey',
     name: 'flag-editor',
     component: FlagEditorView,
     meta: { requiresAuth: true },
+  },
+  {
+    path: '/projects/:projectId/access',
+    name: 'project-access',
+    component: ProjectAccessView,
+    meta: { requiresAuth: true, adminOnly: true },
   },
   {
     path: '/playground',
@@ -61,6 +64,18 @@ const routes = [
     meta: { requiresAuth: true, adminOnly: true },
   },
   {
+    path: '/members',
+    name: 'members',
+    component: MembersView,
+    meta: { requiresAuth: true, adminOnly: true },
+  },
+  {
+    path: '/roles',
+    name: 'roles',
+    component: RolesView,
+    meta: { requiresAuth: true, adminOnly: true },
+  },
+  {
     path: '/guide',
     name: 'guide',
     component: GuideView,
@@ -68,13 +83,15 @@ const routes = [
   },
 ];
 
-const router = createRouter({
+const router: Router = createRouter({
   history: createWebHashHistory(),
   routes,
 });
 
 router.beforeEach(async (to) => {
   const session = useSessionStore();
+  // After a page reload the in-memory identity is gone but the cookie may still be valid (FR-40).
+  await session.restore();
   if (to.meta.public) {
     if (session.isAuthenticated) return '/projects';
     return true;

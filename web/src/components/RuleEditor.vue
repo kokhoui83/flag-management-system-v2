@@ -6,34 +6,45 @@
         request.</n-text
       >
     </div>
-    <ul v-else class="rule-list">
-      <li v-for="(rule, index) in localRules" :key="index" class="rule-item">
+    <ol v-else class="rule-list">
+      <li
+        v-for="(rule, index) in localRules"
+        :key="index"
+        class="rule-item"
+        data-testid="rule-item"
+      >
         <div class="rule-header">
           <n-text strong>Rule {{ index + 1 }}</n-text>
           <n-tag v-if="rule.type === 'percentage'" size="small" type="warning"
             >percentage</n-tag
           >
-          <n-button
-            size="tiny"
-            quaternary
-            :disabled="disabled"
-            @click="moveRule(index, index - 1)"
-            >↑</n-button
-          >
-          <n-button
-            size="tiny"
-            quaternary
-            :disabled="disabled"
-            @click="moveRule(index, index + 1)"
-            >↓</n-button
-          >
-          <n-button
-            size="tiny"
-            quaternary
-            :disabled="disabled"
-            @click="removeRule(index)"
-            >Remove</n-button
-          >
+          <n-tag v-else size="small">attribute</n-tag>
+          <span class="rule-header-actions">
+            <n-button
+              size="tiny"
+              quaternary
+              :aria-label="`Move rule ${index + 1} up`"
+              :disabled="disabled || index === 0"
+              @click="moveRule(index, index - 1)"
+              >↑</n-button
+            >
+            <n-button
+              size="tiny"
+              quaternary
+              :aria-label="`Move rule ${index + 1} down`"
+              :disabled="disabled || index === localRules.length - 1"
+              @click="moveRule(index, index + 1)"
+              >↓</n-button
+            >
+            <n-button
+              size="tiny"
+              quaternary
+              :aria-label="`Remove rule ${index + 1}`"
+              :disabled="disabled"
+              @click="removeRule(index)"
+              >Remove</n-button
+            >
+          </span>
         </div>
         <div v-if="rule.type === 'attribute'" class="rule-body">
           <div
@@ -46,45 +57,45 @@
               :value="condition.attribute"
               :disabled="disabled"
               placeholder="attribute (e.g. email)"
+              :input-props="{ 'aria-label': 'Condition attribute' }"
               data-testid="condition-attribute"
+              @update:value="
+                (value: string) =>
+                  updateCondition(index, conditionIndex, { attribute: value })
+              "
             />
             <n-select
               size="small"
+              class="condition-op"
               :value="condition.op"
               :options="attributeOpOptions"
               :disabled="disabled"
-              @update:model-value="
-                (value: string) =>
-                  updateCondition(index, conditionIndex, {
-                    op: value as AttributeOp,
-                  })
+              data-testid="condition-op"
+              @update:value="
+                (value: AttributeOp) => changeOp(index, conditionIndex, value)
               "
             />
             <n-input
               v-if="condition.op !== 'exists'"
               size="small"
-              :value="String(condition.value ?? '')"
+              :value="displayValue(condition)"
               :disabled="disabled"
-              @update:model-value="
+              :placeholder="
+                condition.op === 'in' ? 'values, comma-separated' : 'value'
+              "
+              :input-props="{ 'aria-label': 'Condition value' }"
+              data-testid="condition-value"
+              @update:value="
                 (value: string) =>
                   updateCondition(index, conditionIndex, {
                     value: coerceValue(condition.op, value),
                   })
               "
             />
-            <n-select
-              size="small"
-              :value="rule.variant"
-              :options="variantItems"
-              :disabled="disabled"
-              @update:model-value="
-                (value: string) =>
-                  updateRule(index, { ...rule, variant: value })
-              "
-            />
             <n-button
               size="tiny"
               quaternary
+              aria-label="Remove condition"
               :disabled="disabled"
               @click="removeCondition(index, conditionIndex)"
               >Remove</n-button
@@ -92,11 +103,24 @@
           </div>
           <n-button
             size="tiny"
-            quaternary
             :disabled="disabled"
             @click="addCondition(index)"
             >Add condition</n-button
           >
+          <div class="serve-row">
+            <span class="field-label">Serve variant</span>
+            <n-select
+              size="small"
+              class="serve-variant"
+              :value="rule.variant"
+              :options="variantItems"
+              :disabled="disabled"
+              data-testid="rule-variant"
+              @update:value="
+                (value: string) => updateRule(index, { variant: value })
+              "
+            />
+          </div>
         </div>
         <div v-if="rule.type === 'percentage'" class="rule-body">
           <div
@@ -109,12 +133,10 @@
               :value="split.variant"
               :options="variantItems"
               :disabled="disabled"
-              @update:model-value="
+              data-testid="split-variant"
+              @update:value="
                 (value: string) =>
-                  updateSplit(index, splitIndex, {
-                    variant: value,
-                    weight: split.weight,
-                  })
+                  updateSplit(index, splitIndex, { variant: value })
               "
             />
             <n-input-number
@@ -123,35 +145,39 @@
               :max="100"
               :value="split.weight"
               :disabled="disabled"
-              @update:model-value="
-                (value: number) =>
-                  updateSplit(index, splitIndex, {
-                    variant: split.variant,
-                    weight: value ?? 1,
-                  })
+              :input-props="{ 'aria-label': 'Split weight' }"
+              data-testid="split-weight"
+              @update:value="
+                (value: number | null) =>
+                  updateSplit(index, splitIndex, { weight: value ?? 1 })
               "
             />
             <n-button
               size="tiny"
               quaternary
+              aria-label="Remove split"
               :disabled="disabled"
               @click="removeSplit(index, splitIndex)"
               >Remove</n-button
             >
           </div>
-          <n-button
-            size="tiny"
-            quaternary
-            :disabled="disabled"
-            @click="addSplit(index)"
+          <n-button size="tiny" :disabled="disabled" @click="addSplit(index)"
             >Add split</n-button
           >
         </div>
       </li>
-    </ul>
-    <n-button size="small" quaternary :disabled="disabled" @click="addRule"
-      >Add rule</n-button
-    >
+    </ol>
+    <div class="rule-editor-actions">
+      <n-button size="small" :disabled="disabled" @click="addRule"
+        >Add rule</n-button
+      >
+      <n-button
+        size="small"
+        :disabled="disabled || hasPercentageRule"
+        @click="addPercentageRule"
+        >Add percentage rule</n-button
+      >
+    </div>
   </div>
 </template>
 
@@ -167,7 +193,6 @@ import {
   type PercentageSplit,
   type VariantValue,
 } from '@fms/shared';
-import type { ObservedEnvironmentStatus } from '../api/types';
 
 const props = defineProps<{
   rules: FlagRule[];
@@ -197,6 +222,10 @@ const variantItems = computed(() =>
   Object.keys(props.variants).map((name) => ({ label: name, value: name })),
 );
 
+const hasPercentageRule = computed(() =>
+  localRules.value.some((rule) => rule.type === 'percentage'),
+);
+
 function conditionsOf(rule: FlagRule): AttributeCondition[] {
   if (rule.type !== 'attribute') return [];
   return rule.conditions;
@@ -215,6 +244,20 @@ function addRule(): void {
       type: 'attribute',
       conditions: [],
       variant: Object.keys(props.variants)[0] ?? '',
+    },
+  ];
+  emit('update:rules', localRules.value);
+}
+
+/** A percentage rule is terminal and unique (FR-18): append it as the last rule. */
+function addPercentageRule(): void {
+  if (props.disabled || hasPercentageRule.value) return;
+  const names = Object.keys(props.variants);
+  localRules.value = [
+    ...localRules.value,
+    {
+      type: 'percentage',
+      splits: names.slice(0, 2).map((variant) => ({ variant, weight: 50 })),
     },
   ];
   emit('update:rules', localRules.value);
@@ -275,6 +318,34 @@ function updateCondition(
   emit('update:rules', localRules.value);
 }
 
+/** Switching operator re-shapes the value: `exists` carries none, `in` a list, the rest a scalar. */
+function changeOp(
+  ruleIndex: number,
+  conditionIndex: number,
+  op: AttributeOp,
+): void {
+  if (props.disabled) return;
+  localRules.value = localRules.value.map((rule, i) => {
+    if (i !== ruleIndex || rule.type !== 'attribute') return rule;
+    const conditions = rule.conditions.map((condition, ci) => {
+      if (ci !== conditionIndex) return condition;
+      if (op === 'exists') return { attribute: condition.attribute, op };
+      return {
+        attribute: condition.attribute,
+        op,
+        value: coerceValue(op, displayValue(condition)),
+      };
+    });
+    return { ...rule, conditions };
+  });
+  emit('update:rules', localRules.value);
+}
+
+function displayValue(condition: AttributeCondition): string {
+  if (Array.isArray(condition.value)) return condition.value.join(', ');
+  return String(condition.value ?? '');
+}
+
 function updateRule(ruleIndex: number, patch: { variant?: string }): void {
   if (props.disabled) return;
   localRules.value = localRules.value.map((rule, i) => {
@@ -328,7 +399,12 @@ function coerceValue(
   op: AttributeOp,
   raw: string,
 ): VariantValue | VariantValue[] {
-  if (op === 'in') return [raw];
+  if (op === 'in') {
+    return raw
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
   if (op === 'gt' || op === 'gte' || op === 'lt' || op === 'lte') {
     const parsed = Number(raw);
     return Number.isFinite(parsed) ? parsed : 0;
@@ -352,7 +428,7 @@ function coerceValue(
   gap: 8px;
 }
 .rule-item {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 8px;
   display: flex;
@@ -363,6 +439,25 @@ function coerceValue(
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+.rule-header-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+.rule-editor-actions,
+.serve-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.serve-variant {
+  max-width: 220px;
+}
+.condition-op {
+  max-width: 150px;
 }
 .rule-body {
   display: flex;
@@ -374,5 +469,15 @@ function coerceValue(
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+.condition-row > *,
+.split-row > * {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.condition-row > .n-button,
+.split-row > .n-button {
+  flex: 0 0 auto;
 }
 </style>

@@ -282,6 +282,16 @@ describe('M3 — flagd E2E (real flagd engine via testcontainers)', () => {
     flagd = await flagdContainer.start();
     const flagdPort = flagd.getMappedPort(FLAGD_GRPC_CONTAINER_PORT);
     expect(flagdPort).toBe(18013);
+    // flagd exits when its very first sync cannot reach the API. Docker's host relay can lag
+    // a moment behind a freshly opened port, so give flagd a few attempts to come up synced.
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const synced = await waitUntilReady(15_000).then(
+        () => true,
+        () => false,
+      );
+      if (synced) break;
+      await flagd.restart();
+    }
   }, 900_000);
 
   afterAll(async () => {

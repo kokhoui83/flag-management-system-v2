@@ -231,8 +231,12 @@ multi-user, multi-project scope:
   and toggle the state of the flags within those projects (requirement 6).
 - **FR-59** — Product owner can view and toggle the state of the flags of the projects they are
   assigned to (requirement 7).
+- **FR-60** — An admin may archive a project; only an archived project can subsequently be deleted,
+  and both the archive and the delete require an explicit operator confirmation (prompt before each
+  destructive action). For now, only a global admin may archive or delete a project; developer and
+  product-owner roles receive `403` (capability matrix row below).
 
-Capability matrix (FR-54, FR-58, FR-59). "Admin" below means the global admin role (bootstrap
+Capability matrix (FR-54, FR-58, FR-59, FR-60). "Admin" below means the global admin role (bootstrap
 admin or an invited user with global role `admin`). Effective permissions are the union of the
 global role and project memberships (FR-54); membership roles are independent per project and
 may differ from the global role, so a membership can elevate a user on that project but never
@@ -243,6 +247,7 @@ assigned projects; any unassigned project is `403`.
 | Capability | Scope | Admin | Developer | Product owner |
 | --- | --- | --- | --- | --- |
 | Create projects | global | Yes | No | No |
+| Archive / delete projects | global | Yes | No | No |
 | Invite members / assign projects | global | Yes | No | No |
 | Manage API keys | global | Yes | No | No |
 | Read audit | global | Yes | No | No |

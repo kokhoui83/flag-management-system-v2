@@ -67,7 +67,8 @@ export interface FlagDetail {
 }
 
 export interface ObservedEnvironmentStatus {
-  version: number;
+  /** Version flagd serves; `null` when flagd does not serve the flag (yet). */
+  version: number | null;
   enabled: boolean;
   variantType: string;
 }
@@ -135,4 +136,24 @@ export interface CopyResult {
 export interface CreateEnvironmentResult {
   projectId: string;
   env: string;
+}
+
+export interface ProjectRoleAssignment {
+  projectId: string;
+  role: string;
+}
+
+export interface InviteRequest {
+  username: string;
+  /** Global role of the invited user (FR-54/FR-57). */
+  role: string;
+  projects: ProjectRoleAssignment[];
+}
+
+export interface InviteResult {
+  user: string;
+  role: string;
+  projects: ProjectRoleAssignment[];
+  /** Temporary password, returned exactly once (FR-57). */
+  password: string;
 }

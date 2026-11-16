@@ -168,6 +168,72 @@ describe('OpenFeatureFlagEvaluator (FR-21..FR-25, FR-24)', () => {
   });
 });
 
+describe('OpenFeatureFlagEvaluator.observe (FR-47 — what flagd itself serves)', () => {
+  afterEach(async () => {
+    await openFeature.clearProviders();
+  });
+
+  const observation = {
+    flagSetId: 'checkout:staging',
+    flagKey: 'new-checkout',
+    variants: { on: true, off: false },
+    defaultVariant: 'off',
+    variantType: 'boolean' as const,
+  };
+
+  /** Provider double answering like flagd: a resolution plus the flag-set metadata. */
+  function providerServing(details: Record<string, unknown>) {
+    return {
+      metadata: { name: 'fake-flagd' },
+      runsOn: 'server',
+      resolveBooleanEvaluation: async () => details,
+      resolveStringEvaluation: async () => details,
+      resolveNumberEvaluation: async () => details,
+      resolveObjectEvaluation: async () => details,
+    };
+  }
+
+  async function evaluatorWith(provider: unknown) {
+    const registry = new FlagdProviderRegistry({ openFeature: () => OpenFeature });
+    openFeature.setProvider('checkout:staging', provider);
+    await openFeature.setProviderAndWait('checkout:staging');
+    return new OpenFeatureFlagEvaluator({ openFeature: () => OpenFeature, registry });
+  }
+
+  it('reports the version and enabled state flagd serves', async () => {
+    const evaluator = await evaluatorWith(
+      providerServing({ value: true, variant: 'on', reason: 'STATIC', flagMetadata: { version: 8 } }),
+    );
+
+    expect(await evaluator.observe(observation)).toEqual({ version: 8, enabled: true });
+  });
+
+  it('reports a flag flagd serves as disabled, with the version flagd holds', async () => {
+    const evaluator = await evaluatorWith(
+      providerServing({ value: false, reason: 'DISABLED', flagMetadata: { version: 3 } }),
+    );
+
+    expect(await evaluator.observe(observation)).toEqual({ version: 3, enabled: false });
+  });
+
+  it('reports no version — never the stored one — when flagd does not serve the flag', async () => {
+    const evaluator = await evaluatorWith(
+      providerServing({ value: false, reason: 'ERROR', errorCode: 'FLAG_NOT_FOUND', flagMetadata: {} }),
+    );
+
+    expect(await evaluator.observe(observation)).toEqual({ version: null, enabled: false });
+  });
+
+  it('fails with the 503 unavailable problem when the provider is not ready', async () => {
+    const evaluator = new OpenFeatureFlagEvaluator({
+      openFeature: () => OpenFeature,
+      registry: new FlagdProviderRegistry({ openFeature: () => OpenFeature }),
+    });
+
+    await expect(evaluator.observe(observation)).rejects.toMatchObject({ status: 503 });
+  });
+});
+
 describe('observedFlagVersion (FR-47 — flagd-observed flag version)', () => {
   it('reads the version from the flagd-compiled flag metadata', () => {
     expect(

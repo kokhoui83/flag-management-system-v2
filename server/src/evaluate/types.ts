@@ -35,3 +35,20 @@ export interface FlagEvaluationResult {
   /** Flagd-observed version for the flag (FR-47); falls back to the stored version. */
   flagVersion: number;
 }
+
+/** Which flag to ask flagd about; no stored state is involved (FR-47). */
+export interface FlagObservationInput {
+  flagSetId: string;
+  flagKey: string;
+  variants: Record<string, VariantValue>;
+  defaultVariant: string;
+  variantType: VariantType;
+}
+
+/** What flagd itself serves for a flag in one flag set (FR-47). */
+export interface FlagObservation {
+  /** Version of the flag in flagd's model; `null` when flagd does not serve the flag. */
+  version: number | null;
+  /** flagd serves the flag and it is enabled there. */
+  enabled: boolean;
+}

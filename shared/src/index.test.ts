@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  normalizeRole,
   FLAG_KEY_PATTERN,
   VARIANT_NAME_PATTERN,
   ATTRIBUTE_OPS,
@@ -201,5 +202,20 @@ describe('shared: percentage rules (FR-17–FR-18)', () => {
     });
 
     expect(problems.length).toBeGreaterThan(0);
+  });
+});
+
+describe('normalizeRole', () => {
+  it('maps stored upper-snake roles to the canonical lower-kebab names', () => {
+    expect(normalizeRole('ADMIN')).toBe('admin');
+    expect(normalizeRole('PRODUCT_OWNER')).toBe('product-owner');
+    expect(normalizeRole(' developer ')).toBe('developer');
+  });
+
+  it('returns null for anything that is not a role', () => {
+    expect(normalizeRole('owner')).toBeNull();
+    expect(normalizeRole('')).toBeNull();
+    expect(normalizeRole(null)).toBeNull();
+    expect(normalizeRole(undefined)).toBeNull();
   });
 });

@@ -1,21 +1,21 @@
 # FMS dashboard — FigCraft draft
 
 Open [`fms-dashboard.figcraft`](./fms-dashboard.figcraft) in FigCraft. The file contains
-ten desktop screens, three additional states, a visual design-system page, a user-flow
-page, and selected prototype navigation links. Rendered screen previews are in
-[`previews/`](./previews/); the screen specifications remain in
+ten desktop screens, ten state frames (loading, empty, error, confirmations, validation,
+one-time secrets, product-owner editor, create flag), five mobile frames, a visual
+design-system page, a user-flow page, and selected prototype navigation links. Rendered previews
+are in [`previews/`](./previews/); the screen specifications remain in
 [`docs/07-dashboard-design.md`](../../docs/07-dashboard-design.md).
 The [design system](./design-system-preview.png) and
-[user flow](./user-flow-preview.png) are also available as previews.
+[user flow](./user-flow-preview.png) are also available as previews. Screens of the
+implemented dashboard, for comparison, are in [`../implemented/`](../implemented/).
 
-This is a first-pass draft, not a fully interactive prototype. Navigation links are
-created, but most inputs, toggles, action buttons, error states, and confirmations are
-illustrative. The visual system uses DejaVu Sans from the container rather than the
-specified Inter and JetBrains Mono. Colors are a partial variable collection and are not
-yet bound to layers; the component examples are not yet reusable components.
-The draft's email login, per-environment stored versions, Active/Pending member statuses,
-and claim that new flags start disabled need correction to match the current API; see
-the [design status](../../docs/07-dashboard-design.md#8-figcraft-build--status).
+This is a static visual reference, not an interactive prototype. Navigation links are
+created, but inputs, toggles and action buttons are illustrative. The visual system uses
+DejaVu Sans from the container rather than the specified Inter and JetBrains Mono. Colors are a
+partial variable collection and are not yet bound to layers; the component examples are not yet
+reusable components. The draft shows only data the API provides: username login, one stored
+version per flag, "Not configured" environments, and members without sign-in status.
 
 ## Rebuild
 

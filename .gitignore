@@ -26,3 +26,5 @@ web/playwright-report/
 .env
 
 .DS_Store
+# Browser E2E stack runtime files (web/e2e/stack/stack.mjs)
+web/e2e/stack/.run/

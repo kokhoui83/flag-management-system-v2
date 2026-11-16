@@ -20,15 +20,16 @@
     "@openfeature/server-sdk": "^1.23.0",
     "@prisma/adapter-mariadb": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "argon2": "^0.45.2",
     "fastify": "^5.3.0",
-    "prisma": "^7.10.1"
+    "prisma": "^7.10.1",
+    "tsx": "^4.19.0"
   },
   "devDependencies": {
     "@testcontainers/mariadb": "^12.2.1",
     "@types/node": "^22.10.0",
     "@types/supertest": "^7.2.1",
     "supertest": "^7.3.1",
-    "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   }

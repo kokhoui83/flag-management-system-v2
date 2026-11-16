@@ -32,7 +32,7 @@ const app = await createApp(config, { store, evaluator, registry, broadcaster })
 for (const flagSet of await store.listFlagSets()) {
   await registry.getOrCreate(flagSet.flagSetId);
 }
-await app.listen({ port: config.port });
+await app.listen({ port: config.port, host: config.host });
 
 // Architecture §9: on first boot with an empty DB, log the sync key once so the operator can
 // wire `flagd/config.yaml` (source URIs per the OQ-6 resolution).

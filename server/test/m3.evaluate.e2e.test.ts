@@ -191,6 +191,10 @@ describe('M3 — flagd E2E (real flagd engine via testcontainers)', () => {
     flagd = new GenericContainer('ghcr.io/open-feature/flagd:v0.18.2')
       .withCommand(['start', '--config', '/flagd/config.yaml'])
       .withExposedPorts({ container: FLAGD_GRPC_CONTAINER_PORT, host: 18013 })
+      // Linux Docker engines (e.g. CI runners) do not define host.docker.internal by default.
+      .withExtraHosts([
+        { host: 'host.docker.internal', ipAddress: 'host-gateway' },
+      ])
       .withBindMounts([
         { source: flagdConfigPath, target: '/flagd/config.yaml', mode: 'ro' },
       ])
@@ -209,6 +213,9 @@ describe('M3 — flagd E2E (real flagd engine via testcontainers)', () => {
       NODE_ENV: 'development',
       DATABASE_URL: process.env.DATABASE_URL!,
       PORT: String(FMS_PORT),
+      // On a plain Linux Docker engine flagd reaches the API over the bridge, so CI sets
+      // E2E_API_HOST=0.0.0.0. Docker Desktop relays to loopback, where the default works.
+      HOST: process.env.E2E_API_HOST ?? 'localhost',
       FLAGD_PORT: '18013',
     });
     app = await createApp(config, {
@@ -218,7 +225,7 @@ describe('M3 — flagd E2E (real flagd engine via testcontainers)', () => {
       registry,
       broadcaster,
     });
-    await app.listen({ port: Number(FMS_PORT) });
+    await app.listen({ port: config.port, host: config.host });
 
     const login = await app.inject({
       method: 'POST',
@@ -262,6 +269,10 @@ describe('M3 — flagd E2E (real flagd engine via testcontainers)', () => {
     )
       .withCommand(['start', '--config', '/flagd/config.yaml'])
       .withExposedPorts({ container: FLAGD_GRPC_CONTAINER_PORT, host: 18013 })
+      // Linux Docker engines (e.g. CI runners) do not define host.docker.internal by default.
+      .withExtraHosts([
+        { host: 'host.docker.internal', ipAddress: 'host-gateway' },
+      ])
       .withBindMounts([
         { source: flagdConfigPath, target: '/flagd/config.yaml', mode: 'ro' },
       ])
@@ -278,7 +289,7 @@ describe('M3 — flagd E2E (real flagd engine via testcontainers)', () => {
     await flagd.stop();
     await prisma.$disconnect();
     await container.stop();
-  });
+  }, 60_000);
 
   async function readyz(): Promise<{
     statusCode: number;

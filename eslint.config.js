@@ -6,7 +6,13 @@ import globals from 'globals';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/graphify-out/**'],
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/graphify-out/**',
+      // Historical Figma `use_figma` payloads: they run in Figma's sandbox, not in Node.
+      'design/figma/**',
+    ],
   },
   {
     files: ['**/*.mjs'],

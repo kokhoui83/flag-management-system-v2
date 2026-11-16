@@ -131,7 +131,7 @@ Layout: one source per (project, environment). With per-project environments (FR
 source count grows with projects × environments; URI and `flagSetId` naming follow the OQ-6
 resolution (`<projectKey>:<env>`, see [06-roadmap.md](06-roadmap.md) M2).
 
-**Compose topology note:** In the v1 local deployment the management API runs as a host Node process and flagd runs in a Docker container (the API container image is a v1.1 candidate; see [06-roadmap.md](06-roadmap.md) M0). Inside a container, `localhost` refers to the container itself, so the flagd sync source URIs must point at the host: `http://host.docker.internal:3000/api/v1/sync/checkout/<env>` (Docker Desktop) or the compose service name (e.g. `http://api:3000/api/v1/sync/checkout/<env>`) once the API runs in a container.
+**Compose topology note:** In the v1 local deployment the management API runs as a host Node process and flagd runs in a Docker container (a container image is also published; see [§10](#10-deployment)). Inside a container, `localhost` refers to the container itself, so the flagd sync source URIs must point at the host: `http://host.docker.internal:3000/api/v1/sync/checkout/<env>` (Docker Desktop) or the compose service name (e.g. `http://api:3000/api/v1/sync/checkout/<env>`) once the API runs in a container.
 
 Notes (verified against current flagd docs):
 
@@ -309,7 +309,8 @@ sequenceDiagram
 
 - Events are emitted on **observed** provider changes, never on commit alone (ADR-0008).
 - `provider-ready` / `provider-error` fire on per-(project, env) provider state transitions
-  (the same states `readyz` reports) — the dashboard's sync-health badge uses them (FR-52).
+  (the same states `readyz` reports); the dashboard is intended to use them for sync health
+  (FR-52). Its event subscription is not yet started by the UI.
 - No replay: a disconnect loses in-flight events; reconnect + re-fetch state reconciles.
 - Auth: `evaluate` scope or session ([04-api.md §1](04-api.md)).
 
@@ -373,11 +374,12 @@ terminating proxy), rate limiting, PII redaction in audit.
   flagd: { <flagSetId>: "READY"|"STALE"|"ERROR" } }` — `db` from a pool ping, `flagd` derived
   from OpenFeature provider state events per (project, environment), keyed by flag-set ID
   (naming per OQ-6). `readyz` is 503 when the DB is down or any provider is not READY.
-- **Sync health in the UI** (FR-47): the dashboard compares stored flag `version` with the
+- **Sync health in the UI** (FR-47, target): the dashboard compares stored flag `version` with the
   `version` in flagd flag metadata (exposed by the provider on evaluated flags; a
   `/api/v1/projects/:projectId/flags/:key/observed` helper reads it via a probe evaluation
   per (project, env)) and shows a stale badge when they differ; the badge refreshes on SSE
-  events (FR-52) rather than polling.
+  events (FR-52) rather than polling. The current UI does not start the SSE subscription or
+  load observed status for every flag on the initial list; these remain M4 work.
 - **flagd metrics** (8017, Prometheus) are available but not wired into FMS in v1 (non-goal).
 
 ## 8. Failure modes & behavior
@@ -400,6 +402,7 @@ terminating proxy), rate limiting, PII redaction in audit.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP port (API + dashboard + sync) |
+| `HOST` | `localhost` | Listen address; the container image sets `0.0.0.0` |
 | `NODE_ENV` | `development` | `production` enforces no insecure defaults |
 | `DATABASE_URL` | dev default matching compose (`mysql://fms:***@127.0.0.1:3306/fms`; refused in production) | MariaDB connection |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | dev defaults (refused in production) | Login credentials |
@@ -421,12 +424,28 @@ npm run start -w server        # API + dashboard on :3000
 
 Dev loop: `npm run dev` (API, watch) + `npm run dev:web` (Vite dev server on :5173, proxying
 `/api` → :3000). `docker-compose.yml` ships with the repo and contains **flagd and mariadb**;
-the API runs as a Node process (keeps the dev loop simple; a container image for the API is
-a v1.1 candidate).
+the API runs as a Node process (keeps the dev loop simple).
 
-Dashboard browser E2E: the M4 manual checklist is adopted as the Playwright suite
-(`web/e2e/*.spec.ts` + `web/playwright.config.ts`) that runs against the compose stack
-(API + MariaDB + flagd + built `web/dist`).
+**Container image:** the root `Dockerfile` packages the API and the built dashboard. The
+[Docker image workflow](../.github/workflows/docker.yml) publishes it to
+`ghcr.io/kokhoui83/flag-management-system-v2` on pushes to `main` (tags `main`, `sha-<commit>`)
+and on `v*` tags (semver tags and `latest`). The image runs with `NODE_ENV=production`, so
+`DATABASE_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` and `JWT_SECRET` must be set (§9); it listens
+on `0.0.0.0:3000`, applies pending migrations at boot and exposes `/healthz` as its health
+check. MariaDB and flagd are not included; flagd's sync sources must point at the API's
+address. The compose file does not run this image.
+
+```bash
+docker run -p 3000:3000 \
+  -e DATABASE_URL=mysql://<user>:<password>@<host>:3306/fms \
+  -e ADMIN_USERNAME=<name> -e ADMIN_PASSWORD=<password> -e JWT_SECRET=<secret> \
+  ghcr.io/kokhoui83/flag-management-system-v2:main
+```
+
+Dashboard browser E2E uses Playwright (`web/e2e/*.spec.ts` + `web/playwright.config.ts`)
+against a running API, MariaDB and built `web/dist`; flagd is required for live-sync and
+evaluation checks. Existing scenarios cover only part of M4 and include API-driven steps.
+M4.5 adds design, responsive and accessibility verification after M4 functional acceptance.
 
 **Later (out of scope for v1):** API container image, TLS termination, Postgres, multi-instance
 FMS (incl. boot-time migration locking), multiple flagd instances (see §11).

@@ -1,0 +1,72 @@
+name: E2E
+
+# Manual only: these suites need Docker services and are slower than the CI gate.
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Which E2E suite to run
+        type: choice
+        default: all
+        options:
+          - all
+          - browser
+          - flagd
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 24
+
+jobs:
+  browser:
+    name: Browser E2E (Playwright)
+    if: inputs.suite == 'all' || inputs.suite == 'browser'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Install Chromium
+        run: npx -w web playwright install --with-deps chromium
+      - name: Start MariaDB
+        run: docker compose up -d --wait mariadb
+      - run: npm run build:web
+      - name: Start the API (applies migrations, serves web/dist)
+        run: |
+          npm run start -w server > server.log 2>&1 &
+          timeout 90 bash -c 'until curl -sf http://localhost:3000/healthz > /dev/null; do sleep 1; done'
+      - run: npm run test:e2e:web
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-e2e-diagnostics
+          path: |
+            server.log
+            web/test-results/
+          if-no-files-found: ignore
+
+  flagd:
+    name: flagd E2E (real flagd via testcontainers)
+    if: inputs.suite == 'all' || inputs.suite == 'flagd'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run test:e2e
+        env:
+          # flagd reaches the API over the Docker bridge, so it cannot bind to loopback only.
+          E2E_API_HOST: 0.0.0.0

@@ -4,12 +4,12 @@ sources:
   - uri: http://host.docker.internal:3000/api/v1/sync/checkout/dev
     provider: http
     interval: 5
-    authHeader: "Bearer fms_7fWRisfFgQ8FanN2ZYwYQwnl0uueNSEg"
+    authHeader: "Bearer fms_dev_insecure_sync_key"
   - uri: http://host.docker.internal:3000/api/v1/sync/checkout/staging
     provider: http
     interval: 5
-    authHeader: "Bearer fms_7fWRisfFgQ8FanN2ZYwYQwnl0uueNSEg"
+    authHeader: "Bearer fms_dev_insecure_sync_key"
   - uri: http://host.docker.internal:3000/api/v1/sync/checkout/prod
     provider: http
     interval: 5
-    authHeader: "Bearer fms_7fWRisfFgQ8FanN2ZYwYQwnl0uueNSEg"
+    authHeader: "Bearer fms_dev_insecure_sync_key"

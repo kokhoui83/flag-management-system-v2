@@ -111,12 +111,39 @@ percentage rollouts.
 | Dashboard           | Vue 3 + Vite + TypeScript, Naive UI (built assets served by the API) | Flag CRUD, per-environment editor, evaluate playground, API keys, audit log, live change events |
 | Client applications | Any language with an official OpenFeature SDK + flagd provider       | Evaluate flags at runtime; subscribe to change events                                           |
 
+## Quick start
+
+Run the full local stack (MariaDB → management API → flagd) with Docker Compose — no local Node.js
+toolchain required:
+
+```bash
+docker compose up -d --build   # builds the management API image (serves the built dashboard on :3000) + flagd + mariadb
+docker compose ps               # wait until the api and mariadb services are healthy
+```
+
+Then open:
+
+- Dashboard (web component): <http://localhost:3000> — served by the management API from the built `web/dist`
+- Management API health: <http://localhost:3000/healthz>
+- flagd: <http://localhost:8013>
+
+Sign in with the local-dev bootstrap admin:
+
+- Username: `admin`
+- Password: `dev-insecure-password`
+
+The compose stack pins local-dev credentials via `ADMIN_USERNAME` / `ADMIN_PASSWORD`; the API refuses
+insecure defaults when `NODE_ENV=production`, so these are set explicitly for the local stack.
+
+For the host-process dev loop (Vite dashboard on :5173 proxying `/api` → :3000, tsx API on :3000), see
+[Getting started](#getting-started) below.
+
 ## Getting started
 
 Current state (M2 — model compilation & sync endpoint landed; M3 evaluation path landed):
 
 ```bash
-docker compose up -d   # flagd (pinned image) + mariadb (pinned mariadb:11.8, healthcheck) — see docker-compose.yml
+docker compose up -d   # full stack: mariadb (pinned mariadb:11.8, healthcheck) + api (built from Dockerfile, serves the built dashboard) + flagd (pinned image) — see docker-compose.yml
 npm run build:web      # vite build → web/dist
 npm run dev            # management API (Fastify) on :3000 (tsx watch)
 npm run dev:web        # dashboard dev server on :5173 (Vite proxy /api → :3000)

@@ -1,6 +1,7 @@
-# M0 compose topology (architecture §10, compose topology note): the management API
-# runs as a host Node process; flagd (evaluation engine) and mariadb (system of record)
-# run as containers. The published API image (Dockerfile) is not part of this topology.
+# Full local stack (quick start): MariaDB (system of record) → management API (REST + serves the built dashboard) → flagd (evaluation engine).
+# Brings up all required services: mariadb, api, flagd. Dashboard: http://localhost:3000 · flagd: http://localhost:8013.
+# Quick start: README §Quick start. The host-process dev loop (npm run dev / npm run dev:web) is separate (docs/02-architecture.md §10).
+
 services:
   mariadb:
     image: mariadb:11.8
@@ -22,16 +23,39 @@ services:
       # localhost-only (ADR-0007): bind to loopback, not 0.0.0.0.
       - "127.0.0.1:3306:3306"
 
+  api:
+    build: .
+    environment:
+      # Local quick start runs the bootstrap admin with the dev-insecure defaults (allowed only in development).
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: 3000
+      # Container topology (ADR-0007): MariaDB is the compose `mariadb` service.
+      DATABASE_URL: mysql://fms:${MARIADB_PASSWORD:-fms}@mariadb:3306/${MARIADB_DATABASE:-fms}
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: dev-insecure-password
+      JWT_SECRET: dev-insecure-jwt-secret
+      SYNC_KEY: fms_dev_insecure_sync_key
+      FLAGD_HOST: flagd
+      FLAGD_PORT: 8013
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
   flagd:
     image: ghcr.io/open-feature/flagd:v0.18.2
     volumes:
       - ./flagd/config.yaml:/flagd/config.yaml:ro
     command: ["start", "--config", "/flagd/config.yaml"]
-    depends_on:
-      mariadb:
-        condition: service_healthy
     ports:
-      - "8013:8013"
+      - "127.0.0.1:8013:8013"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - api
+    restart: on-failure:5
 
 volumes:
   mariadb_data:
